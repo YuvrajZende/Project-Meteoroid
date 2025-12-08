@@ -3,7 +3,7 @@
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                         LOVEABLE FOR BACKEND ARCHITECTURE                    ║
-║                              (AI-Powered Backend Builder)                     ║
+║                              (AI-Powered Backend Builder)                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
                                       ┌─────────────────┐
@@ -17,14 +17,14 @@
         ┌───────────────────────────────────────────────────────────────────────┐
         │                           MAIN ORCHESTRATOR                           │
         │                      (Claude Sonnet 4.5 + AutoGen)                    │
-        │                                                                           │
+        │                                                                       │
         │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
         │  │ Intent Parser   │  │  Decision Tree  │  │ Context Manager │        │
         │  │   & Validator   │  │   Executor      │  │  (Letta/MemGPT) │        │
         │  └─────────┬───────┘  └─────────┬───────┘  └─────────┬───────┘        │
         │            │                    │                    │                │
         │            └────────────────────┴────────────────────┘                │
-        │                           MCP Communication Layer                      │
+        │                           MCP Communication Layer                     │
         └─────────────────────────┬─────────────────────────────────────────────┘
                                   │
                ┌──────────────────┼──────────────────┐
@@ -62,11 +62,11 @@
                                   │
                                   ▼
         ┌───────────────────────────────────────────────────────────────────────┐
-        │                         CODE GENERATION ENGINE                         │
-        │                                                                           │
+        │                         CODE GENERATION ENGINE                        │
+        │                                                                       │
         │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
         │  │   Template      │  │   AST Manip.    │  │   Validation    │        │
-        │  │   Engine        │  │   (ts-morph)     │  │   Engine        │        │
+        │  │   Engine        │  │   (ts-morph)     │  │   Engine        │       │
         │  └─────────┬───────┘  └─────────┬───────┘  └─────────┬───────┘        │
         │            │                    │                    │                │
         │            └────────────────────┴────────────────────┘                │
@@ -75,10 +75,10 @@
                                   ▼
         ┌───────────────────────────────────────────────────────────────────────┐
         │                     GENERATED BACKEND OUTPUT                          │
-        │                                                                           │
+        │                                                                       │
         │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
-        │  │ TypeScript      │  │ Configuration    │  │ Infrastructure   │        │
-        │  │ Backend Code    │  │ Files           │  │ as Code (IaC)    │        │
+        │  │ TypeScript      │  │ Configuration    │  │ Infrastructure   │      │
+        │  │ Backend Code    │  │ Files           │  │ as Code (IaC)    │       │
         │  └─────────┬───────┘  └─────────┬───────┘  └─────────┬───────┘        │
         │            │                    │                    │                │
         │  ┌─────────┴───────┐  ┌─────────┴───────┐  ┌─────────┴───────┐        │
@@ -94,7 +94,7 @@
                                   ▼
         ┌───────────────────────────────────────────────────────────────────────┐
         │                        DEPLOYMENT PIPELINE                            │
-        │                                                                           │
+        │                                                                       │
         │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
         │  │   Build &       │  │   Security      │  │   Deploy &      │        │
         │  │   Test          │  │   Scanning      │  │   Monitor       │        │
@@ -108,8 +108,8 @@
                                   │
                                   ▼
         ┌───────────────────────────────────────────────────────────────────────┐
-        │                       INFRASTRUCTURE LAYER                             │
-        │                                                                           │
+        │                       INFRASTRUCTURE LAYER                            │
+        │                                                                       │
         │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
         │  │   Cloud         │  │   Container     │  │   Database      │        │
         │  │   Provider      │  │   Orchestration │  │   Cluster       │        │
@@ -222,15 +222,15 @@ const stack = {
 ┌─────────────────────────────────────────────────────────┐
 │                   KUBERNETES CLUSTER                    │
 │                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   Agent 1   │  │   Agent 2   │  │   Agent N   │     │
-│  │   Pod       │  │   Pod       │  │   Pod       │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Agent 1   │  │   Agent 2   │  │   Agent N   │      │
+│  │   Pod       │  │   Pod       │  │   Pod       │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
 │                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   Redis     │  │ PostgreSQL  │  │   MongoDB   │     │
-│  │   Cluster   │  │   Primary   │  │   Cluster   │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Redis     │  │ PostgreSQL  │  │   MongoDB   │      │
+│  │   Cluster   │  │   Primary   │  │   Cluster   │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -240,22 +240,22 @@ const stack = {
 ┌─────────────────────────────────────────────────────────┐
 │                    SECURITY LAYERS                      │
 ├─────────────────────────────────────────────────────────┤
-│ 1. AUTHENTICATION                                        │
-│    └─ Clerk │ JWT │ OAuth │ MFA                        │
+│ 1. AUTHENTICATION                                       │
+│    └─ Clerk │ JWT │ OAuth │ MFA                         │
 ├─────────────────────────────────────────────────────────┤
-│ 2. AUTHORIZATION                                         │
-│    └─ Cerbos │ RBAC │ ABAC │ Policy Engine             │
+│ 2. AUTHORIZATION                                        │
+│    └─ Cerbos │ RBAC │ ABAC │ Policy Engine              │ 
 ├─────────────────────────────────────────────────────────┤
-│ 3. NETWORK SECURITY                                      │
-│    └─ VPC │ Security Groups │ WAF │ DDoS Protection    │
+│ 3. NETWORK SECURITY                                     │
+│    └─ VPC │ Security Groups │ WAF │ DDoS Protection     │
 ├─────────────────────────────────────────────────────────┤
-│ 4. CODE SECURITY                                         │
-│    └─ SAST │ DAST │ Secret Scan │ Dep Check           │
+│ 4. CODE SECURITY                                        │
+│    └─ SAST │ DAST │ Secret Scan │ Dep Check             │
 ├─────────────────────────────────────────────────────────┤
-│ 5. RUNTIME SECURITY                                      │
-│    └─ Container Scanning │ Runtime Protection │ Audit    │
+│ 5. RUNTIME SECURITY                                     │
+│    └─ Container Scanning │ Runtime Protection │ Audit   │
 ├─────────────────────────────────────────────────────────┤
-│ 6. DATA SECURITY                                         │
+│ 6. DATA SECURITY                                        │
 │    └─ Encryption (at rest & transit) │ Key Management   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -264,21 +264,21 @@ const stack = {
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                 OBSERVABILITY STACK                      │
+│                 OBSERVABILITY STACK                     │
 │                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   LOGS      │  │  METRICS    │  │   TRACES    │     │
-│  │             │  │             │  │             │     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   LOGS      │  │  METRICS    │  │   TRACES    │      │
+│  │             │  │             │  │             │      │
 │  │ Better Stack │  │ Datadog     │  │ Sentry      │     │
-│  │ ELK Stack   │  │ Prometheus  │  │ OpenTelemetry│    │
-│  │ Loki        │  │ Grafana     │  │ Jaeger      │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│  │ ELK Stack   │  │ Prometheus  │  │ OpenTelemetry│     │
+│  │ Loki        │  │ Grafana     │  │ Jaeger      │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
 │                              │                          │
 │                              ▼                          │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │              UNIFIED DASHBOARD                      │ │
-│  │        (Grafana / Datadog Dashboard)               │ │
-│  └─────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │              UNIFIED DASHBOARD                      ││
+│  │        (Grafana / Datadog Dashboard)                ││
+│  └─────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -302,7 +302,7 @@ const stack = {
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  SCALING STRATEGY                        │
+│                  SCALING STRATEGY                       │
 │                                                         │
 │  VERTICAL SCALING:                                      │
 │  └─ Agent Resource Scaling based on task complexity     │
@@ -311,10 +311,10 @@ const stack = {
 │  └─ Multiple Agent Pods behind Service Discovery        │
 │                                                         │
 │  AUTO-SCALING:                                          │
-│  └─ K8s HPA based on queue length and CPU/Memory       │
+│  └─ K8s HPA based on queue length and CPU/Memory        │
 │                                                         │
 │  CIRCUIT BREAKER:                                       │
-│  └─ Fail-fast for overloaded agents                    │
+│  └─ Fail-fast for overloaded agents                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
