@@ -1,0 +1,121 @@
+# ============================================
+# LOVEABLE BACKEND - GITIGNORE
+# ============================================
+
+# AI Agents
+.bmad/
+.claude/
+.opencode/
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
+
+# Environment files (NEVER commit these!)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env*.local
+*.env
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+*.tscache/
+.turbo/
+
+# Package manager locks (keep package-lock.json, ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Redis & Database
+dump.rdb
+*.rdb
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Generated files
+*.generated.*
+generated/
+
+# Documentation build
+docs/_build/
+
+# Misc
+*.bak
+*.backup
+.history/
+
+# Husky
+.husky/_
+
+# Debug
+.debug/
+debug.log
+
+#  Extra Files
+improvements.md

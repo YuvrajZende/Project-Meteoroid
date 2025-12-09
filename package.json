@@ -1,0 +1,59 @@
+{
+  "name": "loveable-backend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AI-powered backend builder with intelligent orchestration",
+  "workspaces": [
+    "packages/*",
+    "agents/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "jest",
+    "lint": "eslint . --ext .ts --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "dev": "nodemon",
+    "orchestrator": "npx ts-node packages/orchestrator/src/index.ts",
+    "orchestrator:dev": "nodemon --watch packages/orchestrator/src --exec 'npx ts-node packages/orchestrator/src/index.ts'",
+    "type-check": "tsc --noEmit",
+    "prepare": "husky install",
+    "pre-commit": "lint-staged"
+  },
+  "keywords": [
+    "ai",
+    "backend",
+    "orchestrator",
+    "langgraph",
+    "agents",
+    "code-generation"
+  ],
+  "author": "Person 1",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.0",
+    "eslint-plugin-import": "^2.29.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.0",
+    "nodemon": "^3.1.11",
+    "prettier": "^3.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.4",
+    "@langchain/langgraph": "^1.0.4",
+    "@langchain/openai": "^1.1.3",
+    "dotenv": "^17.2.3",
+    "redis": "^5.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

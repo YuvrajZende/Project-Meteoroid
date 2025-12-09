@@ -34,8 +34,8 @@ with specialized prompts and workflows.
 ┌─────────────────────────────────────────────────────────┐
 │                  LAYER 3: ORCHESTRATION                 │
 │  ┌─────────────────┐  ┌─────────────────┐               │
-│  │   AutoGen       │  │   MCP Protocol  │               │
-│  │   Framework     │  │   Communication │               │
+│  │   LangGraph.js  │  │   MCP Protocol  │               │
+│  │   Orchestrator  │  │   Communication │               │
 │  └─────────────────┘  └─────────────────┘               │
 └─────────────────────────┬───────────────────────────────┘
                           │
@@ -112,37 +112,36 @@ interface AgentWrapper {
 ### 1. Core Agent Base Class
 
 ```typescript
-// packages/core/src/agent/base-agent.ts
+// packages/core/src/agent/base-graph-node.ts
 
-import { LLMProvider } from '../llm/provider';
-import { PromptTemplate } from '../prompts/template';
-import { ContextManager } from '../context/manager';
-import { Validator } from '../validation/validator';
+import { State } from "@langchain/langgraph";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
-export abstract class BaseAgent {
-  protected llm: LLMProvider;
-  protected prompts: Map<string, PromptTemplate>;
-  protected context: ContextManager;
-  protected validator: Validator;
-
-  constructor(config: AgentConfig) {
-    this.llm = new LLMProvider(config.llm);
-    this.context = new ContextManager(config.context);
-    this.validator = new Validator(config.validation);
-    this.prompts = this.loadPrompts();
-  }
-
-  abstract process(task: AgentTask): Promise<AgentResult>;
-
-  protected async executeLLM(prompt: string, tools?: Tool[]): Promise<string> {
-    return this.llm.complete({
-      prompt,
-      tools: tools || [],
-      temperature: this.getTemperature(),
-      maxTokens: this.getMaxTokens()
-    });
-  }
+export interface TeamState {
+  messages: BaseMessage[];
+  lastSender: string;
+  // Shared context
+  projectSpec?: ProjectSpec;
+  authConfig?: AuthConfig;
 }
+
+// Every agent in LangGraph is a Node function
+export const BaseAgentNode = async (state: TeamState, agentConfig: AgentConfig) => {
+  const messages = state.messages;
+  const lastMessage = messages[messages.length - 1];
+  
+  // 1. Process with LLM
+  const response = await agentConfig.llm.invoke([
+    ...messages,
+    new HumanMessage("Process this task based on your specialized instructions.")
+  ]);
+
+  // 2. Return state update
+  return {
+    messages: [...messages, response],
+    lastSender: agentConfig.name
+  };
+};
 ```
 
 ### 2. LLM Provider Abstraction
@@ -260,28 +259,27 @@ export class AuthAgent extends BaseAgent {
     super(config);
   }
 
-  async process(task: AuthTask): Promise<AuthResult> {
-    // 1. Gather context
-    const context = await this.context.gather(task);
+  async process(state: TeamState): Promise<Partial<TeamState>> {
+    const { messages } = state;
+    const task = messages[messages.length - 1].content;
+    
+    // 1. Gather context from State
+    const context = state.projectSpec;
 
-    // 2. Select appropriate prompt
-    const prompt = this.prompts.get('generate-auth').render({
-      provider: task.provider,
-      features: task.features,
-      framework: context.framework,
-      database: context.database
-    });
+    // 2. LangGraph integration
+    // In LangGraph, we define these as Tools that the model can call
+    const tools = this.getToolsForProvider(context.authProvider);
+    
+    // 3. Bind tools to Model
+    const modelWithTools = this.model.bindTools(tools);
+    
+    // 4. Invoke
+    const response = await modelWithTools.invoke(messages);
 
-    // 3. Execute with tools
-    const tools = this.getToolsForProvider(task.provider);
-    const response = await this.executeLLM(prompt, tools);
-
-    // 4. Parse and validate
-    const generated = this.parseResponse(response);
-    await this.validator.validate(generated);
-
-    // 5. Post-process
-    return this.postProcess(generated, context);
+    return {
+      messages: [response],
+      lastSender: "AuthAgent"
+    };
   }
 
   private getToolsForProvider(provider: string): Tool[] {
@@ -456,9 +454,9 @@ User Input
           │
           ▼
 ┌─────────────────┐
-│   Agent         │  ← "Execute in parallel where possible"
+│   Agent         │  ← "Execute graph nodes"
 │  Coordination   │
-│   (AutoGen)     │
+│ (LangGraph.js)  │
 └─────┬─────┬─────┘
       │     │
       ▼     ▼
@@ -491,27 +489,33 @@ User Input
 #### Step 1: Intent Parsing
 
 ```typescript
-// packages/orchestrator/src/intent-parser.ts
+// packages/orchestrator/src/supervisor.ts
+import { StateGraph, END } from "@langchain/langgraph";
 
-export class IntentParser {
-  async parse(query: string): Promise<Intent> {
-    const prompt = `
-    Analyze this user request: "${query}"
+// 1. Define Supervisor System Prompt
+const supervisorPrompt = `You are the supervisor. You manage the following workers: [AuthAgent, APIAgent, DBAgent].
+Given the user request, verify if you have enough information.
+If yes, select the next worker to act.
+If finished, respond with FINISH.`;
 
-    Return JSON with:
-    {
-      "primaryIntent": "api|auth|database|deployment|all",
-      "entities": ["auth", "api", "database"],
-      "technologies": ["typescript", "postgresql", "jwt"],
-      "complexity": "simple|medium|complex",
-      "confidence": 0.95
-    }
-    `;
-
-    const response = await this.llm.complete(prompt);
-    return JSON.parse(response);
+// 2. Define Routing Logic
+const route = (state) => {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (lastMessage.content.includes("FINISH")) {
+    return END;
   }
-}
+  return "next_agent";
+};
+
+// 3. Construct Graph
+const builder = new StateGraph(TeamStateAnnotation)
+  .addNode("supervisor", supervisorNode)
+  .addNode("auth_agent", authAgentNode)
+  .addNode("db_agent", dbAgentNode)
+  .addEdge("supervisor", "auth_agent")
+  .addConditionalEdges("supervisor", route);
+
+export const graph = builder.compile();
 ```
 
 #### Step 2: Task Distribution
@@ -595,9 +599,9 @@ export class TaskExecutor {
 ```json
 {
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.0",
-    "openai": "^4.20.0",
-    "autogen": "^0.2.0",
+    "@langchain/langgraph": "^0.0.15",
+    "@langchain/anthropic": "^0.1.0",
+    "@langchain/core": "^0.1.0",
     "ts-morph": "^21.0.0",
     "prisma": "^5.6.0",
     "redis": "^4.6.0",
