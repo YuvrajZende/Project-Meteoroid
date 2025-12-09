@@ -6,6 +6,7 @@
 .bmad/
 .claude/
 .opencode/
+.husky/
 
 # Dependencies
 node_modules/

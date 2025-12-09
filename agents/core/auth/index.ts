@@ -21,7 +21,7 @@ export {
     SessionConfig,
     AuthGenerationResult,
     GeneratedFile
-} from "./auth-agent";
+} from "./auth-agent.js";
 
 // Auth Agent Enhanced (Advanced Agentic)
 export {
@@ -37,9 +37,9 @@ export {
     ProjectContext,
     CodeStyle,
     DatabaseSchema
-} from "./auth-agent-enhanced";
+} from "./auth-agent-enhanced.js";
 
-// Templates
+// Templates (Base)
 export {
     CLERK_SETUP_TEMPLATE,
     CLERK_WEBHOOK_TEMPLATE,
@@ -50,4 +50,41 @@ export {
     AUTH_TEMPLATE_SETS,
     getAuthTemplates,
     getAvailableAuthTypes
-} from "./templates";
+} from "./templates/index.js";
+
+// Password Security Templates
+export {
+    ARGON2_PASSWORD_TEMPLATE,
+    BCRYPT_PASSWORD_TEMPLATE,
+    PASSWORD_VALIDATION_TEMPLATE,
+    PASSWORD_HISTORY_TEMPLATE,
+    PASSWORD_EXPIRATION_TEMPLATE,
+    PASSWORD_TEMPLATE_SETS,
+    getPasswordTemplates,
+    getAvailablePasswordTypes,
+} from "./templates/index.js";
+
+// ABAC with Cerbos Templates
+export {
+    CERBOS_CLIENT_TEMPLATE,
+    CERBOS_POLICY_TEMPLATE,
+    CERBOS_GUARD_TEMPLATE,
+    PERMISSIONS_DECORATOR_TEMPLATE,
+    POLICY_VALIDATION_TEMPLATE,
+    CERBOS_TEMPLATE_SETS,
+    getCerbosTemplates,
+    getAvailableCerbosTypes,
+} from "./templates/index.js";
+
+// Rate Limiting Templates
+export {
+    REDIS_RATE_LIMITER_TEMPLATE,
+    ENDPOINT_RATE_LIMITER_TEMPLATE,
+    USER_RATE_LIMITER_TEMPLATE,
+    IP_RATE_LIMITER_TEMPLATE,
+    RATE_LIMIT_HEADERS_TEMPLATE,
+    RATE_LIMIT_TEMPLATE_SETS,
+    getRateLimitTemplates,
+    getAvailableRateLimitTypes,
+} from "./templates/index.js";
+

@@ -37,12 +37,82 @@ export interface SecurityConfig {
     scanning: boolean;
     secretDetection: boolean;
     compliance: string[];
+    // Bot Protection
+    botProtection?: {
+        captcha?: boolean;
+        honeypot?: boolean;
+        fingerprinting?: boolean;
+        behavioral?: boolean;
+    };
+    // WAF
+    waf?: {
+        enabled: boolean;
+        mode: "blocking" | "detection";
+        owaspRules: boolean;
+    };
+    // Threat Detection
+    threatDetection?: {
+        anomalyDetection?: boolean;
+        intrusionDetection?: boolean;
+        threatIntelligence?: boolean;
+    };
+    // API Key Management
+    apiKeyManagement?: {
+        enabled: boolean;
+        rotation?: boolean;
+        analytics?: boolean;
+    };
 }
 
 export interface InfraConfig {
     containerization: "docker" | "podman";
     orchestration: "kubernetes" | "swarm" | "none";
     cicd: "github-actions" | "gitlab-ci" | "jenkins";
+}
+
+export interface MonitoringConfig {
+    /** APM Provider */
+    apmProvider?: "datadog" | "newrelic" | "elastic" | "none";
+    /** Error Tracking */
+    errorTracking?: {
+        provider: "sentry" | "rollbar" | "datadog" | "none";
+        captureUnhandled?: boolean;
+        sampleRate?: number;
+    };
+    /** Metrics */
+    metrics?: {
+        enabled: boolean;
+        provider: "prometheus" | "datadog" | "statsd";
+        collectDefaultMetrics?: boolean;
+    };
+    /** Health Checks */
+    healthChecks?: {
+        enabled: boolean;
+        endpoints?: string[];
+        dependencies?: string[];
+    };
+    /** Logging */
+    logging?: {
+        provider: "winston" | "pino" | "bunyan";
+        level: "error" | "warn" | "info" | "debug";
+        format: "json" | "pretty";
+    };
+    /** Distributed Tracing */
+    tracing?: {
+        enabled: boolean;
+        sampleRate?: number;
+    };
+    /** Alerting */
+    alerting?: {
+        enabled: boolean;
+        channels: ("slack" | "pagerduty" | "email" | "webhook")[];
+    };
+    /** Audit Logging */
+    auditLogging?: {
+        enabled: boolean;
+        events: string[];
+        storage: "database" | "elasticsearch" | "file";
+    };
 }
 
 // ============================================
@@ -89,17 +159,33 @@ export interface CorrectionState {
 
 export const AGENT_REGISTRY = {
     // Tier 1: Core Agents (Person 1, 2, 3)
-    auth_agent: { name: "AuthAgent", owner: "Person1", tier: 1, description: "Authentication & Authorization" },
+    auth_agent: {
+        name: "AuthAgent",
+        owner: "Person1",
+        tier: 1,
+        description: "Authentication, Authorization, Password Security, Rate Limiting, ABAC/Cerbos"
+    },
     db_agent: { name: "DBAgent", owner: "Person2", tier: 1, description: "Database schemas & migrations" },
     api_agent: { name: "APIAgent", owner: "Person3", tier: 1, description: "REST/GraphQL API generation" },
 
     // Tier 2: Specialized Agents
-    security_agent: { name: "SecurityAgent", owner: "Person1", tier: 2, description: "Security scanning & vulnerability detection" },
+    security_agent: {
+        name: "SecurityAgent",
+        owner: "Person1",
+        tier: 2,
+        description: "Security scanning, Bot Protection, WAF, Threat Detection, API Key Management, Security Testing"
+    },
     queue_agent: { name: "QueueAgent", owner: "Person2", tier: 2, description: "Message queues & async processing" },
     cicd_agent: { name: "CICDAgent", owner: "Person3", tier: 2, description: "CI/CD pipeline generation" },
 
+
     // Tier 3: Supporting Agents
-    monitoring_agent: { name: "MonitoringAgent", owner: "Person1", tier: 3, description: "Observability & health checks" },
+    monitoring_agent: {
+        name: "MonitoringAgent",
+        owner: "Person1",
+        tier: 3,
+        description: "APM (Datadog/New Relic/Elastic), Error Tracking (Sentry/Rollbar), Metrics (Prometheus/StatsD), Health Checks, Structured Logging, Distributed Tracing, Alerting, Audit Logging"
+    },
     test_agent: { name: "TestAgent", owner: "Person2", tier: 3, description: "Test generation & execution" },
     infra_agent: { name: "InfraAgent", owner: "Person3", tier: 3, description: "Infrastructure as Code" },
 

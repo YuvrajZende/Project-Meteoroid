@@ -784,3 +784,44 @@ export function getAuthTemplates(authType: string): AuthTemplateSet | undefined 
 export function getAvailableAuthTypes(): string[] {
     return AUTH_TEMPLATE_SETS.map(set => set.name);
 }
+
+// ============================================
+// RE-EXPORT NEW TEMPLATE MODULES
+// ============================================
+
+// Password Security Templates
+export {
+    ARGON2_PASSWORD_TEMPLATE,
+    BCRYPT_PASSWORD_TEMPLATE,
+    PASSWORD_VALIDATION_TEMPLATE,
+    PASSWORD_HISTORY_TEMPLATE,
+    PASSWORD_EXPIRATION_TEMPLATE,
+    PASSWORD_TEMPLATE_SETS,
+    getPasswordTemplates,
+    getAvailablePasswordTypes,
+} from "./password.js";
+
+// ABAC with Cerbos Templates
+export {
+    CERBOS_CLIENT_TEMPLATE,
+    CERBOS_POLICY_TEMPLATE,
+    CERBOS_GUARD_TEMPLATE,
+    PERMISSIONS_DECORATOR_TEMPLATE,
+    POLICY_VALIDATION_TEMPLATE,
+    CERBOS_TEMPLATE_SETS,
+    getCerbosTemplates,
+    getAvailableCerbosTypes,
+} from "./cerbos.js";
+
+// Rate Limiting Templates
+export {
+    REDIS_RATE_LIMITER_TEMPLATE,
+    ENDPOINT_RATE_LIMITER_TEMPLATE,
+    USER_RATE_LIMITER_TEMPLATE,
+    IP_RATE_LIMITER_TEMPLATE,
+    RATE_LIMIT_HEADERS_TEMPLATE,
+    RATE_LIMIT_TEMPLATE_SETS,
+    getRateLimitTemplates,
+    getAvailableRateLimitTypes,
+} from "./rate-limit.js";
+
