@@ -4,6 +4,9 @@
  * ============================================
  */
 
+// IAgent interface implementation (for agent loader)
+export { AuthAgentWrapper, authAgentIAgent, default } from "./auth-agent-iagent.js";
+
 // Auth Agent (Basic)
 export {
     AuthAgent,

@@ -4,6 +4,9 @@
  * ============================================
  */
 
+// IAgent interface implementation (for agent loader)
+export { SecurityAgentWrapper, securityAgentIAgent, default } from "./security-agent-iagent.js";
+
 // Security Agent Core
 export {
     SecurityAgent,

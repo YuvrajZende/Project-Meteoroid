@@ -1,0 +1,22 @@
+{
+    "name": "@loveable/database",
+    "version": "1.0.0",
+    "description": "Supabase database integration for Loveable Backend",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.47.2",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.1",
+        "typescript": "^5.7.2"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

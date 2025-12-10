@@ -4,6 +4,9 @@
  * ============================================
  */
 
+// IAgent interface implementation (for agent loader)
+export { MonitoringAgentWrapper, monitoringAgentIAgent, default } from "./monitoring-agent-iagent.js";
+
 // Monitoring Agent Core
 export {
     MonitoringAgent,
