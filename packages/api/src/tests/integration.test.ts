@@ -35,7 +35,7 @@ import {
 // ============================================
 
 const TEST_PROJECT_ID = 'test-project-' + Date.now();
-const TEST_USER_ID = 'test-user-001';
+const TEST_USER_ID = process.env.TEST_USER_ID || '6461ad32-3dcb-4760-87b2-c4f7458025e3';
 const TEST_TIMEOUT = 180000; // 3 minutes for full orchestration
 
 // Services

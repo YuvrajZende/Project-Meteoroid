@@ -73,7 +73,7 @@ describe('OrchestratorService', () => {
         it('should execute a task and return result', async () => {
             const result = await orchestrator.execute({
                 taskId: 'test-task-1',
-                userId: 'test-user',
+                userId: process.env.TEST_USER_ID || '6461ad32-3dcb-4760-87b2-c4f7458025e3',
                 prompt: 'Create a simple authentication system',
             });
 
@@ -85,7 +85,7 @@ describe('OrchestratorService', () => {
         it('should handle errors gracefully', async () => {
             const result = await orchestrator.execute({
                 taskId: 'test-task-2',
-                userId: 'test-user',
+                userId: process.env.TEST_USER_ID || '6461ad32-3dcb-4760-87b2-c4f7458025e3',
                 prompt: '', // Empty prompt should be handled
             });
 

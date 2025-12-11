@@ -65,20 +65,81 @@ export class AIClient {
     private config: AIClientConfig;
 
     constructor(config?: Partial<AIClientConfig>) {
+        // Try to find an available API key
+        const apiKey = config?.apiKey || this.findAvailableApiKey();
+        const { baseUrl, model } = this.getDefaultConfig(apiKey);
+
         this.config = {
-            apiKey: config?.apiKey || process.env.OPENAI_API_KEY || '',
-            baseUrl: config?.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-            model: config?.model || process.env.MODEL_NAME || 'glm-4',
+            apiKey: apiKey,
+            baseUrl: config?.baseUrl || baseUrl,
+            model: config?.model || process.env.MODEL_NAME || model,
             timeout: config?.timeout || 120000, // 2 minutes for complex code generation
         };
 
         if (!this.config.apiKey) {
-            throw new Error('[AI-CLIENT] No API key configured. Set OPENAI_API_KEY in .env');
+            console.warn('[AI-CLIENT] ⚠️ No API key configured - some features may not work');
+            console.warn('[AI-CLIENT] Set one of: OPENAI_API_KEY, OPENROUTER_API_KEY, or DEEPSEEK_API_KEY');
+        } else {
+            console.log('[AI-CLIENT] Initialized');
+            console.log(`[AI-CLIENT] Base URL: ${this.config.baseUrl}`);
+            console.log(`[AI-CLIENT] Model: ${this.config.model}`);
+        }
+    }
+
+    /**
+     * Find an available API key from environment variables
+     */
+    private findAvailableApiKey(): string {
+        // Priority order: OPENAI > ZAI > OPENROUTER > DEEPSEEK > ANTHROPIC
+        return process.env.OPENAI_API_KEY
+            || process.env.ZAI_API_KEY  // Z.AI separate key
+            || process.env.OPENROUTER_API_KEY
+            || process.env.DEEPSEEK_API_KEY
+            || process.env.ANTHROPIC_API_KEY
+            || '';
+    }
+
+    /**
+     * Get default configuration based on available API key
+     */
+    private getDefaultConfig(apiKey: string): { baseUrl: string; model: string } {
+        // If using Z.AI base URL (via OPENAI_BASE_URL)
+        if (process.env.OPENAI_BASE_URL?.includes('z.ai')) {
+            return {
+                baseUrl: process.env.OPENAI_BASE_URL,
+                model: 'glm-4',
+            };
         }
 
-        console.log('[AI-CLIENT] Initialized');
-        console.log(`[AI-CLIENT] Base URL: ${this.config.baseUrl}`);
-        console.log(`[AI-CLIENT] Model: ${this.config.model}`);
+        // If using Z.AI key directly
+        if (apiKey === process.env.ZAI_API_KEY && apiKey) {
+            return {
+                baseUrl: process.env.ZAI_BASE_URL || 'https://api.z.ai/api/coding/paas/v4',
+                model: 'glm-4',
+            };
+        }
+
+        // If using OpenRouter
+        if (apiKey === process.env.OPENROUTER_API_KEY && apiKey) {
+            return {
+                baseUrl: 'https://openrouter.ai/api/v1',
+                model: 'deepseek/deepseek-chat',
+            };
+        }
+
+        // If using DeepSeek directly
+        if (apiKey === process.env.DEEPSEEK_API_KEY && apiKey) {
+            return {
+                baseUrl: 'https://api.deepseek.com/v1',
+                model: 'deepseek-chat',
+            };
+        }
+
+        // Default to configured base URL or OpenAI
+        return {
+            baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+            model: 'glm-4',
+        };
     }
 
     /**
@@ -88,6 +149,10 @@ export class AIClient {
         temperature?: number;
         maxTokens?: number;
     }): Promise<string> {
+        if (!this.config.apiKey) {
+            throw new Error('[AI-CLIENT] Cannot make AI request - no API key configured. Set OPENAI_API_KEY, OPENROUTER_API_KEY, or DEEPSEEK_API_KEY');
+        }
+
         const url = `${this.config.baseUrl}/chat/completions`;
 
         const requestBody: ChatCompletionRequest = {

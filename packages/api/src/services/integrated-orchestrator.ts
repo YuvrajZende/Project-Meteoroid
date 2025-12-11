@@ -7,6 +7,8 @@
  * - AgentMonitor: Agent status tracking
  * - MCPHub: Inter-agent communication
  * - AIClient: Real AI API calls
+ * - MultiModelOrchestrator: Two-stage AI pipeline (FAST + POWER)
+ * - CostTracker: Real-time cost tracking
  * 
  * This is the REAL orchestrator, not demo mode.
  */
@@ -28,6 +30,10 @@ import {
 } from './core-services.js';
 import { FileWriterService, getFileWriter, type WriteResult } from './file-writer.js';
 import { checkSupabaseConnection } from './database-client.js';
+import { getBenchmarkingService } from './benchmarking.js';
+import { getMultiModelOrchestrator, type MultiModelOrchestrator } from './multi-model-orchestrator.js';
+import { getCostTracker } from './cost-tracker.js';
+
 
 // ============================================
 // TYPES
@@ -64,7 +70,7 @@ export interface OrchestrationInput {
 
 export interface OrchestrationStep {
     stepNumber: number;
-    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'finalize';
+    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'cost-tracking' | 'finalize';
     agent?: string;
     message: string;
     timestamp: Date;
@@ -120,8 +126,9 @@ export interface OrchestrationResult {
 // ============================================
 
 export class IntegratedOrchestrator {
-    private config: IntegratedOrchestratorConfig;
+    private config: IntegratedOrchestratorConfig & { useMultiModel: boolean };
     private aiClient: AIClient;
+    private multiModelOrchestrator: MultiModelOrchestrator;
     private thinkingEngine: ThinkingEngineService;
     private contextManager: ContextManagerService;
     private agentMonitor: AgentMonitorService;
@@ -129,19 +136,21 @@ export class IntegratedOrchestrator {
     private fileWriter: FileWriterService;
     private isInitialized = false;
 
-    constructor(config?: Partial<IntegratedOrchestratorConfig>) {
+    constructor(config?: Partial<IntegratedOrchestratorConfig & { useMultiModel: boolean }>) {
         this.config = {
             useAIThinking: config?.useAIThinking ?? true,
             useContextManager: config?.useContextManager ?? true,
             useAgentMonitor: config?.useAgentMonitor ?? true,
             useMCPHub: config?.useMCPHub ?? true,
             useFileWriter: config?.useFileWriter ?? true,
+            useMultiModel: config?.useMultiModel ?? true, // Enable multi-model by default!
             maxSubtasks: config?.maxSubtasks ?? 3,
             project: config?.project,
         };
 
         // Initialize all services
         this.aiClient = getAIClient();
+        this.multiModelOrchestrator = getMultiModelOrchestrator();
         this.thinkingEngine = getThinkingEngine();
         this.contextManager = getContextManager();
         this.agentMonitor = getAgentMonitor();
@@ -338,15 +347,76 @@ export class IntegratedOrchestrator {
                     this.agentMonitor.updateProgress(agent, 50);
                 }
 
+                let codeGenStart = Date.now(); // Declare outside try for error tracking
                 try {
                     // Generate code for this subtask
                     addStep('code-generation', `Generating code for: "${subtask.substring(0, 50)}..."`, undefined, agent);
 
-                    const codeGenStart = Date.now();
-                    const codeResult = await this.aiClient.generateCode(subtask, {
-                        language: 'TypeScript',
-                        framework: 'Fastify',
-                    });
+                    codeGenStart = Date.now();
+
+                    let codeResult: { code: string; explanation: string; files?: Array<{ path: string }> };
+                    let tokenUsage = { prompt: 0, completion: 0, total: 0 };
+                    let totalCost = 0;
+
+                    // Use Multi-Model Pipeline if enabled (default: true)
+                    if (this.config.useMultiModel) {
+                        addStep('multi-model', `Using two-stage pipeline: FAST (analysis) → POWER (generation)`, undefined, agent);
+
+                        const multiModelResult = await this.multiModelOrchestrator.execute({
+                            prompt: subtask,
+                            taskId: input.taskId,
+                            projectId: input.projectId,
+                            userId: input.userId,
+                            context: {
+                                existingCode: '', // Could be populated from context
+                                framework: 'Fastify',
+                                language: 'TypeScript',
+                            },
+                        });
+
+                        // Extract code and files from multi-model result
+                        codeResult = {
+                            code: multiModelResult.files.map(f => `// ${f.path}\n${f.content}`).join('\n\n') || multiModelResult.code,
+                            explanation: multiModelResult.explanation || 'Generated using multi-model pipeline',
+                            files: multiModelResult.files.map(f => ({ path: f.path })),
+                        };
+
+                        // Get token usage from cost records
+                        const analysisTokens = multiModelResult.analysisCost ?
+                            (multiModelResult.analysisCost.inputTokens + multiModelResult.analysisCost.outputTokens) : 0;
+                        const generationTokens = multiModelResult.generationCost ?
+                            (multiModelResult.generationCost.inputTokens + multiModelResult.generationCost.outputTokens) : 0;
+
+                        tokenUsage = {
+                            prompt: (multiModelResult.analysisCost?.inputTokens || 0) + (multiModelResult.generationCost?.inputTokens || 0),
+                            completion: (multiModelResult.analysisCost?.outputTokens || 0) + (multiModelResult.generationCost?.outputTokens || 0),
+                            total: analysisTokens + generationTokens,
+                        };
+                        totalCost = multiModelResult.totalCost;
+
+                        addStep('multi-model', `Pipeline complete: ${multiModelResult.files.length} files, $${totalCost.toFixed(6)} cost`, {
+                            files: multiModelResult.files.length,
+                            cost: totalCost,
+                            tokens: tokenUsage.total,
+                            stages: {
+                                analysis: multiModelResult.analysisTime,
+                                generation: multiModelResult.generationTime,
+                            }
+                        }, agent);
+                    } else {
+                        // Fallback to single-model (legacy)
+                        codeResult = await this.aiClient.generateCode(subtask, {
+                            language: 'TypeScript',
+                            framework: 'Fastify',
+                        });
+                        // Estimate tokens for legacy path
+                        tokenUsage = {
+                            prompt: Math.ceil((subtask.length + 500) / 4),
+                            completion: Math.ceil(codeResult.code.length / 4),
+                            total: Math.ceil((subtask.length + 500 + codeResult.code.length) / 4),
+                        };
+                    }
+
                     const codeGenDuration = Date.now() - codeGenStart;
 
                     generatedCode.push({
@@ -357,8 +427,8 @@ export class IntegratedOrchestrator {
                     });
 
                     // Add generated file to context
-                    if (config.useContextManager && codeResult.files?.length > 0) {
-                        for (const file of codeResult.files) {
+                    if (config.useContextManager && (codeResult.files?.length ?? 0) > 0) {
+                        for (const file of codeResult.files!) {
                             this.contextManager.addGeneratedFile(input.projectId, input.userId, file.path);
                         }
                     }
@@ -368,9 +438,36 @@ export class IntegratedOrchestrator {
                         this.agentMonitor.completeExecution(agent, true);
                     }
 
+                    // Record benchmark data
+                    const benchmarking = getBenchmarkingService();
+                    benchmarking.recordAgentExecution({
+                        agentId: agent,
+                        agentName: agent,
+                        executionTime: codeGenDuration,
+                        tokenUsage,
+                        success: true,
+                        filesGenerated: codeResult.files?.length || 0,
+                        timestamp: new Date().toISOString(),
+                        taskId: input.taskId,
+                        projectId: input.projectId,
+                        userId: input.userId,
+                    });
+
+                    // Record to cost tracker
+                    const costTracker = getCostTracker();
+                    if (this.config.useMultiModel && totalCost > 0) {
+                        // Cost already tracked by multi-model orchestrator
+                        addStep('cost-tracking', `Cost recorded: $${totalCost.toFixed(6)}`, {
+                            daily: costTracker.getDailyCost(),
+                            monthly: costTracker.getMonthlyCost(),
+                        }, agent);
+                    }
+
                     addStep('code-generation', `Code generated (${codeGenDuration}ms, ${codeResult.code.length} chars)`, {
                         codeLength: codeResult.code.length,
                         filesGenerated: codeResult.files?.length || 0,
+                        multiModel: this.config.useMultiModel,
+                        cost: totalCost,
                     }, agent);
 
                     // Send completion notification via MCP
@@ -379,16 +476,34 @@ export class IntegratedOrchestrator {
                             type: 'subtask-complete',
                             subtask,
                             success: true,
+                            multiModel: this.config.useMultiModel,
                         });
                     }
 
                 } catch (error) {
+                    const executionTime = Date.now() - codeGenStart;
                     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
                     errors.push(`Code generation failed for "${subtask}": ${errorMsg}`);
 
                     if (config.useAgentMonitor) {
                         this.agentMonitor.completeExecution(agent, false, errorMsg);
                     }
+
+                    // Record failed execution benchmark
+                    const benchmarking = getBenchmarkingService();
+                    benchmarking.recordAgentExecution({
+                        agentId: agent,
+                        agentName: agent,
+                        executionTime,
+                        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+                        success: false,
+                        error: errorMsg,
+                        filesGenerated: 0,
+                        timestamp: new Date().toISOString(),
+                        taskId: input.taskId,
+                        projectId: input.projectId,
+                        userId: input.userId,
+                    });
 
                     addStep('code-generation', `Code generation failed: ${errorMsg}`, undefined, agent);
                 }
@@ -458,77 +573,174 @@ export class IntegratedOrchestrator {
                     const { getSupabaseAdmin } = await import('./database-client.js');
                     const supabase = getSupabaseAdmin();
 
-                    // Save/Update Project
-                    const { data: existingProject } = await supabase
-                        .from('projects')
-                        .select('id')
-                        .eq('user_id', input.userId)
-                        .eq('name', input.projectId)
-                        .single();
+                    // UUID validation helper
+                    const isValidUUID = (str: string): boolean => {
+                        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                        return uuidRegex.test(str);
+                    };
 
-                    if (!existingProject) {
-                        await supabase.from('projects').insert({
-                            user_id: input.userId,
-                            name: input.projectId,
-                            description: config.project?.description || `Generated project: ${input.prompt.substring(0, 100)}`,
-                            config: {
-                                techStack: config.project?.techStack || [],
-                                agentsUsed: agentsExecuted,
-                            },
-                            status: errors.length === 0 ? 'completed' : 'failed',
-                        });
-                    } else {
-                        await supabase.from('projects')
-                            .update({
-                                status: errors.length === 0 ? 'completed' : 'failed',
-                                updated_at: new Date().toISOString(),
-                            })
-                            .eq('id', existingProject.id);
+                    // Determine the user_id to use for database saves
+                    let dbUserId: string | null = null;
+
+                    if (isValidUUID(input.userId)) {
+                        // Check if user exists
+                        const { data: existingUser } = await supabase
+                            .from('users')
+                            .select('id')
+                            .eq('id', input.userId)
+                            .single();
+
+                        if (existingUser) {
+                            dbUserId = input.userId;
+                        }
                     }
 
-                    // Save Task
-                    await supabase.from('tasks').insert({
-                        user_id: input.userId,
-                        project_id: existingProject?.id,
-                        prompt: input.prompt,
-                        status: errors.length === 0 ? 'completed' : 'failed',
-                        progress: 100,
-                        result: {
-                            generatedCode: generatedCode.map(gc => ({
-                                subtask: gc.subtask,
-                                agent: gc.agent,
-                                codeLength: gc.code.length,
-                                explanation: gc.explanation.substring(0, 200),
-                            })),
-                            filesWritten: fileWriteResult?.filesWritten || [],
-                            totalDuration,
-                        },
-                        error: errors.length > 0 ? errors.join('; ') : null,
-                        agents_used: agentsExecuted,
-                        started_at: startTime.toISOString(),
-                        completed_at: endTime.toISOString(),
-                    });
+                    // If no valid user, use TEST_USER_ID from environment for development
+                    if (!dbUserId && process.env.TEST_USER_ID) {
+                        const testUserId = process.env.TEST_USER_ID;
+                        
+                        // Validate it's a proper UUID
+                        if (isValidUUID(testUserId)) {
+                            // Check if this user exists in public.users
+                            const { data: testUser } = await supabase
+                                .from('users')
+                                .select('id')
+                                .eq('id', testUserId)
+                                .single();
+                            
+                            if (testUser) {
+                                dbUserId = testUserId;
+                                console.log('[ORCHESTRATOR] Using TEST_USER_ID from environment:', testUserId.substring(0, 8) + '...');
+                            } else {
+                                console.log('[ORCHESTRATOR] TEST_USER_ID not found in public.users table. Please run the SQL to create user entry.');
+                            }
+                        } else {
+                            console.log('[ORCHESTRATOR] TEST_USER_ID is not a valid UUID');
+                        }
+                    }
 
-                    // Log to audit
-                    await supabase.from('audit_logs').insert({
-                        user_id: input.userId,
-                        action: 'orchestration_execute',
-                        resource_type: 'task',
-                        resource_id: null,
-                        metadata: {
-                            taskId: input.taskId,
-                            projectId: input.projectId,
-                            agentsExecuted,
-                            codeGenerated: generatedCode.length,
-                            duration: totalDuration,
-                            success: errors.length === 0,
-                        },
-                    });
+                    // Only save to projects/tasks if we have a valid user
+                    if (dbUserId) {
+                        // Save/Update Project
+                        let projectId: string | null = null;
 
-                    addStep('finalize', '✅ Results saved to Supabase database');
+                        const { data: existingProject } = await supabase
+                            .from('projects')
+                            .select('id')
+                            .eq('user_id', dbUserId)
+                            .eq('name', input.projectId)
+                            .single();
+
+                        if (!existingProject) {
+                            const { data: newProject, error: projectError } = await supabase.from('projects').insert({
+                                user_id: dbUserId,
+                                name: input.projectId,
+                                description: config.project?.description || `Generated project: ${input.prompt.substring(0, 100)}`,
+                                config: {
+                                    techStack: config.project?.techStack || [],
+                                    agentsUsed: agentsExecuted,
+                                },
+                                status: errors.length === 0 ? 'completed' : 'failed',
+                            }).select('id').single();
+
+                            if (projectError) {
+                                console.error('[ORCHESTRATOR] Failed to create project:', projectError.message);
+                            } else {
+                                projectId = newProject?.id || null;
+                                console.log('[ORCHESTRATOR] Created project:', projectId);
+                            }
+                        } else {
+                            projectId = existingProject.id;
+                            const { error: updateError } = await supabase.from('projects')
+                                .update({
+                                    status: errors.length === 0 ? 'completed' : 'failed',
+                                    updated_at: new Date().toISOString(),
+                                })
+                                .eq('id', existingProject.id);
+
+                            if (updateError) {
+                                console.error('[ORCHESTRATOR] Failed to update project:', updateError.message);
+                            }
+                        }
+
+                        // Save Task
+                        const { data: newTask, error: taskError } = await supabase.from('tasks').insert({
+                            user_id: dbUserId,
+                            project_id: projectId,
+                            prompt: input.prompt,
+                            status: errors.length === 0 ? 'completed' : 'failed',
+                            progress: 100,
+                            result: {
+                                generatedCode: generatedCode.map(gc => ({
+                                    subtask: gc.subtask,
+                                    agent: gc.agent,
+                                    codeLength: gc.code.length,
+                                    explanation: gc.explanation.substring(0, 200),
+                                })),
+                                filesWritten: fileWriteResult?.filesWritten || [],
+                                totalDuration,
+                            },
+                            error: errors.length > 0 ? errors.join('; ') : null,
+                            agents_used: agentsExecuted,
+                            started_at: startTime.toISOString(),
+                            completed_at: endTime.toISOString(),
+                        }).select('id').single();
+
+                        if (taskError) {
+                            console.error('[ORCHESTRATOR] Failed to create task:', taskError.message);
+                        } else {
+                            console.log('[ORCHESTRATOR] Created task:', newTask?.id);
+                        }
+
+                        // Log to audit
+                        const { error: auditError } = await supabase.from('audit_logs').insert({
+                            user_id: dbUserId,
+                            action: 'orchestration_execute',
+                            resource_type: 'task',
+                            resource_id: newTask?.id || null,
+                            metadata: {
+                                taskId: input.taskId,
+                                projectId: input.projectId,
+                                agentsExecuted,
+                                codeGenerated: generatedCode.length,
+                                duration: totalDuration,
+                                success: errors.length === 0,
+                            },
+                        });
+
+                        if (auditError) {
+                            console.error('[ORCHESTRATOR] Failed to create audit log:', auditError.message);
+                        } else {
+                            console.log('[ORCHESTRATOR] Created audit log for task');
+                        }
+
+                        addStep('finalize', '✅ Results saved to Supabase database');
+                    } else {
+                        addStep('finalize', '⚠️ Skipping projects/tasks save (no valid user)');
+                        console.log('[ORCHESTRATOR] Skipping projects/tasks - user not found. Cost and benchmark records still saved.');
+                    }
                 } else {
                     addStep('finalize', '⚠️ Database unavailable, skipping persistence');
                 }
+
+                // Record to benchmarking service for performance tracking
+                const benchmarking = getBenchmarkingService();
+                await benchmarking.recordOrchestrationToDb({
+                    taskId: input.taskId,
+                    projectId: input.projectId,
+                    userId: input.userId,
+                    totalDuration,
+                    thinkingTime: aiAnalysis ? undefined : 0, // TODO: track actual thinking time
+                    agentsUsed: agentsExecuted,
+                    subtasksCount: subtasks.length,
+                    filesGenerated: fileWriteResult?.filesWritten?.length || 0,
+                    success: errors.length === 0,
+                    error: errors.length > 0 ? errors.join('; ') : undefined,
+                    totalTokens: 0, // TODO: aggregate from multi-model
+                    totalCost: 0, // TODO: aggregate from cost tracker
+                    analysisModel: this.config.useMultiModel ? 'deepseek/deepseek-chat' : undefined,
+                    generationModel: this.config.useMultiModel ? 'glm-4.6' : undefined,
+                });
             } catch (dbError) {
                 const dbErrorMsg = dbError instanceof Error ? dbError.message : 'Unknown database error';
                 errors.push(`Database save failed: ${dbErrorMsg}`);

@@ -4,7 +4,7 @@
  */
 
 import { createApp, env, printStartupBanner } from './app.js';
-import { getAgentRegistry } from './services/index.js';
+import { getAgentRegistry, getMultiModelOrchestrator, getCostTracker, getAvailableModels, isProviderConfigured, getBenchmarkingService, getCodeGenService } from './services/index.js';
 import { flush } from './monitoring/index.js';
 
 /**
@@ -23,6 +23,14 @@ async function bootstrap(): Promise<void> {
             app.log.info(`Received ${signal}, initiating graceful shutdown...`);
 
             try {
+                // Flush cost tracker records
+                const costTracker = getCostTracker();
+                await costTracker.shutdown();
+
+                // Flush benchmarking records
+                const benchmarking = getBenchmarkingService();
+                await benchmarking.shutdown();
+
                 // Flush Sentry events
                 await flush(5000);
 
@@ -59,6 +67,13 @@ async function bootstrap(): Promise<void> {
         const registry = getAgentRegistry();
         const summary = registry.getSummary();
 
+        // Get Multi-Model configuration
+        const multiModel = getMultiModelOrchestrator();
+        const modelStatus = multiModel.getStatus();
+        const availableModels = getAvailableModels();
+        const costTracker = getCostTracker();
+        const budgetStatus = costTracker.getBudgetStatus();
+
         // Clean startup summary
         console.log('');
         console.log('================================================================');
@@ -76,6 +91,57 @@ async function bootstrap(): Promise<void> {
         console.log(`  Orchestrator:  READY`);
         console.log('  ----------------------------------------------------------------');
         console.log('');
+        console.log('  🧠 MULTI-MODEL PIPELINE (Phase 13)');
+        console.log('  ----------------------------------------------------------------');
+        console.log(`  FAST Model (Analysis):    ${modelStatus.fastModel.id}`);
+        console.log(`    └─ Provider:            ${modelStatus.fastModel.provider.toUpperCase()}`);
+        console.log(`    └─ API Key:             ${modelStatus.fastModel.configured ? '✅ Configured' : '❌ Missing'}`);
+        console.log('');
+        console.log(`  POWER Model (Generation): ${modelStatus.powerModel.id}`);
+        console.log(`    └─ Provider:            ${modelStatus.powerModel.provider.toUpperCase()}`);
+        console.log(`    └─ API Key:             ${modelStatus.powerModel.configured ? '✅ Configured' : '❌ Missing'}`);
+        console.log('  ----------------------------------------------------------------');
+        console.log('');
+        console.log('  💰 COST TRACKING');
+        console.log('  ----------------------------------------------------------------');
+        console.log(`  Daily Budget:   $${budgetStatus.daily.limit.toFixed(2)} (${budgetStatus.daily.percentage.toFixed(1)}% used)`);
+        console.log(`  Monthly Budget: $${budgetStatus.monthly.limit.toFixed(2)} (${budgetStatus.monthly.percentage.toFixed(1)}% used)`);
+        console.log('  ----------------------------------------------------------------');
+        console.log('');
+        console.log('  📦 AVAILABLE MODELS');
+        console.log('  ----------------------------------------------------------------');
+        if (availableModels.length > 0) {
+            availableModels.slice(0, 6).forEach(model => {
+                const tierBadge = model.tier === 'fast' ? '⚡' : model.tier === 'powerful' ? '💪' : '⚖️';
+                console.log(`  ${tierBadge} ${model.name} (${model.provider})`);
+            });
+            if (availableModels.length > 6) {
+                console.log(`    ... and ${availableModels.length - 6} more`);
+            }
+        } else {
+            console.log('  ⚠️  No models available (check API keys)');
+        }
+        console.log('  ----------------------------------------------------------------');
+        console.log('');
+        console.log('  🔌 PROVIDER STATUS');
+        console.log('  ----------------------------------------------------------------');
+        console.log(`  OpenRouter:   ${isProviderConfigured('openrouter') ? '✅ Ready' : '❌ No API Key'}`);
+        console.log(`  Z.AI (GLM):   ${isProviderConfigured('zai') ? '✅ Ready' : '❌ No API Key'}`);
+        console.log(`  OpenAI:       ${isProviderConfigured('openai') ? '✅ Ready' : '❌ No API Key'}`);
+        console.log(`  DeepSeek:     ${isProviderConfigured('deepseek') ? '✅ Ready' : '❌ No API Key'}`);
+        console.log(`  Anthropic:    ${isProviderConfigured('anthropic') ? '✅ Ready' : '❌ No API Key'}`);
+        console.log(`  Groq:         ${process.env.GROQ_API_KEY ? '✅ Ready' : '❌ No API Key'}`);
+        console.log('  ----------------------------------------------------------------');
+        console.log('');
+        console.log('  🛠️ CODEGEN PIPELINE (Person 4)');
+        console.log('  ----------------------------------------------------------------');
+        const codeGenService = getCodeGenService();
+        const codeGenHealth = await codeGenService.healthCheck();
+        const supportedLangs = codeGenService.getSupportedConfigs();
+        console.log(`  Status:       ${codeGenHealth.healthy ? '✅ Ready' : '⚠️ Degraded'}`);
+        console.log(`  Languages:    ${supportedLangs.languages.join(', ')}`);
+        console.log(`  Endpoints:    /codegen/project, /codegen/module, /codegen/languages`);
+        console.log('');
         console.log('  Server is ready to accept connections.');
         console.log('================================================================');
         console.log('');
@@ -88,3 +154,4 @@ async function bootstrap(): Promise<void> {
 
 // Start the server
 bootstrap();
+

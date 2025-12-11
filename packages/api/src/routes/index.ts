@@ -14,6 +14,8 @@ import { registerMetricsRoutes } from './metrics.js';
 import { registerOrchestratorRoutes } from './orchestrator.js';
 import { registerTemplateRoutes } from './templates.js';
 import { registerSSERoutes } from './websocket.js';
+import { registerBenchmarkRoutes } from './benchmarks.js';
+import { registerCodeGenRoutes } from './codegen.js';
 
 /**
  * Register all routes to the Fastify instance
@@ -51,6 +53,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // External webhook handlers
     await registerWebhookRoutes(app);
 
+    // Benchmarking routes
+    await registerBenchmarkRoutes(app);
+
+    // CodeGen routes (Person 4's code generation pipeline)
+    await registerCodeGenRoutes(app);
+
     app.log.info('[ROUTES] All routes registered successfully');
 }
 
@@ -66,4 +74,6 @@ export {
     registerOrchestratorRoutes,
     registerTemplateRoutes,
     registerSSERoutes,
+    registerBenchmarkRoutes,
+    registerCodeGenRoutes,
 };

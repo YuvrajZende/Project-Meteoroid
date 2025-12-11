@@ -111,3 +111,76 @@ export {
     type TemplateContext,
     type TemplateResult,
 } from './agent-templates.js';
+
+// Benchmarking Service (tracks agent and orchestrator performance)
+export {
+    BenchmarkingService,
+    getBenchmarkingService,
+    createBenchmarkingService,
+    type AgentBenchmark,
+    type AgentMetrics,
+    type OrchestratorMetrics,
+    type BenchmarkScenario,
+    type BenchmarkResult,
+    type BenchmarkReport,
+} from './benchmarking.js';
+
+// ============================================
+// PHASE 13: MULTI-MODEL HYDRATION PATTERN
+// ============================================
+
+// Model Registry (comprehensive model configuration)
+export {
+    MODEL_REGISTRY,
+    PROVIDER_CONFIGS,
+    getModel,
+    getModelsByTier,
+    getModelsByProvider,
+    getModelsByCapability,
+    getCheapestModel,
+    getBestQualityModel,
+    getRecommendedModelPair,
+    isProviderConfigured,
+    getConfiguredProviders,
+    getAvailableModels,
+    estimateCost,
+    type ModelConfig,
+    type ModelProvider,
+    type ModelTier,
+    type ModelCapability,
+    type ModelPricing,
+    type ProviderConfig,
+} from './model-registry.js';
+
+// Cost Tracker (real-time cost monitoring)
+export {
+    CostTrackerService,
+    getCostTracker,
+    createCostTracker,
+    type CostRecord,
+    type CostSummary,
+    type BudgetConfig,
+    type CostOptimizationSuggestion,
+} from './cost-tracker.js';
+
+// Multi-Model Orchestrator (two-stage pipeline)
+export {
+    MultiModelOrchestrator,
+    getMultiModelOrchestrator,
+    createMultiModelOrchestrator,
+    type MultiModelConfig,
+    type ContextAnalysis,
+    type GenerationResult,
+    type MultiModelRequest,
+} from './multi-model-orchestrator.js';
+
+// CodeGen Service (Person 4's code generation pipeline integration)
+export {
+    CodeGenService,
+    getCodeGenService,
+    type CodeGenRequest,
+    type CodeGenResult,
+    type GeneratedFile as CodeGenFile,  // Renamed to avoid conflict with file-writer's GeneratedFile
+    type SupportedLanguage,
+    type SupportedFramework,
+} from './codegen-service.js';
