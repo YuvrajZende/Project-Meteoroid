@@ -6,6 +6,10 @@
         "lib": [
             "ES2022"
         ],
+        "types": [
+            "node",
+            "jest"
+        ],
         "declaration": true,
         "declarationMap": true,
         "sourceMap": true,
@@ -27,8 +31,13 @@
             ]
         }
     },
+    "include": [
+        "agents/**/*",
+        "packages/**/*"
+    ],
     "exclude": [
         "node_modules",
-        "dist"
+        "dist",
+        "../output/**/*"
     ]
 }

@@ -212,6 +212,85 @@ export {
 } from "./core/monitoring/index.js";
 
 // ============================================
+// CODEGEN AGENT (Tier 3 - Support)
+// ============================================
+
+// CodeGen Agent - Code Generation & Scaffolding
+export {
+    CodegenAgent,
+    codegenAgent,
+    CodegenConfig,
+    CodegenType,
+    CodegenFeature,
+    CodegenGenerationResult,
+    GeneratedCodeFile,
+} from "./support/codegen/index.js";
+
+// CodeGen Templates
+export {
+    TYPESCRIPT_PROJECT_TEMPLATE,
+    EXPRESS_API_TEMPLATE,
+    CONTROLLER_TEMPLATE,
+    SERVICE_TEMPLATE,
+    REPOSITORY_TEMPLATE,
+    DTO_TEMPLATE,
+    MIDDLEWARE_TEMPLATE,
+    CONFIG_TEMPLATE,
+    DOCKERFILE_TEMPLATE,
+    getCodegenTemplates,
+    getAvailableTemplateTypes,
+} from "./support/codegen/templates/index.js";
+
+// Architecture Agent - File System Structure Creation
+export {
+    ArchitectureAgent,
+    architectureAgent,
+    ProjectStructure,
+    DirectoryNode,
+    FileNode,
+    ArchitectureResult,
+} from "./support/codegen/architecture-agent.js";
+
+// Code Writer Agent - File Writing Operations
+export {
+    CodeWriterAgent,
+    codeWriterAgent,
+    WriteOperation,
+    WriteResult,
+    WrittenFile,
+} from "./support/codegen/codewriter-agent.js";
+
+// Dependency Agent - npm Package Management
+export {
+    DependencyAgent,
+    dependencyAgent,
+    DependencyConfig,
+    InstallResult,
+    PackageInfo,
+} from "./support/codegen/dependency-agent.js";
+
+// CodeGen Orchestrator - Unified Code Generation Pipeline
+export {
+    AutoOrchestrator,
+    autoOrchestrator,
+    getOrchestrator,
+    AutoProjectOptions,
+    AutoProjectResult,
+} from "./support/codegen/orchestrator.js";
+
+// Multi-Language Configs
+export {
+    SupportedLanguage,
+    SupportedFramework,
+    LanguageConfig,
+    FrameworkConfig,
+    getLanguageConfig,
+    getFrameworkConfig,
+    getSupportedLanguages,
+    getSupportedFrameworks,
+} from "./support/codegen/language-configs.js";
+
+// ============================================
 // AGENT REGISTRY
 // ============================================
 
@@ -230,6 +309,9 @@ export function getAvailableAgents(): string[] {
         "test_agent",
         "infra_agent",
         "codegen_agent",
+        "architecture_agent",
+        "codewriter_agent",
+        "dependency_agent",
         "microservice_agent",
         "email_agent"
     ];
@@ -325,7 +407,22 @@ export const AGENT_CAPABILITIES = {
         "aws", "gcp", "azure"
     ],
     codegen_agent: [
-        "file-generator", "scaffold", "boilerplate"
+        "code-generation", "boilerplate-creation", "refactoring",
+        "code-optimization", "project-scaffolding", "module-generation",
+        "template-generation", "controller", "service", "repository",
+        "dto", "middleware", "docker"
+    ],
+    architecture_agent: [
+        "project-structure", "directory-creation", "file-creation",
+        "scaffold-project", "mkdir", "touch"
+    ],
+    codewriter_agent: [
+        "file-writing", "code-writing", "file-update",
+        "file-append", "backup-files", "overwrite-files"
+    ],
+    dependency_agent: [
+        "npm-install", "package-management", "dependency-install",
+        "npm-scripts", "package-update", "npm-init"
     ],
     microservice_agent: [
         "service-mesh", "grpc", "event-driven",
