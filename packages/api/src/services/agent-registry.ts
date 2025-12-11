@@ -50,7 +50,7 @@ export class AgentRegistry {
             status: 'uninitialized',
         });
 
-        console.log(`✅ Registered agent: ${agent.name} (${agent.id})`);
+        console.log(`[AGENT-REGISTRY] Registered: ${agent.name} (${agent.id})`);
     }
 
     /**
@@ -176,11 +176,11 @@ export class AgentRegistry {
                 await agent.initialize(config);
                 this.updateStatus(id, 'healthy');
                 success.push(id);
-                console.log(`✅ Initialized agent: ${agent.name}`);
+                console.log(`[AGENT-REGISTRY] Initialized: ${agent.name}`);
             } catch (error) {
                 this.updateStatus(id, 'unhealthy');
                 failed.push(id);
-                console.error(`❌ Failed to initialize agent ${id}:`, error);
+                console.error(`[AGENT-REGISTRY] Failed to initialize ${id}:`, error);
             }
         }
 

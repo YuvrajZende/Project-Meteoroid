@@ -11,5 +11,5 @@ export async function registerSensible(app: FastifyInstance): Promise<void> {
         sharedSchemaId: 'HttpError',
     });
 
-    app.log.info('✅ Sensible utilities registered');
+    app.log.info('[PLUGINS] Sensible utilities registered');
 }

@@ -16,7 +16,10 @@
         "test:e2e": "vitest run src/tests/e2e.test.ts",
         "test:all": "vitest run",
         "stress-test": "tsx src/tests/stress-test.ts",
-        "smoke-test": "tsx src/tests/smoke-test.ts"
+        "smoke-test": "tsx src/tests/smoke-test.ts",
+        "test:workflow": "vitest run src/tests/orchestrator-workflow.test.ts",
+        "test:real-ai": "vitest run src/tests/real-ai.test.ts",
+        "test:integration": "vitest run src/tests/integration.test.ts"
     },
     "dependencies": {
         "@loveable/shared": "*",

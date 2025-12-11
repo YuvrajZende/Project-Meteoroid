@@ -228,7 +228,7 @@ export async function registerSecurityMiddleware(app: FastifyInstance): Promise<
         }
     });
 
-    app.log.info('🛡️ Security middleware registered');
+    app.log.info('[SECURITY] Security middleware registered');
 }
 
 /**

@@ -65,3 +65,49 @@ export {
     type CoordinationResult,
     type HandoffRequest,
 } from './agent-coordinator.js';
+
+// AI Client
+export {
+    AIClient,
+    getAIClient,
+    type ChatMessage,
+} from './ai-client.js';
+
+// Integrated Orchestrator (REAL orchestrator - replaces demo mode)
+export {
+    IntegratedOrchestrator,
+    getIntegratedOrchestrator,
+    createIntegratedOrchestrator,
+    type IntegratedOrchestratorConfig,
+    type OrchestrationInput,
+    type OrchestrationStep,
+    type OrchestrationResult,
+} from './integrated-orchestrator.js';
+
+// File Writer (writes generated code to disk)
+export {
+    FileWriterService,
+    getFileWriter,
+    createFileWriter,
+    type GeneratedFile,
+    type WriteResult,
+    type FileWriterConfig,
+} from './file-writer.js';
+
+// Persistent Context (Supabase-backed context manager)
+export {
+    PersistentContextManager,
+    getPersistentContext,
+    createPersistentContext,
+    type PersistedContext,
+    type PersistenceConfig,
+} from './persistent-context.js';
+
+// Agent Templates (wires agent templates to code generation)
+export {
+    AgentTemplateOrchestrator,
+    getAgentTemplateOrchestrator,
+    type AgentTemplate,
+    type TemplateContext,
+    type TemplateResult,
+} from './agent-templates.js';

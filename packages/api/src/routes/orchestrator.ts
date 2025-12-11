@@ -1,12 +1,18 @@
 /**
  * Orchestrator Routes
- * API endpoints for orchestrator control and agent coordination
+ * API endpoints for REAL AI-powered orchestration
+ * Uses IntegratedOrchestrator (not demo mode)
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { getOrchestrator } from '../services/orchestrator.js';
+import {
+    getIntegratedOrchestrator,
+    getAIClient,
+    type OrchestrationStep,
+} from '../services/index.js';
 import { getAgentRegistry } from '../services/agent-registry.js';
+import { getContextManager, getThinkingEngine } from '../services/core-services.js';
 
 // ============================================
 // SCHEMAS
@@ -15,17 +21,26 @@ import { getAgentRegistry } from '../services/agent-registry.js';
 const ExecuteTaskSchema = z.object({
     prompt: z.string().min(10).max(5000),
     projectId: z.string().optional(),
+    userId: z.string().optional(),
     config: z.object({
-        thinkingEnabled: z.boolean().optional(),
-        monitoringEnabled: z.boolean().optional(),
-        correctionEnabled: z.boolean().optional(),
-        modelName: z.string().optional(),
+        useAIThinking: z.boolean().optional(),
+        useContextManager: z.boolean().optional(),
+        useAgentMonitor: z.boolean().optional(),
+        useMCPHub: z.boolean().optional(),
+        maxSubtasks: z.number().min(1).max(10).optional(),
     }).optional(),
+});
+
+const ChatSchema = z.object({
+    message: z.string().min(1).max(5000),
+    systemPrompt: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().min(1).max(8000).optional(),
 });
 
 const ThinkAnalysisSchema = z.object({
     task: z.string().min(5),
-    context: z.record(z.unknown()).optional(),
+    useAI: z.boolean().optional(),
 });
 
 // ============================================
@@ -37,27 +52,33 @@ const ThinkAnalysisSchema = z.object({
  */
 export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<void> {
 
+    // Initialize the orchestrator at startup
+    const orchestrator = getIntegratedOrchestrator();
+    await orchestrator.initialize();
+
     /**
-     * POST /api/v1/orchestrator/execute - Execute orchestration task
+     * POST /api/v1/orchestrator/execute - Execute REAL AI orchestration
      */
     app.post('/api/v1/orchestrator/execute', {
         schema: {
             tags: ['Orchestrator'],
-            summary: 'Execute orchestration task',
-            description: 'Submit a task to the orchestrator for AI-powered code generation',
+            summary: 'Execute AI-powered orchestration',
+            description: 'Submit a task to the REAL orchestrator for AI-powered code generation using all core services',
             body: {
                 type: 'object',
                 required: ['prompt'],
                 properties: {
                     prompt: { type: 'string', minLength: 10, maxLength: 5000 },
                     projectId: { type: 'string' },
+                    userId: { type: 'string' },
                     config: {
                         type: 'object',
                         properties: {
-                            thinkingEnabled: { type: 'boolean' },
-                            monitoringEnabled: { type: 'boolean' },
-                            correctionEnabled: { type: 'boolean' },
-                            modelName: { type: 'string' },
+                            useAIThinking: { type: 'boolean', default: true },
+                            useContextManager: { type: 'boolean', default: true },
+                            useAgentMonitor: { type: 'boolean', default: true },
+                            useMCPHub: { type: 'boolean', default: true },
+                            maxSubtasks: { type: 'number', default: 3 },
                         },
                     },
                 },
@@ -68,40 +89,126 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                     properties: {
                         success: { type: 'boolean' },
                         taskId: { type: 'string' },
+                        projectId: { type: 'string' },
+                        totalDuration: { type: 'number' },
                         steps: { type: 'number' },
-                        duration: { type: 'number' },
                         agentsExecuted: { type: 'array', items: { type: 'string' } },
-                        generatedFiles: {
+                        generatedCode: {
                             type: 'array',
                             items: {
                                 type: 'object',
                                 properties: {
-                                    path: { type: 'string' },
-                                    type: { type: 'string' },
+                                    subtask: { type: 'string' },
+                                    code: { type: 'string' },
+                                    explanation: { type: 'string' },
+                                    agent: { type: 'string' },
                                 },
                             },
                         },
+                        taskAnalysis: { type: 'object' },
+                        errors: { type: 'array', items: { type: 'string' } },
                     },
                 },
             },
         },
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         const body = ExecuteTaskSchema.parse(request.body);
-        const orchestrator = getOrchestrator();
 
         // Generate task ID
         const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const projectId = body.projectId || `project-${Date.now()}`;
+        const userId = body.userId || (request as any).user?.id || 'anonymous';
 
-        // Execute orchestration
-        const result = await orchestrator.execute({
-            taskId,
-            userId: (request as any).user?.id || 'anonymous',
-            prompt: body.prompt,
-            projectId: body.projectId,
-            config: body.config,
+        app.log.info(`[ORCHESTRATOR] Executing task: ${taskId}`);
+        app.log.info(`[ORCHESTRATOR] Prompt: ${body.prompt.substring(0, 100)}...`);
+
+        // Progress tracking for SSE (future)
+        const progressSteps: OrchestrationStep[] = [];
+
+        // Execute REAL orchestration
+        const result = await orchestrator.orchestrate(
+            {
+                taskId,
+                userId,
+                projectId,
+                prompt: body.prompt,
+                config: body.config,
+            },
+            (step) => {
+                progressSteps.push(step);
+                app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
+            }
+        );
+
+        app.log.info(`[ORCHESTRATOR] Task ${taskId} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+
+        return reply.send({
+            success: result.success,
+            taskId: result.taskId,
+            projectId: result.projectId,
+            totalDuration: result.totalDuration,
+            steps: result.steps.length,
+            agentsExecuted: result.agentsExecuted,
+            generatedCode: result.generatedCode,
+            taskAnalysis: result.taskAnalysis,
+            aiAnalysis: result.aiAnalysis,
+            thinkingTraces: result.thinkingTraces,
+            errors: result.errors,
         });
+    });
 
-        return reply.send(result);
+    /**
+     * POST /api/v1/orchestrator/chat - Direct AI chat
+     */
+    app.post('/api/v1/orchestrator/chat', {
+        schema: {
+            tags: ['Orchestrator'],
+            summary: 'Direct AI Chat',
+            description: 'Send a message directly to the AI without full orchestration',
+            body: {
+                type: 'object',
+                required: ['message'],
+                properties: {
+                    message: { type: 'string', minLength: 1, maxLength: 5000 },
+                    systemPrompt: { type: 'string' },
+                    temperature: { type: 'number' },
+                    maxTokens: { type: 'number' },
+                },
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        response: { type: 'string' },
+                        model: { type: 'string' },
+                        duration: { type: 'number' },
+                    },
+                },
+            },
+        },
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = ChatSchema.parse(request.body);
+        const aiClient = getAIClient();
+        const config = aiClient.getConfig();
+
+        const startTime = Date.now();
+
+        const response = await aiClient.chat(
+            [
+                { role: 'system', content: body.systemPrompt || 'You are a helpful coding assistant.' },
+                { role: 'user', content: body.message },
+            ],
+            {
+                temperature: body.temperature,
+                maxTokens: body.maxTokens,
+            }
+        );
+
+        return reply.send({
+            response,
+            model: config.model,
+            duration: Date.now() - startTime,
+        });
     });
 
     /**
@@ -111,57 +218,46 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         schema: {
             tags: ['Orchestrator'],
             summary: 'Get orchestrator status',
-            description: 'Returns the current status of the orchestrator and connected services',
+            description: 'Returns the current status of the REAL orchestrator and all connected services',
             response: {
                 200: {
                     type: 'object',
                     properties: {
                         initialized: { type: 'boolean' },
+                        mode: { type: 'string' },
                         config: { type: 'object' },
-                        services: {
-                            type: 'object',
-                            properties: {
-                                brainCore: { type: 'string' },
-                                thinkingEngine: { type: 'string' },
-                                contextManager: { type: 'string' },
-                                taskManager: { type: 'string' },
-                                agentMonitor: { type: 'string' },
-                                knowledgeBase: { type: 'string' },
-                                mcpHub: { type: 'string' },
-                            },
-                        },
-                        agents: {
-                            type: 'object',
-                            properties: {
-                                total: { type: 'number' },
-                                initialized: { type: 'number' },
-                            },
-                        },
+                        services: { type: 'object' },
+                        agents: { type: 'object' },
                     },
                 },
             },
         },
     }, async (_request: FastifyRequest, reply: FastifyReply) => {
-        const orchestrator = getOrchestrator();
-        const registry = getAgentRegistry();
         const status = orchestrator.getStatus();
+        const services = orchestrator.getServices();
+        const registry = getAgentRegistry();
         const summary = registry.getSummary();
+        const aiConfig = services.aiClient.getConfig();
 
         return reply.send({
-            ...status,
+            initialized: status.initialized,
+            mode: 'INTEGRATED', // Not demo mode!
+            config: status.config,
             services: {
-                brainCore: 'available',
+                aiClient: {
+                    status: 'connected',
+                    model: aiConfig.model,
+                    baseUrl: aiConfig.baseUrl,
+                },
                 thinkingEngine: 'available',
                 contextManager: 'available',
-                taskManager: 'available',
                 agentMonitor: 'available',
-                knowledgeBase: 'available',
                 mcpHub: 'available',
             },
             agents: {
                 total: summary.total,
-                initialized: summary.byStatus['healthy'] || 0,
                 byTier: summary.byTier,
+                statuses: status.agentStatuses,
             },
         });
     });
@@ -178,26 +274,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 200: {
                     type: 'object',
                     properties: {
-                        agents: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    id: { type: 'string' },
-                                    name: { type: 'string' },
-                                    tier: { type: 'number' },
-                                    capabilities: { type: 'array', items: { type: 'string' } },
-                                    status: { type: 'string' },
-                                },
-                            },
-                        },
-                        summary: {
-                            type: 'object',
-                            properties: {
-                                total: { type: 'number' },
-                                byTier: { type: 'object' },
-                            },
-                        },
+                        agents: { type: 'array' },
+                        summary: { type: 'object' },
                     },
                 },
             },
@@ -206,6 +284,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         const registry = getAgentRegistry();
         const agents = registry.getAll();
         const summary = registry.getSummary();
+        const status = orchestrator.getStatus();
+
+        // Merge agent registry with monitor status
+        const agentStatusMap = new Map(status.agentStatuses.map(s => [s.agentId, s]));
 
         return reply.send({
             agents: agents.map(agent => ({
@@ -213,7 +295,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 name: agent.name,
                 tier: agent.tier,
                 capabilities: agent.capabilities,
-                status: 'ready',
+                status: agentStatusMap.get(agent.id)?.status || 'idle',
+                lastExecution: agentStatusMap.get(agent.id)?.lastExecution,
             })),
             summary: {
                 total: summary.total,
@@ -224,80 +307,70 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
     });
 
     /**
-     * POST /api/v1/orchestrator/think - Trigger thinking analysis
+     * POST /api/v1/orchestrator/think - Trigger thinking analysis (local + AI)
      */
     app.post('/api/v1/orchestrator/think', {
         schema: {
             tags: ['Orchestrator'],
-            summary: 'Trigger thinking analysis',
-            description: 'Analyze a task using the thinking engine without executing',
+            summary: 'Analyze task with thinking engine',
+            description: 'Analyze a task using both local ThinkingEngine and optional AI analysis',
             body: {
                 type: 'object',
                 required: ['task'],
                 properties: {
                     task: { type: 'string', minLength: 5 },
-                    context: { type: 'object' },
+                    useAI: { type: 'boolean', default: true },
                 },
             },
             response: {
                 200: {
                     type: 'object',
                     properties: {
-                        analysis: {
-                            type: 'object',
-                            properties: {
-                                requirements: { type: 'array', items: { type: 'string' } },
-                                suggestedAgents: { type: 'array', items: { type: 'string' } },
-                                complexity: { type: 'string' },
-                                estimatedSteps: { type: 'number' },
-                            },
-                        },
+                        localAnalysis: { type: 'object' },
+                        aiAnalysis: { type: 'object' },
+                        thinkingTraces: { type: 'array' },
+                        duration: { type: 'number' },
                     },
                 },
             },
         },
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         const body = ThinkAnalysisSchema.parse(request.body);
-        const registry = getAgentRegistry();
+        const thinkingEngine = getThinkingEngine();
+        const aiClient = getAIClient();
 
-        // Analyze task to determine required agents
-        const taskLower = body.task.toLowerCase();
-        const suggestedAgents: string[] = [];
+        const startTime = Date.now();
+        thinkingEngine.clearTraces();
 
-        // Match keywords to agents
-        const agentKeywords: Record<string, string[]> = {
-            'auth-agent': ['auth', 'login', 'jwt', 'session', 'clerk', 'oauth'],
-            'security-agent': ['security', 'helmet', 'cors', 'csrf', 'rate limit', 'xss'],
-            'monitoring-agent': ['monitoring', 'logging', 'metrics', 'health', 'sentry'],
-        };
+        // Local analysis
+        const localAnalysis = await thinkingEngine.analyzeTask(body.task);
 
-        for (const [agentId, keywords] of Object.entries(agentKeywords)) {
-            if (keywords.some(kw => taskLower.includes(kw))) {
-                const agent = registry.getById(agentId);
-                if (agent) {
-                    suggestedAgents.push(agentId);
-                }
+        // AI analysis if requested
+        let aiAnalysis = null;
+        if (body.useAI !== false) {
+            try {
+                aiAnalysis = await aiClient.analyzeTask(body.task);
+            } catch (error) {
+                app.log.warn(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown'}`);
             }
         }
 
-        // If no specific match, suggest based on general requirements
-        if (suggestedAgents.length === 0) {
-            suggestedAgents.push('auth-agent'); // Default
-        }
-
-        // Analyze complexity
-        const wordCount = body.task.split(' ').length;
-        const complexity = wordCount < 20 ? 'simple' : wordCount < 50 ? 'moderate' : 'complex';
-
         return reply.send({
-            analysis: {
-                task: body.task,
-                requirements: suggestedAgents.map(id => `Requires ${id}`),
-                suggestedAgents,
-                complexity,
-                estimatedSteps: suggestedAgents.length * 3 + 2,
-                estimatedDuration: `${suggestedAgents.length * 2 + 1} seconds`,
+            localAnalysis: {
+                complexity: localAnalysis.complexity,
+                requirements: localAnalysis.requirements,
+                suggestedAgents: localAnalysis.suggestedAgents,
+                estimatedSteps: localAnalysis.estimatedSteps,
+                subTasks: localAnalysis.subTasks,
             },
+            aiAnalysis: aiAnalysis ? {
+                complexity: aiAnalysis.complexity,
+                subtasks: aiAnalysis.subtasks,
+                suggestedAgents: aiAnalysis.suggestedAgents,
+                estimatedSteps: aiAnalysis.estimatedSteps,
+            } : null,
+            thinkingTraces: thinkingEngine.getTraces(),
+            duration: Date.now() - startTime,
         });
     });
 
@@ -308,11 +381,17 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         schema: {
             tags: ['Orchestrator'],
             summary: 'Get project context',
-            description: 'Returns the current context for a project',
+            description: 'Returns the current context window for a project',
             params: {
                 type: 'object',
                 properties: {
                     projectId: { type: 'string' },
+                },
+            },
+            querystring: {
+                type: 'object',
+                properties: {
+                    userId: { type: 'string' },
                 },
             },
             response: {
@@ -320,24 +399,29 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                     type: 'object',
                     properties: {
                         projectId: { type: 'string' },
-                        context: { type: 'object' },
-                        memory: { type: 'array' },
+                        userId: { type: 'string' },
+                        projectContext: { type: 'object' },
+                        conversationHistory: { type: 'array' },
                         lastUpdated: { type: 'string' },
                     },
                 },
             },
         },
-    }, async (request: FastifyRequest<{ Params: { projectId: string } }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest<{
+        Params: { projectId: string },
+        Querystring: { userId?: string }
+    }>, reply: FastifyReply) => {
         const { projectId } = request.params;
+        const userId = request.query.userId || (request as any).user?.id || 'anonymous';
+        const contextManager = getContextManager();
 
-        // Placeholder - would integrate with actual ContextManager
+        const context = contextManager.getContext(projectId, userId);
+
         return reply.send({
-            projectId,
-            context: {
-                name: 'Project Context',
-                description: 'Working memory for this project',
-            },
-            memory: [],
+            projectId: context.projectId,
+            userId: context.userId,
+            projectContext: context.projectContext,
+            conversationHistory: context.conversationHistory,
             lastUpdated: new Date().toISOString(),
         });
     });
@@ -410,5 +494,5 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         }
     });
 
-    app.log.info('[ROUTES] Orchestrator routes registered: /api/v1/orchestrator/*');
+    app.log.info('[ROUTES] Orchestrator routes registered: /api/v1/orchestrator/* (INTEGRATED MODE)');
 }

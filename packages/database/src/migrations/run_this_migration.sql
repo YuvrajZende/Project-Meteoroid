@@ -1,11 +1,8 @@
 -- =====================================================
--- LOVEABLE BACKEND - DATABASE MIGRATIONS
--- Run this migration in Supabase SQL Editor
+-- LOVEABLE BACKEND - DATABASE MIGRATIONS (Supabase Safe)
 -- =====================================================
-
--- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgvector";
+-- Run this AFTER enabling the "vector" extension in Supabase Dashboard
+-- Dashboard → Database → Extensions → Enable "vector"
 
 -- =====================================================
 -- ENUMS
@@ -140,11 +137,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
 CREATE TRIGGER update_projects_updated_at
     BEFORE UPDATE ON projects
     FOR EACH ROW
@@ -201,77 +200,90 @@ ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_embeddings ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
+DROP POLICY IF EXISTS "Users can read own data" ON users;
 CREATE POLICY "Users can read own data"
     ON users FOR SELECT
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own data" ON users;
 CREATE POLICY "Users can update own data"
     ON users FOR UPDATE
     USING (auth.uid() = id);
 
 -- Projects policies
+DROP POLICY IF EXISTS "Users can read own projects" ON projects;
 CREATE POLICY "Users can read own projects"
     ON projects FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own projects" ON projects;
 CREATE POLICY "Users can insert own projects"
     ON projects FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
 CREATE POLICY "Users can update own projects"
     ON projects FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
 CREATE POLICY "Users can delete own projects"
     ON projects FOR DELETE
     USING (auth.uid() = user_id);
 
 -- Tasks policies
+DROP POLICY IF EXISTS "Users can read own tasks" ON tasks;
 CREATE POLICY "Users can read own tasks"
     ON tasks FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own tasks" ON tasks;
 CREATE POLICY "Users can insert own tasks"
     ON tasks FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own tasks" ON tasks;
 CREATE POLICY "Users can update own tasks"
     ON tasks FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own tasks" ON tasks;
 CREATE POLICY "Users can delete own tasks"
     ON tasks FOR DELETE
     USING (auth.uid() = user_id);
 
 -- Audit logs policies (read-only for users)
+DROP POLICY IF EXISTS "Users can read own audit logs" ON audit_logs;
 CREATE POLICY "Users can read own audit logs"
     ON audit_logs FOR SELECT
     USING (auth.uid() = user_id);
 
 -- API Keys policies
+DROP POLICY IF EXISTS "Users can read own API keys" ON api_keys;
 CREATE POLICY "Users can read own API keys"
     ON api_keys FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own API keys" ON api_keys;
 CREATE POLICY "Users can insert own API keys"
     ON api_keys FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own API keys" ON api_keys;
 CREATE POLICY "Users can delete own API keys"
     ON api_keys FOR DELETE
     USING (auth.uid() = user_id);
 
 -- Knowledge embeddings - allow all authenticated users to read
+DROP POLICY IF EXISTS "Authenticated users can read embeddings" ON knowledge_embeddings;
 CREATE POLICY "Authenticated users can read embeddings"
     ON knowledge_embeddings FOR SELECT
     USING (auth.role() = 'authenticated');
 
 -- =====================================================
--- SERVICE ROLE BYPASS
--- These policies allow service role to bypass RLS
+-- RELOAD SCHEMA CACHE
 -- =====================================================
--- Note: Service role automatically bypasses RLS in Supabase
--- No additional policies needed
+NOTIFY pgrst, 'reload config';
 
 -- =====================================================
 -- COMMENTS

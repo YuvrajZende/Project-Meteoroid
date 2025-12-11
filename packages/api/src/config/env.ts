@@ -18,7 +18,7 @@ dotenv.config({ path: envPath });
 
 // Debug: log which .env was loaded
 if (process.env.NODE_ENV !== 'production') {
-    console.log(`📁 Loading .env from: ${envPath}`);
+    console.log(`[CONFIG] Loading .env from: ${envPath}`);
 }
 
 /**

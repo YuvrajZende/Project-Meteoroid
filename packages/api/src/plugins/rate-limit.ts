@@ -48,5 +48,5 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
         // redis: new Redis(env.REDIS_URL),
     });
 
-    app.log.info(`✅ Rate limiting registered (${env.RATE_LIMIT_MAX} req/${env.RATE_LIMIT_WINDOW_MS}ms)`);
+    app.log.info(`[PLUGINS] Rate limiting registered (${env.RATE_LIMIT_MAX} req/${env.RATE_LIMIT_WINDOW_MS}ms)`);
 }

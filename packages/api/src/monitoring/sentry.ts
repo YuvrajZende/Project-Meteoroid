@@ -34,7 +34,7 @@ export function initSentry(config: SentryConfig = {}): void {
     const dsn = config.dsn || process.env.SENTRY_DSN;
 
     if (!dsn) {
-        console.log('⚠️ Sentry DSN not configured, error tracking disabled');
+        console.log('[SENTRY] DSN not configured, error tracking disabled');
         return;
     }
 
@@ -53,7 +53,7 @@ export function initSentry(config: SentryConfig = {}): void {
     //   ],
     // });
 
-    console.log(`🔍 Sentry initialized: ${environment} (${release})`);
+    console.log(`[SENTRY] Initialized: ${environment} (${release})`);
 }
 
 /**
@@ -88,7 +88,7 @@ export function captureException(
 
     const eventId = `mock-event-${Date.now()}`;
 
-    console.error(`🔍 [Sentry] Captured: ${error.message} (${eventId})`);
+    console.error(`[SENTRY] Captured: ${error.message} (${eventId})`);
 
     return eventId;
 }
@@ -103,7 +103,7 @@ export function captureMessage(
     // const eventId = Sentry.captureMessage(message, level);
     const eventId = `mock-msg-${Date.now()}`;
 
-    console.log(`🔍 [Sentry] Message: ${message} (${level})`);
+    console.log(`[SENTRY] Message: ${message} (${level})`);
 
     return eventId;
 }
@@ -126,7 +126,7 @@ export function addBreadcrumb(
     // });
 
     if (process.env.NODE_ENV !== 'production') {
-        console.log(`🍞 [Breadcrumb] ${category}: ${message}`);
+        console.log(`[BREADCRUMB] ${category}: ${message}`);
     }
 }
 
@@ -158,7 +158,7 @@ export function startTransaction(
         finish: () => {
             const duration = Date.now() - startTime;
             if (process.env.NODE_ENV !== 'production') {
-                console.log(`⏱️ [Transaction] ${op}:${name} completed in ${duration}ms`);
+                console.log(`[TRANSACTION] ${op}:${name} completed in ${duration}ms`);
             }
         },
     };

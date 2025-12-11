@@ -616,3 +616,307 @@ Create SQL migrations for:
 *Agents Loaded: 3 (auth, security, monitoring)*  
 *Total Capabilities: 34*
 
+---
+
+# 🚀 NEW PHASES: LOVABLE-MATCHING IMPROVEMENTS
+
+Based on the analysis in `Improvements_needed.md` and gaps identified during code generation testing, the following phases have been added to reach **Lovable parity (9/10 rating)**.
+
+---
+
+## 🧠 PHASE 13: MULTI-MODEL HYDRATION PATTERN ⭐⭐⭐⭐⭐
+**Priority: CRITICAL | Impact: 10x cost reduction, 40% quality improvement**
+
+### 13.1 Multi-Model Orchestrator
+- [ ] Create `packages/api/src/services/multi-model-orchestrator.ts`
+- [ ] Implement two-stage pipeline:
+    - [ ] **Stage 1: Fast Model (GPT-4 Mini/GLM-4-Flash)**
+        - [ ] Analyze user request (100-200ms)
+        - [ ] Select relevant files from project
+        - [ ] Extract dependencies
+        - [ ] Minimize token usage
+        - [ ] Cost: $0.0001 per request
+    - [ ] **Stage 2: Powerful Model (Claude 3.5/GPT-4)**
+        - [ ] Generate actual code
+        - [ ] Complex logic & architecture
+        - [ ] Multi-file updates
+        - [ ] Cost: $0.015 per request
+- [ ] Add model fallback configuration
+
+### 13.2 Fast Model Context Preparation
+- [ ] Create `packages/api/src/services/context-preparer.ts`
+- [ ] Implement file tree analyzer
+- [ ] Implement dependency extractor
+- [ ] Create minimal context JSON structure:
+    ```typescript
+    { relevantFiles, dependencies, scope, estimatedTokens }
+    ```
+- [ ] Add token estimation before sending to powerful model
+
+### 13.3 Model Configuration System
+- [ ] Add `FAST_MODEL_PROVIDER` env (openai/z.ai/anthropic)
+- [ ] Add `FAST_MODEL_NAME` env (gpt-4-mini/glm-4-flash)
+- [ ] Add `POWER_MODEL_PROVIDER` env
+- [ ] Add `POWER_MODEL_NAME` env (claude-3.5-sonnet/gpt-4)
+- [ ] Create model registry with pricing info
+- [ ] Track cost per request
+
+### 13.4 Cost Tracking & Optimization
+- [ ] Create `packages/api/src/services/cost-tracker.ts`
+- [ ] Log preprocessing cost vs generation cost
+- [ ] Create cost comparison reports
+- [ ] Add cost alerts for budget limits
+- [ ] Store costs in Supabase `generations` table
+
+---
+
+## 🎨 PHASE 14: OPINIONATED TECH STACK CONSTRAINTS ⭐⭐⭐⭐
+**Priority: HIGH | Impact: 40-60% better code quality**
+
+### 14.1 Tech Stack Presets
+- [ ] Create `packages/api/src/config/stack-constraints.ts`
+- [ ] Define presets:
+    ```typescript
+    TECH_STACK_PRESETS = {
+      web: { frontend: {...}, backend: {...} },
+      api: { framework: 'Fastify', orm: 'Prisma' },
+      fullstack: { ... },
+      mobile: { ... }
+    }
+    ```
+- [ ] Add validation for unsupported stacks
+
+### 14.2 System Prompt Engineering
+- [ ] Update all agent system prompts with constraints
+- [ ] Create constraint injection middleware
+- [ ] Add "DO NOT suggest alternatives" instructions
+- [ ] Test constraint effectiveness (A/B test)
+
+### 14.3 Framework-Specific Templates
+- [ ] Create templates for each supported framework:
+    - [ ] Fastify templates (current)
+    - [ ] Express templates
+    - [ ] Next.js templates
+    - [ ] NestJS templates
+- [ ] Add framework detection from user prompt
+- [ ] Auto-select appropriate templates
+
+### 14.4 Per-Agent Stack Constraints
+- [ ] Update auth-agent with stack constraints
+- [ ] Update security-agent with stack constraints
+- [ ] Update monitoring-agent with stack constraints
+- [ ] Ensure consistency across agents
+
+---
+
+## 🚢 PHASE 15: AUTOMATED DEPLOYMENT PIPELINE ⭐⭐⭐⭐
+**Priority: HIGH | Impact: Users see live app in 30 seconds**
+
+### 15.1 GitHub Integration
+- [ ] Create `packages/api/src/services/github-service.ts`
+- [ ] Implement OAuth flow for GitHub
+- [ ] Auto-create repositories for projects
+- [ ] Auto-commit generated files
+- [ ] Add `[Lovable]` commit prefix
+
+### 15.2 Netlify/Vercel Integration
+- [ ] Create `packages/api/src/services/deployment-service.ts`
+- [ ] Implement Netlify API integration
+- [ ] Implement Vercel API integration (alternative)
+- [ ] Auto-trigger builds via webhook
+- [ ] Return preview URLs
+
+### 15.3 Deployment Routes
+- [ ] `POST /api/v1/projects/:id/deploy` - Deploy project
+- [ ] `GET /api/v1/projects/:id/deployments` - List deployments
+- [ ] `GET /api/v1/projects/:id/preview` - Get preview URL
+- [ ] `DELETE /api/v1/projects/:id/deployments/:deployId` - Rollback
+
+### 15.4 Auto-Deploy Pipeline
+- [ ] Trigger deploy after successful code generation
+- [ ] Update project status in database
+- [ ] Stream deployment progress via SSE
+- [ ] Store deployment history
+
+---
+
+## 📺 PHASE 16: REAL-TIME PREVIEW & COLLABORATION ⭐⭐⭐
+**Priority: MEDIUM | Impact: 90% friction reduction**
+
+### 16.1 Live Preview Service
+- [ ] Create `packages/api/src/services/preview-service.ts`
+- [ ] Implement sandboxed iframe generation
+- [ ] Use esm.sh for module imports
+- [ ] Support React/Vue/Vanilla JS previews
+
+### 16.2 Preview Endpoints
+- [ ] `GET /api/v1/projects/:id/preview/html` - Get preview iframe HTML
+- [ ] `GET /api/v1/projects/:id/preview/url` - Get hosted preview URL
+- [ ] `POST /api/v1/projects/:id/preview/refresh` - Trigger HMR
+
+### 16.3 Hot Module Reload (HMR)
+- [ ] Implement WebSocket for live updates
+- [ ] Push file changes to preview iframe
+- [ ] Debounce rapid changes
+- [ ] Show loading indicator during refresh
+
+### 16.4 Collaboration Features (Optional)
+- [ ] Implement cursor presence
+- [ ] Real-time code sync via Y.js/CRDT
+- [ ] Multi-user editing support
+
+---
+
+## 🔗 PHASE 17: CODE GENERATION IMPROVEMENTS ⭐⭐⭐⭐
+**Priority: CRITICAL | Fixes gaps from testing**
+
+### 17.1 Complete Code Generation Pipeline
+- [ ] **Wire generated files together**
+    - [ ] Create main entry point that imports all generated modules
+    - [ ] Auto-generate `index.ts` that re-exports all modules
+    - [ ] Generate proper import statements between files
+- [ ] **Generate functional routes, not just utilities**
+    - [ ] Auth agent: Generate login/register/refresh endpoints
+    - [ ] Security agent: Generate middleware wiring
+    - [ ] API agent: Generate full CRUD endpoints
+
+### 17.2 Database Integration in Generated Code
+- [ ] Generate Prisma schema along with routes
+- [ ] Generate Supabase client integration
+- [ ] Generate database migration files
+- [ ] Replace in-memory stores with real DB calls
+
+### 17.3 Configuration Files
+- [ ] Auto-generate `.env.example` with all required vars
+- [ ] Auto-generate `docker-compose.yml` for local dev
+- [ ] Auto-generate `README.md` with setup instructions
+- [ ] Auto-generate `.gitignore` with proper ignores
+
+### 17.4 Test File Generation
+- [ ] Generate unit tests for each module
+- [ ] Generate integration tests for routes
+- [ ] Use Vitest as test runner
+- [ ] Include test scripts in package.json
+
+### 17.5 Intelligent File Naming
+- [ ] Use meaningful file names instead of `generated-1.ts`
+- [ ] Create proper directory structure:
+    ```
+    src/
+    ├── auth/
+    │   ├── routes.ts
+    │   ├── middleware.ts
+    │   └── utils.ts
+    ├── security/
+    │   ├── headers.ts
+    │   └── rate-limit.ts
+    └── index.ts
+    ```
+- [ ] Match file paths to agent/template source
+
+### 17.6 Code Quality Checks
+- [ ] Run ESLint on generated code
+- [ ] Run TypeScript type-check on generated code
+- [ ] Auto-fix simple issues
+- [ ] Report errors in orchestration result
+
+---
+
+## 🔍 PHASE 18: VECTOR DATABASE CONTEXT RETRIEVAL ⭐⭐⭐
+**Priority: MEDIUM | Impact: Better context for large codebases**
+
+### 18.1 Vector Store Implementation
+- [ ] Enable pgvector extension in Supabase (already done)
+- [ ] Create `code_embeddings` table with proper indexes
+- [ ] Create `packages/api/src/services/vector-store-service.ts`
+
+### 18.2 Codebase Indexing
+- [ ] Index project files on creation
+- [ ] Create embeddings for each file chunk
+- [ ] Store metadata (project_id, file_path, language)
+- [ ] Update embeddings on file changes
+
+### 18.3 Semantic Search
+- [ ] Implement similarity search for user prompts
+- [ ] Find relevant files without exact keyword match
+- [ ] Reduce context tokens by 60%+
+- [ ] Improve code modification accuracy
+
+### 18.4 Context Selection Pipeline
+- [ ] Integrate with multi-model orchestrator
+- [ ] Fast model queries vector store first
+- [ ] Return only relevant file chunks
+- [ ] Track context selection quality
+
+---
+
+## 📊 UPDATED STATUS DASHBOARD
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Fastify Server** | ✅ Running | http://localhost:3000 |
+| **Auth Agent** | ✅ Loaded | 9 capabilities |
+| **Security Agent** | ✅ Loaded | 13 capabilities |
+| **Monitoring Agent** | ✅ Loaded | 13 capabilities |
+| **IntegratedOrchestrator** | ✅ Working | Real AI code generation |
+| **FileWriter** | ✅ Working | Writes to /output folder |
+| **API Keys** | ✅ Configured | 1 OpenAI/Z.AI key |
+| **Job Queue** | ⚠️ Pending | Needs Redis container |
+| **Supabase** | ⚠️ Pending | Migrations ready, needs connection |
+| **Multi-Model** | ❌ Not Started | Phase 13 |
+| **Auto-Deploy** | ❌ Not Started | Phase 15 |
+| **Live Preview** | ❌ Not Started | Phase 16 |
+| **Vector Store** | ⚠️ Partial | Schema ready, needs service |
+
+---
+
+## 🎯 PRIORITY ACTION PLAN
+
+### **WEEK 1: Critical (Do First)** 🔥
+
+| Task | Phase | Days | Impact |
+|------|-------|------|--------|
+| Multi-Model Hydration | 13 | 2-3 | 10x cost reduction |
+| Complete Code Generation | 17.1-17.2 | 2 | Functional output |
+| Supabase Connection | 3 | 1 | Persistence |
+| Tech Stack Constraints | 14 | 1 | 40% quality boost |
+
+### **WEEK 2: High Impact** ⭐
+
+| Task | Phase | Days | Impact |
+|------|-------|------|--------|
+| GitHub Auto-Commit | 15.1 | 2 | Version control |
+| Netlify Deploy | 15.2-15.3 | 2 | Live previews |
+| Vector Store Context | 18 | 2 | Better accuracy |
+| File Naming/Structure | 17.5 | 1 | Cleaner output |
+
+### **WEEK 3: Nice to Have** ✨
+
+| Task | Phase | Days | Impact |
+|------|-------|------|--------|
+| Live Preview Iframe | 16.1-16.2 | 3 | Instant feedback |
+| Test Generation | 17.4 | 2 | Code quality |
+| Agent Benchmarking | 11 | 3 | Performance tracking |
+
+---
+
+## 📈 EXPECTED RATING AFTER IMPROVEMENTS
+
+| Component | Current | After Phase 13-17 |
+|-----------|---------|-------------------|
+| Agent Modularity | 10/10 | 10/10 |
+| Security | 9/10 | 9/10 |
+| Multi-Model Orchestration | 3/10 | **9/10** ✅ |
+| Opinionated Stack | 4/10 | **9/10** ✅ |
+| Deployment Pipeline | 5/10 | **9/10** ✅ |
+| Real-time Preview | 6/10 | **8/10** ✅ |
+| Vector DB Context | 0/10 | **8/10** ✅ |
+| Code Generation Quality | 6/10 | **9/10** ✅ |
+
+**OVERALL: 7.5/10 → 9/10** 🏆
+
+---
+
+*Last Updated: December 10, 2024*  
+*Code Generation: ✅ WORKING*
+*Output Location: /output/{projectId}/*

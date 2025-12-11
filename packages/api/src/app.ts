@@ -15,9 +15,13 @@ import {
     createAgentLoader,
     getAgentRegistry,
     getKeyManager,
+    getIntegratedOrchestrator,
 } from './services/index.js';
 import { initSentry } from './monitoring/index.js';
+import { checkSupabaseConnection, checkVectorStore } from './services/database-client.js';
 import path from 'path';
+import Redis from 'ioredis';
+
 
 /**
  * Create and configure the Fastify application
@@ -148,15 +152,40 @@ async function loadAgents(app: FastifyInstance): Promise<void> {
 }
 
 /**
- * Print startup banner
+ * Check Redis connectivity
  */
-export function printStartupBanner(): void {
+export async function checkRedisConnection(): Promise<{ connected: boolean; message: string }> {
+    const redisUrl = env.REDIS_URL || 'redis://localhost:6379';
+
+    try {
+        const redis = new Redis(redisUrl, {
+            connectTimeout: 5000,
+            maxRetriesPerRequest: 1,
+            lazyConnect: true,
+        });
+
+        await redis.connect();
+        await redis.ping();
+        await redis.quit();
+
+        return { connected: true, message: `Connected to ${redisUrl}` };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return { connected: false, message: `Failed to connect: ${errorMsg}` };
+    }
+}
+
+/**
+ * Print startup banner with service status
+ */
+export async function printStartupBanner(): Promise<void> {
     console.log('');
     console.log('================================================================');
     console.log('');
     console.log('    LOVEABLE BACKEND API SERVER');
     console.log('    Version 1.0.0');
     console.log('    Production-Ready AI-Powered Code Generation');
+    console.log('    Mode: INTEGRATED ORCHESTRATOR (Real AI)');
     console.log('');
     console.log('================================================================');
     console.log('');
@@ -169,6 +198,44 @@ export function printStartupBanner(): void {
     console.log(`         - OpenAI:    ${keyStats.openai?.totalKeys || 0} keys`);
     console.log(`         - Anthropic: ${keyStats.anthropic?.totalKeys || 0} keys`);
     console.log(`         - Z.AI:      ${keyStats.zai?.totalKeys || 0} keys`);
+    console.log('');
+
+    // Check Supabase Database
+    console.log('[DATABASE] Checking Supabase connection...');
+    const dbStatus = await checkSupabaseConnection();
+    if (dbStatus.connected) {
+        console.log(`[DATABASE] ✅ ${dbStatus.message} (${dbStatus.latency}ms)`);
+    } else {
+        console.log(`[DATABASE] ❌ ${dbStatus.message}`);
+        if (dbStatus.error) {
+            console.log(`[DATABASE]    Error: ${dbStatus.error}`);
+        }
+    }
+
+    // Check Vector Store
+    console.log('[VECTOR STORE] Checking pgvector...');
+    const vectorStatus = await checkVectorStore();
+    if (vectorStatus.connected) {
+        console.log(`[VECTOR STORE] ✅ ${vectorStatus.message} (${vectorStatus.latency}ms)`);
+        console.log(`[VECTOR STORE]    Table: ${vectorStatus.tableExists ? '✓' : '✗'} | Function: ${vectorStatus.functionExists ? '✓' : '✗'}`);
+    } else {
+        console.log(`[VECTOR STORE] ⚠️ ${vectorStatus.message}`);
+        console.log(`[VECTOR STORE]    Table: ${vectorStatus.tableExists ? '✓' : '✗'} | Function: ${vectorStatus.functionExists ? '✗' : '✗'}`);
+        if (vectorStatus.error) {
+            console.log(`[VECTOR STORE]    Error: ${vectorStatus.error}`);
+        }
+    }
+    console.log('');
+
+    // Check Redis
+    const redisStatus = await checkRedisConnection();
+    console.log('[REDIS] ' + (redisStatus.connected ? '✅ ' : '⚠️ ') + redisStatus.message);
+
+    // Log orchestrator status
+    const orchestrator = getIntegratedOrchestrator();
+    const status = orchestrator.getStatus();
+    console.log(`[ORCHESTRATOR] Initialized: ${status.initialized}`);
+    console.log(`[ORCHESTRATOR] Mode: INTEGRATED (Real AI calls)`);
     console.log('');
 }
 

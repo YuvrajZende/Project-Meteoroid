@@ -31,5 +31,5 @@ export async function registerCors(app: FastifyInstance): Promise<void> {
         maxAge: 86400, // 24 hours
     });
 
-    app.log.info('✅ CORS plugin registered');
+    app.log.info('[PLUGINS] CORS plugin registered');
 }

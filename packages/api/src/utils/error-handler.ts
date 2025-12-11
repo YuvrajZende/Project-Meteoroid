@@ -65,7 +65,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
         void reply.status(404).send(errorResponse);
     });
 
-    app.log.info('✅ Error handler registered');
+    app.log.info('[ERROR-HANDLER] Error handler registered');
 }
 
 /**

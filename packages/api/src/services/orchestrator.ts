@@ -95,23 +95,23 @@ export class OrchestratorService {
         const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEYS?.split(',')[0];
         const hasValidKey = apiKey && apiKey !== 'your_key_here' && apiKey.length > 10;
 
-        console.log('🧠 Initializing Orchestrator Service...');
+        console.log('[ORCHESTRATOR] Initializing Orchestrator Service...');
         console.log(`   Model: ${this.config.modelName}`);
         console.log(`   Thinking: ${this.config.thinkingEnabled ? 'ENABLED' : 'DISABLED'}`);
         console.log(`   Monitoring: ${this.config.monitoringEnabled ? 'ENABLED' : 'DISABLED'}`);
 
         if (!hasValidKey) {
-            console.log('⚠️ No AI API key configured - orchestrator will run in demo mode');
-            console.log('   Set OPENAI_API_KEY in your .env file for full functionality');
+            console.log('[ORCHESTRATOR] No AI API key configured - running in DEMO mode');
+            console.log('[ORCHESTRATOR] Set OPENAI_API_KEY in .env for full functionality');
         } else {
-            console.log('✅ AI API key configured');
+            console.log('[ORCHESTRATOR] AI API key configured');
         }
 
         // TODO: Import and initialize the actual LangGraph orchestrator
         // const { graph } = await import('@loveable/orchestrator');
 
         this.isInitialized = true;
-        console.log('✅ Orchestrator Service initialized');
+        console.log('[ORCHESTRATOR] Service initialized');
     }
 
     /**
@@ -130,8 +130,8 @@ export class OrchestratorService {
         const generatedFiles: ExecutionResult['generatedFiles'] = [];
         let stepCount = 0;
 
-        console.log(`\n🚀 Starting orchestration for task: ${context.taskId}`);
-        console.log(`   Prompt: "${context.prompt.substring(0, 50)}..."`);
+        console.log(`\n[ORCHESTRATOR] Starting orchestration for task: ${context.taskId}`);
+        console.log(`[ORCHESTRATOR] Prompt: "${context.prompt.substring(0, 50)}..."`);
 
         try {
             // Report initial progress

@@ -498,7 +498,7 @@ export function initializeCoreServices(): {
     agentMonitor: AgentMonitorService;
     mcpHub: MCPHubService;
 } {
-    console.log('🧠 Initializing Core Services...');
+    console.log('[CORE-SERVICES] Initializing Core Services...');
 
     const services = {
         thinkingEngine: getThinkingEngine(),
@@ -507,10 +507,10 @@ export function initializeCoreServices(): {
         mcpHub: getMCPHub(),
     };
 
-    console.log('   ✅ ThinkingEngine ready');
-    console.log('   ✅ ContextManager ready');
-    console.log('   ✅ AgentMonitor ready');
-    console.log('   ✅ MCPHub ready');
+    console.log('[CORE-SERVICES] ThinkingEngine ready');
+    console.log('[CORE-SERVICES] ContextManager ready');
+    console.log('[CORE-SERVICES] AgentMonitor ready');
+    console.log('[CORE-SERVICES] MCPHub ready');
 
     return services;
 }

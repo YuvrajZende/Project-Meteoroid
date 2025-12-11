@@ -51,5 +51,5 @@ export async function registerHelmet(app: FastifyInstance): Promise<void> {
         },
     });
 
-    app.log.info('✅ Helmet security plugin registered');
+    app.log.info('[PLUGINS] Helmet security plugin registered');
 }

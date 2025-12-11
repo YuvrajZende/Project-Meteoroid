@@ -4,6 +4,9 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { checkSupabaseConnection, checkVectorStore } from '../services/database-client.js';
+import Redis from 'ioredis';
+import { getAgentRegistry } from '../services/index.js';
 
 /**
  * Health check response interface
@@ -22,6 +25,14 @@ interface DeepHealthResponse extends HealthResponse {
     checks: {
         database: {
             status: 'healthy' | 'unhealthy';
+            latency?: number;
+            error?: string;
+        };
+        vectorStore: {
+            status: 'healthy' | 'unhealthy';
+            tableExists: boolean;
+            functionExists: boolean;
+            embeddingsCount?: number;
             latency?: number;
             error?: string;
         };
@@ -119,6 +130,17 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
                                         error: { type: 'string' },
                                     },
                                 },
+                                vectorStore: {
+                                    type: 'object',
+                                    properties: {
+                                        status: { type: 'string' },
+                                        tableExists: { type: 'boolean' },
+                                        functionExists: { type: 'boolean' },
+                                        embeddingsCount: { type: 'number' },
+                                        latency: { type: 'number' },
+                                        error: { type: 'string' },
+                                    },
+                                },
                                 redis: {
                                     type: 'object',
                                     properties: {
@@ -142,19 +164,24 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
             },
         },
     }, async (_request: FastifyRequest, _reply: FastifyReply): Promise<DeepHealthResponse> => {
-        // TODO: Implement actual health checks when services are connected
-        const databaseCheck = await checkDatabase();
-        const redisCheck = await checkRedis();
-        const agentsCheck = await checkAgents();
+        // Run all health checks in parallel
+        const [databaseCheck, vectorStoreCheck, redisCheck, agentsCheck] = await Promise.all([
+            checkDatabase(),
+            checkVectorStoreHealth(),
+            checkRedis(),
+            checkAgents(),
+        ]);
 
         // Determine overall status
         const allHealthy =
             databaseCheck.status === 'healthy' &&
+            vectorStoreCheck.status === 'healthy' &&
             redisCheck.status === 'healthy' &&
             agentsCheck.status === 'healthy';
 
         const anyUnhealthy =
             databaseCheck.status === 'unhealthy' ||
+            vectorStoreCheck.status === 'unhealthy' ||
             redisCheck.status === 'unhealthy' ||
             agentsCheck.status === 'unhealthy';
 
@@ -172,6 +199,7 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
             version: '1.0.0',
             checks: {
                 database: databaseCheck,
+                vectorStore: vectorStoreCheck,
                 redis: redisCheck,
                 agents: agentsCheck,
             },
@@ -219,6 +247,9 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
         const totalMemory = memoryUsage.heapTotal;
         const usedMemory = memoryUsage.heapUsed;
 
+        const registry = getAgentRegistry();
+        const summary = registry.getSummary();
+
         return {
             name: 'Loveable Backend API',
             version: '1.0.0',
@@ -230,8 +261,8 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
                 percentage: Math.round((usedMemory / totalMemory) * 100),
             },
             agents: {
-                loaded: 0, // TODO: Get from agent registry
-                capabilities: [], // TODO: Get from agent registry
+                loaded: summary.total,
+                capabilities: summary.capabilities,
             },
         };
     });
@@ -243,11 +274,33 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
  * Check database connectivity
  */
 async function checkDatabase(): Promise<{ status: 'healthy' | 'unhealthy'; latency?: number; error?: string }> {
-    // TODO: Implement actual database check with Supabase
-    // For now, return a placeholder
+    const result = await checkSupabaseConnection();
     return {
-        status: 'healthy',
-        latency: 0,
+        status: result.connected ? 'healthy' : 'unhealthy',
+        latency: result.latency,
+        error: result.error,
+    };
+}
+
+/**
+ * Check Vector Store connectivity
+ */
+async function checkVectorStoreHealth(): Promise<{
+    status: 'healthy' | 'unhealthy';
+    tableExists: boolean;
+    functionExists: boolean;
+    embeddingsCount?: number;
+    latency?: number;
+    error?: string;
+}> {
+    const result = await checkVectorStore();
+    return {
+        status: result.connected ? 'healthy' : 'unhealthy',
+        tableExists: result.tableExists,
+        functionExists: result.functionExists,
+        embeddingsCount: result.embeddingsCount,
+        latency: result.latency,
+        error: result.error,
     };
 }
 
@@ -255,23 +308,44 @@ async function checkDatabase(): Promise<{ status: 'healthy' | 'unhealthy'; laten
  * Check Redis connectivity
  */
 async function checkRedis(): Promise<{ status: 'healthy' | 'unhealthy'; latency?: number; error?: string }> {
-    // TODO: Implement actual Redis check
-    // For now, return a placeholder
-    return {
-        status: 'healthy',
-        latency: 0,
-    };
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+
+    try {
+        const startTime = Date.now();
+        const redis = new Redis(redisUrl, {
+            connectTimeout: 5000,
+            maxRetriesPerRequest: 1,
+            lazyConnect: true,
+        });
+
+        await redis.connect();
+        await redis.ping();
+        const latency = Date.now() - startTime;
+        await redis.quit();
+
+        return { status: 'healthy', latency };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return { status: 'unhealthy', error: errorMsg };
+    }
 }
 
 /**
  * Check agent status
  */
 async function checkAgents(): Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; loaded: number; total: number }> {
-    // TODO: Implement actual agent check from AgentRegistry
-    // For now, return a placeholder
-    return {
-        status: 'healthy',
-        loaded: 0,
-        total: 0,
-    };
+    try {
+        const registry = getAgentRegistry();
+        const count = registry.count;
+
+        if (count === 0) {
+            return { status: 'unhealthy', loaded: 0, total: 0 };
+        } else if (count < 3) {
+            return { status: 'degraded', loaded: count, total: count };
+        }
+
+        return { status: 'healthy', loaded: count, total: count };
+    } catch (error) {
+        return { status: 'unhealthy', loaded: 0, total: 0 };
+    }
 }
