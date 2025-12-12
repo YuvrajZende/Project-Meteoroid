@@ -1,0 +1,108 @@
+{
+    "id": "database-agent",
+    "name": "Database Agent",
+    "version": "1.0.0",
+    "tier": 1,
+    "description": "Advanced database operations agent for schema generation, migrations, seeds, and query optimization",
+    "capabilities": [
+        {
+            "id": "schema-generation",
+            "name": "Schema Generation",
+            "description": "Generate database schemas from natural language requirements",
+            "category": "schema"
+        },
+        {
+            "id": "prisma-schema",
+            "name": "Prisma Schema",
+            "description": "Generate Prisma ORM schema files",
+            "category": "schema"
+        },
+        {
+            "id": "supabase-migration",
+            "name": "Supabase Migration",
+            "description": "Generate Supabase/PostgreSQL migration SQL files",
+            "category": "migration"
+        },
+        {
+            "id": "supabase-rls",
+            "name": "Row Level Security",
+            "description": "Generate RLS policies for Supabase tables",
+            "category": "security"
+        },
+        {
+            "id": "seed-generation",
+            "name": "Seed Data Generation",
+            "description": "Generate seed data in TypeScript and SQL formats",
+            "category": "data"
+        },
+        {
+            "id": "query-builder",
+            "name": "Query Builder",
+            "description": "Generate type-safe query builder services",
+            "category": "query"
+        },
+        {
+            "id": "database-service",
+            "name": "Database Service",
+            "description": "Generate CRUD service classes for database tables",
+            "category": "service"
+        },
+        {
+            "id": "index-advisor",
+            "name": "Index Advisor",
+            "description": "Suggest optimal indexes based on schema analysis",
+            "category": "performance"
+        },
+        {
+            "id": "connection-pool",
+            "name": "Connection Pool Config",
+            "description": "Generate optimized connection pool configuration",
+            "category": "performance"
+        }
+    ],
+    "supportedDatabases": [
+        "postgresql",
+        "supabase"
+    ],
+    "supportedORMs": [
+        "prisma"
+    ],
+    "defaultConfig": {
+        "databaseType": "postgresql",
+        "ormType": "prisma",
+        "enableRLS": true,
+        "enableAudit": false,
+        "ssl": true,
+        "poolSize": 10
+    },
+    "dependencies": [
+        "@prisma/client",
+        "prisma"
+    ],
+    "envVariables": [
+        "DATABASE_URL",
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "GROQ_API_KEY"
+    ],
+    "aiConfig": {
+        "fastModel": {
+            "provider": "groq",
+            "model": "llama-3.3-70b-versatile",
+            "purpose": "Schema analysis and task decomposition"
+        },
+        "powerModel": {
+            "provider": "zai",
+            "model": "glm-4.6",
+            "purpose": "Code generation and complex operations"
+        }
+    },
+    "integrations": {
+        "orchestrator": true,
+        "benchmarking": true,
+        "costTracking": true,
+        "multiModel": true
+    },
+    "author": "Person 2",
+    "lastUpdated": "2024-12-12"
+}
