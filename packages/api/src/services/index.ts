@@ -140,6 +140,8 @@ export {
     getCheapestModel,
     getBestQualityModel,
     getRecommendedModelPair,
+    getConfiguredModelPair,
+    listAllModels,
     isProviderConfigured,
     getConfiguredProviders,
     getAvailableModels,
@@ -184,3 +186,196 @@ export {
     type SupportedLanguage,
     type SupportedFramework,
 } from './codegen-service.js';
+
+// ============================================
+// PHASE 14: FRAMEWORK-SPECIFIC TEMPLATES
+// ============================================
+
+export {
+    FASTIFY_TEMPLATES,
+    EXPRESS_TEMPLATES,
+    NESTJS_TEMPLATES,
+    HONO_TEMPLATES,
+    getFrameworkTemplates,
+    getTemplateForStack,
+    detectFrameworkFromPrompt,
+    getCompleteProjectTemplate,
+    type FrameworkTemplate,
+    type TemplateFile,
+} from './framework-templates.js';
+
+// Phase 14.4: Agent Stack Constraints
+export {
+    getAgentConstraints,
+    buildAgentSystemPrompt,
+    validateAgentOutput,
+    getAgentBoilerplate,
+    getSupportedAgentTypes,
+    type AgentConstraints,
+    type AgentType,
+} from './agent-stack-constraints.js';
+
+// ============================================
+// PHASE 15: AUTOMATED DEPLOYMENT PIPELINE
+// ============================================
+
+// GitHub Integration (15.1)
+export {
+    GitHubService,
+    getGitHubService,
+    createGitHubService,
+    type GitHubConfig,
+    type GitHubUser,
+    type GitHubRepo,
+    type CreateRepoOptions,
+    type CommitOptions,
+    type CommitResult,
+} from './github-service.js';
+
+// Deployment Service (15.2)
+export {
+    DeploymentService,
+    getDeploymentService,
+    createDeploymentService,
+    type DeploymentConfig,
+    type DeploymentProvider,
+    type DeploymentStatus,
+    type DeploymentSite,
+    type DeploymentResult,
+    type DeployOptions,
+} from './deployment-service.js';
+
+// Auto-Deploy Manager (15.4)
+export {
+    AutoDeployManager,
+    getAutoDeployManager,
+    createAutoDeployManager,
+    type AutoDeployConfig,
+    type DeploymentEvent,
+    type ProjectDeploymentState,
+    type StoredDeployment,
+} from './auto-deploy-manager.js';
+
+// ============================================
+// PHASE 16: REAL-TIME PREVIEW & COLLABORATION
+// ============================================
+
+// Preview Service (16.1 - 16.4)
+export {
+    PreviewService,
+    getPreviewService,
+    createPreviewService,
+    type PreviewConfig,
+    type PreviewFile,
+    type PreviewRequest,
+    type PreviewSession,
+    type PreviewResult,
+    type PreviewFramework,
+    type HMRUpdate,
+    type CollaborationCursor,
+    type CollaborationState,
+} from './preview-service.js';
+
+// ============================================
+// PHASE 17: CODE GENERATION QUALITY
+// ============================================
+
+// Code Post-Processor (17.1)
+export {
+    CodePostProcessor,
+    getCodePostProcessor,
+    createCodePostProcessor,
+    type GeneratedFile as PostProcessedFile,
+    type ProcessedOutput,
+    type AICodeResponse,
+} from './code-postprocessor.js';
+
+// Project Scaffold Generator (17.3)
+export {
+    ProjectScaffoldGenerator,
+    createProjectScaffold,
+    getDefaultScaffoldConfig,
+    type ScaffoldConfig,
+    type ScaffoldFile,
+    type ScaffoldResult,
+} from './project-scaffold.js';
+
+// Test Generator (17.4)
+export {
+    TestGenerator,
+    getTestGenerator,
+    createTestGenerator,
+    type TestFile,
+    type TestGeneratorConfig,
+    type GeneratedTestResult,
+} from './test-generator.js';
+
+// Code Validator (17.6)
+export {
+    CodeValidator,
+    getCodeValidator,
+    createCodeValidator,
+    type ValidationError,
+    type ValidationResult,
+    type CodeFile,
+    type ValidatorConfig,
+} from './code-validator.js';
+
+// Database Code Generator (17.2)
+export {
+    DatabaseCodeGenerator,
+    getDatabaseCodeGenerator,
+    createDatabaseCodeGenerator,
+    type EntityField,
+    type EntityDefinition,
+    type DatabaseConfig,
+    type GeneratedDbFile,
+    type DatabaseGenerationResult,
+} from './database-generator.js';
+
+// Route Generator (17.1)
+export {
+    RouteGenerator,
+    getRouteGenerator,
+    createRouteGenerator,
+    type RouteConfig,
+    type EntityRoute,
+    type GeneratedRoute,
+    type RouteGenerationResult,
+} from './route-generator.js';
+
+// Enhanced Code Generator (Phase 17 + Person 4 Integration)
+export {
+    EnhancedCodeGenerator,
+    getEnhancedCodeGenerator,
+    createEnhancedCodeGenerator,
+    type EnhancedCodeGenRequest,
+    type EnhancedCodeGenResult,
+    type EnhancedFeature,
+    // Note: SupportedLanguage and SupportedFramework already exported from codegen-service
+} from './enhanced-code-generator.js';
+
+// Vector Store (Phase 18)
+export {
+    VectorStoreService,
+    getVectorStore,
+    createVectorStore,
+    type VectorStoreConfig,
+    type CodeChunk,
+    type EmbeddedChunk,
+    type SimilarityResult,
+    type IndexingResult,
+    type SearchOptions,
+} from './vector-store.js';
+
+// Learning Service (Phase 18)
+export {
+    LearningService,
+    getLearningService,
+    createLearningService,
+    type LearningConfig,
+    type GenerationIteration,
+    type TestingIteration,
+    type LearnedPattern,
+    type PreContext,
+} from './learning-service.js';

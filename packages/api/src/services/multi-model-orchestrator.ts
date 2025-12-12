@@ -6,6 +6,8 @@
  * - Stage 2: Powerful Model (code generation) - ~$0.01/request
  * 
  * Expected savings: 10x cost reduction, 40% quality improvement
+ * 
+ * Phase 14: Integrated with Tech Stack Constraints for opinionated code generation.
  */
 
 import {
@@ -17,6 +19,9 @@ import {
 } from './model-registry.js';
 import { getCostTracker, type CostRecord } from './cost-tracker.js';
 import type { ChatMessage } from './ai-client.js';
+// Phase 14: Tech Stack Constraints
+import { detectStackType, getStackPreset, generateConstraintPrompt } from '../config/stack-constraints.js';
+import { DO_NOT_SUGGEST_BLOCK } from '../middleware/constraint-injection.js';
 
 // ============================================
 // TYPES
@@ -399,6 +404,7 @@ Respond ONLY with valid JSON. No markdown, no explanation.`;
 
     /**
      * Stage 2: Run powerful model code generation
+     * Phase 14: Now includes stack constraints for opinionated generation
      */
     private async runGeneration(
         request: MultiModelRequest,
@@ -408,15 +414,28 @@ Respond ONLY with valid JSON. No markdown, no explanation.`;
         const language = request.context?.language || 'TypeScript';
         const framework = request.context?.framework || 'Fastify';
 
+        // Phase 14: Detect stack type and get constraints
+        const stackType = detectStackType(request.prompt);
+        const preset = getStackPreset(stackType);
+        const constraintPrompt = generateConstraintPrompt(stackType);
+
+        // Build enhanced system prompt with constraints
         const systemPrompt = `You are an expert ${language} developer specializing in ${framework} backend development.
 Generate production-ready, clean, and well-documented code.
 
-REQUIREMENTS:
+${constraintPrompt}
+
+CORE REQUIREMENTS:
 - Use ${language} with strict types
-- Follow ${framework} best practices
+- Use ${preset.backend.framework} framework ONLY (NOT Express or other alternatives)
+- Use ${preset.database.orm} for database operations
+- Use ${preset.security.validation} for validation
+- Use ${preset.monitoring.logging} for logging
 - Include proper error handling
 - Add JSDoc comments for functions
 - Generate complete, runnable code
+
+${DO_NOT_SUGGEST_BLOCK}
 
 Respond with a JSON object:
 {
@@ -676,6 +695,7 @@ Respond ONLY with valid JSON.`;
             zai: ['ZAI_API_KEY', 'OPENAI_API_KEY'], // Check ZAI_API_KEY first, fallback to OPENAI_API_KEY
             together: ['TOGETHER_API_KEY'],
             openrouter: ['OPENROUTER_API_KEY'],
+            groq: ['GROQ_API_KEY'], // Added: Groq for fast model
         };
 
         // Try each possible env var for this provider

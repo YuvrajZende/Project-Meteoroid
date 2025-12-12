@@ -16,6 +16,10 @@ import { registerTemplateRoutes } from './templates.js';
 import { registerSSERoutes } from './websocket.js';
 import { registerBenchmarkRoutes } from './benchmarks.js';
 import { registerCodeGenRoutes } from './codegen.js';
+import { deploymentRoutes, githubRoutes } from './deployment.js';
+import { registerPreviewRoutes } from './preview.js';
+import { enhancedCodegenRoutes } from './enhanced-codegen.js';
+import { vectorLearningRoutes } from './vector-learning.js';
 
 /**
  * Register all routes to the Fastify instance
@@ -59,6 +63,19 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // CodeGen routes (Person 4's code generation pipeline)
     await registerCodeGenRoutes(app);
 
+    // Phase 15: Deployment routes
+    await deploymentRoutes(app);
+    await githubRoutes(app);
+
+    // Phase 16: Preview routes (real-time preview & collaboration)
+    await registerPreviewRoutes(app);
+
+    // Phase 17: Enhanced CodeGen routes (multi-language code generation)
+    await enhancedCodegenRoutes(app);
+
+    // Phase 18: Vector Store & Learning routes
+    await vectorLearningRoutes(app);
+
     app.log.info('[ROUTES] All routes registered successfully');
 }
 
@@ -76,4 +93,9 @@ export {
     registerSSERoutes,
     registerBenchmarkRoutes,
     registerCodeGenRoutes,
+    deploymentRoutes,
+    githubRoutes,
+    registerPreviewRoutes,
+    enhancedCodegenRoutes,
+    vectorLearningRoutes,
 };

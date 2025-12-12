@@ -4,7 +4,7 @@
  */
 
 import { createApp, env, printStartupBanner } from './app.js';
-import { getAgentRegistry, getMultiModelOrchestrator, getCostTracker, getAvailableModels, isProviderConfigured, getBenchmarkingService, getCodeGenService } from './services/index.js';
+import { getAgentRegistry, getMultiModelOrchestrator, getCostTracker, getAvailableModels, isProviderConfigured, getBenchmarkingService, getCodeGenService, getPreviewService } from './services/index.js';
 import { flush } from './monitoring/index.js';
 
 /**
@@ -30,6 +30,10 @@ async function bootstrap(): Promise<void> {
                 // Flush benchmarking records
                 const benchmarking = getBenchmarkingService();
                 await benchmarking.shutdown();
+
+                // Shutdown preview service
+                const previewService = getPreviewService();
+                await previewService.shutdown();
 
                 // Flush Sentry events
                 await flush(5000);
@@ -141,6 +145,16 @@ async function bootstrap(): Promise<void> {
         console.log(`  Status:       ${codeGenHealth.healthy ? '✅ Ready' : '⚠️ Degraded'}`);
         console.log(`  Languages:    ${supportedLangs.languages.join(', ')}`);
         console.log(`  Endpoints:    /codegen/project, /codegen/module, /codegen/languages`);
+        console.log('');
+        console.log('  📺 PREVIEW SERVICE (Phase 16)');
+        console.log('  ----------------------------------------------------------------');
+        const previewServiceStatus = getPreviewService();
+        await previewServiceStatus.initialize();
+        const previewStatus = previewServiceStatus.getStatus();
+        console.log(`  Status:         ${previewStatus.enabled ? '✅ Enabled' : '❌ Disabled'}`);
+        console.log(`  Collaboration:  ${previewStatus.collaborationEnabled ? '✅ Enabled' : '❌ Disabled'}`);
+        console.log(`  Active Sessions: ${previewStatus.activeSessions}`);
+        console.log(`  Endpoints:      /api/v1/preview/*, /api/v1/preview/:id/stream`);
         console.log('');
         console.log('  Server is ready to accept connections.');
         console.log('================================================================');

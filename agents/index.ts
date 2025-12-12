@@ -44,6 +44,65 @@ export {
     getAvailableAuthTypes
 } from "./core/auth/index.js";
 
+// Database Agent - Schema, Migrations, Queries (Person 2's Implementation)
+export {
+    DatabaseAgentWrapper,
+    databaseAgentIAgent,
+    DatabaseAgent,
+    databaseAgent,
+} from "./core/database/index.js";
+
+// Database Agent Types
+export type {
+    DatabaseType,
+    ORMType,
+    ColumnDataType,
+    RelationType,
+    DatabaseAgentConfig,
+    DatabaseTaskContext,
+    ColumnDefinition,
+    IndexDefinition,
+    RelationshipDefinition,
+    TableDefinition,
+    SchemaDefinition,
+    EnumDefinition,
+    MigrationOperation,
+    MigrationDefinition,
+    QueryCondition,
+    QueryJoin,
+    QueryOrder,
+    QueryDefinition,
+    SeedRecord,
+    SeedConfig,
+    IndexRecommendation,
+    QueryAnalysis,
+    ConnectionPoolConfig,
+    RLSPolicy,
+    DatabaseGeneratedFile,
+    DatabaseGenerationResult,
+} from "./core/database/index.js";
+
+// Database Templates
+export {
+    PRISMA_SCHEMA_HEADER,
+    PRISMA_MODEL_TEMPLATE,
+    PRISMA_ENUM_TEMPLATE,
+    PRISMA_FIELD_TEMPLATES,
+    SUPABASE_MIGRATION_HEADER,
+    SUPABASE_CREATE_TABLE,
+    SUPABASE_RLS_TEMPLATE,
+    SUPABASE_INDEX_TEMPLATE,
+    SUPABASE_FOREIGN_KEY_TEMPLATE,
+    TYPESCRIPT_SEED_TEMPLATE,
+    SQL_SEED_TEMPLATE,
+    QUERY_BUILDER_SERVICE_TEMPLATE,
+    DATABASE_SERVICE_TEMPLATE,
+    CONNECTION_POOL_TEMPLATE,
+    getAvailableTemplates as getDatabaseTemplates,
+    getTemplate as getDatabaseTemplate,
+    DATABASE_TEMPLATE_SETS,
+} from "./core/database/index.js";
+
 // ============================================
 // SECURITY AGENT (Tier 2)
 // ============================================
@@ -301,6 +360,7 @@ export function getAvailableAgents(): string[] {
     return [
         "auth_agent",
         "db_agent",
+        "database_agent",  // Person 2's Database Agent (IAgent ID: database-agent)
         "api_agent",
         "security_agent",
         "queue_agent",
@@ -335,8 +395,31 @@ export const AGENT_CAPABILITIES = {
         "cerbos-integration", "policy-based-access", "permissions-decorator"
     ],
     db_agent: [
-        "prisma", "drizzle", "postgresql", "mongodb",
-        "migrations", "seeding", "relationships"
+        // Schema Operations
+        "schema-generation", "schema-analysis", "schema-migration",
+        // ORM Support
+        "prisma", "prisma-schema", "prisma-models", "prisma-relations",
+        "drizzle", "typeorm",
+        // Database Types
+        "postgresql", "mysql", "sqlite", "mongodb", "supabase",
+        // Supabase Operations
+        "supabase-migration", "supabase-rls", "supabase-policies",
+        // Query Operations
+        "query-builder", "query-optimization", "query-parameterization",
+        // Data Operations
+        "migrations", "seeding", "seed-generation", "seed-typescript", "seed-sql",
+        // Performance
+        "index-advisor", "connection-pool", "performance-optimization",
+        // Services
+        "database-service", "crud-operations", "pagination", "relationships"
+    ],
+    // Alias for db_agent (Person 2's IAgent implementation uses 'database-agent')
+    database_agent: [
+        "schema-generation", "schema-analysis", "schema-migration",
+        "prisma", "prisma-schema", "prisma-models", "prisma-relations",
+        "supabase", "supabase-migration", "supabase-rls", "supabase-policies",
+        "query-builder", "query-optimization", "connection-pool",
+        "migrations", "seeding", "database-service", "crud-operations"
     ],
     api_agent: [
         "rest-api", "graphql", "trpc", "openapi",

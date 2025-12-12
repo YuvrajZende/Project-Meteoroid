@@ -33,6 +33,10 @@ import { checkSupabaseConnection } from './database-client.js';
 import { getBenchmarkingService } from './benchmarking.js';
 import { getMultiModelOrchestrator, type MultiModelOrchestrator } from './multi-model-orchestrator.js';
 import { getCostTracker } from './cost-tracker.js';
+import { getCodePostProcessor, type CodePostProcessor } from './code-postprocessor.js';
+import { getEnhancedCodeGenerator, type EnhancedCodeGenerator } from './enhanced-code-generator.js';
+import { getVectorStore, type VectorStoreService } from './vector-store.js';
+import { getLearningService, type LearningService } from './learning-service.js';
 
 
 // ============================================
@@ -70,7 +74,7 @@ export interface OrchestrationInput {
 
 export interface OrchestrationStep {
     stepNumber: number;
-    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'cost-tracking' | 'finalize';
+    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'enhanced-codegen' | 'cost-tracking' | 'finalize';
     agent?: string;
     message: string;
     timestamp: Date;
@@ -134,6 +138,10 @@ export class IntegratedOrchestrator {
     private agentMonitor: AgentMonitorService;
     private mcpHub: MCPHubService;
     private fileWriter: FileWriterService;
+    private codePostProcessor: CodePostProcessor;
+    private enhancedCodeGenerator: EnhancedCodeGenerator;
+    private vectorStore: VectorStoreService;
+    private learningService: LearningService;
     private isInitialized = false;
 
     constructor(config?: Partial<IntegratedOrchestratorConfig & { useMultiModel: boolean }>) {
@@ -156,6 +164,10 @@ export class IntegratedOrchestrator {
         this.agentMonitor = getAgentMonitor();
         this.mcpHub = getMCPHub();
         this.fileWriter = getFileWriter();
+        this.codePostProcessor = getCodePostProcessor();
+        this.enhancedCodeGenerator = getEnhancedCodeGenerator();
+        this.vectorStore = getVectorStore();
+        this.learningService = getLearningService();
     }
 
     /**
@@ -517,13 +529,46 @@ export class IntegratedOrchestrator {
             // Write generated code to files
             let fileWriteResult: WriteResult | undefined;
             if (config.useFileWriter && generatedCode.length > 0) {
-                addStep('finalize', 'Writing generated code to files...');
+                addStep('finalize', 'Processing and writing generated code...');
 
-                const filesToWrite = generatedCode.map((gc, index) => ({
-                    path: `src/generated-${index + 1}.ts`,
-                    content: `/**\n * Generated for: ${gc.subtask}\n * Agent: ${gc.agent}\n * \n * ${gc.explanation}\n */\n\n${gc.code}`,
-                    type: 'code' as const,
-                }));
+                // Combine all generated code for post-processing
+                const allCode = generatedCode.map(gc => gc.code).join('\n\n');
+
+                // Post-process to extract proper files, fix imports, etc.
+                addStep('finalize', 'Post-processing code for proper file structure...');
+                const processedOutput = await this.codePostProcessor.process(
+                    allCode,
+                    config.project?.name || input.projectId
+                );
+
+                if (processedOutput.warnings.length > 0) {
+                    console.log('[CODE-POSTPROCESSOR] Warnings:', processedOutput.warnings.join(', '));
+                }
+
+                // Prepare files to write (processed files + entry point)
+                const mapFileType = (type?: string): 'code' | 'config' | 'doc' | undefined => {
+                    if (type === 'schema' || type === 'migration') return 'code';
+                    return type as 'code' | 'config' | 'doc' | undefined;
+                };
+
+                const filesToWrite = [
+                    ...processedOutput.files.map(f => ({
+                        path: f.path.startsWith('src/') ? f.path : `src/${f.path}`,
+                        content: f.content,
+                        type: mapFileType(f.type),
+                    })),
+                    {
+                        path: processedOutput.entryPoint.path,
+                        content: processedOutput.entryPoint.content,
+                        type: 'code' as const,
+                    },
+                ];
+
+                addStep('finalize', `Extracted ${processedOutput.stats.totalFiles} files, generated entry point`, {
+                    totalFiles: processedOutput.stats.totalFiles,
+                    fixedImports: processedOutput.stats.fixedImports,
+                    removedJsonBlocks: processedOutput.stats.removedJsonBlocks,
+                });
 
                 fileWriteResult = await this.fileWriter.writeProject(
                     input.projectId,
@@ -534,6 +579,7 @@ export class IntegratedOrchestrator {
                 if (fileWriteResult.success) {
                     addStep('finalize', `Files written to: ${fileWriteResult.projectPath}`, {
                         filesWritten: fileWriteResult.filesWritten,
+                        stats: processedOutput.stats,
                     });
                 } else {
                     errors.push(...fileWriteResult.errors);
@@ -598,7 +644,7 @@ export class IntegratedOrchestrator {
                     // If no valid user, use TEST_USER_ID from environment for development
                     if (!dbUserId && process.env.TEST_USER_ID) {
                         const testUserId = process.env.TEST_USER_ID;
-                        
+
                         // Validate it's a proper UUID
                         if (isValidUUID(testUserId)) {
                             // Check if this user exists in public.users
@@ -607,7 +653,7 @@ export class IntegratedOrchestrator {
                                 .select('id')
                                 .eq('id', testUserId)
                                 .single();
-                            
+
                             if (testUser) {
                                 dbUserId = testUserId;
                                 console.log('[ORCHESTRATOR] Using TEST_USER_ID from environment:', testUserId.substring(0, 8) + '...');
@@ -836,6 +882,9 @@ export class IntegratedOrchestrator {
         contextManager: ContextManagerService;
         agentMonitor: AgentMonitorService;
         mcpHub: MCPHubService;
+        enhancedCodeGenerator: EnhancedCodeGenerator;
+        vectorStore: VectorStoreService;
+        learningService: LearningService;
     } {
         return {
             aiClient: this.aiClient,
@@ -843,6 +892,51 @@ export class IntegratedOrchestrator {
             contextManager: this.contextManager,
             agentMonitor: this.agentMonitor,
             mcpHub: this.mcpHub,
+            enhancedCodeGenerator: this.enhancedCodeGenerator,
+            vectorStore: this.vectorStore,
+            learningService: this.learningService,
+        };
+    }
+
+    /**
+     * Generate a multi-language project using the Enhanced Code Generator
+     * This is a convenience method that wraps the EnhancedCodeGenerator
+     */
+    async generateMultiLangProject(request: {
+        projectName: string;
+        description: string;
+        language: 'typescript' | 'python' | 'go' | 'rust' | 'java';
+        framework?: string;
+        includeTests?: boolean;
+        includeDocker?: boolean;
+        includeAuth?: boolean;
+    }): Promise<{
+        success: boolean;
+        files: Array<{ path: string; content: string; type: string }>;
+        dependencies: string[];
+        errors: string[];
+    }> {
+        console.log(`[INTEGRATED-ORCHESTRATOR] Generating ${request.language} project: ${request.projectName}`);
+
+        const result = await this.enhancedCodeGenerator.generate({
+            projectName: request.projectName,
+            description: request.description,
+            language: request.language,
+            framework: request.framework as any,
+            includeTests: request.includeTests ?? true,
+            includeDocker: request.includeDocker ?? true,
+            includeAuth: request.includeAuth ?? false,
+        });
+
+        return {
+            success: result.success,
+            files: result.files.map(f => ({
+                path: f.path,
+                content: f.content,
+                type: f.type,
+            })),
+            dependencies: result.dependencies,
+            errors: result.errors,
         };
     }
 }

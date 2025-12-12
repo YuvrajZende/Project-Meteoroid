@@ -17,6 +17,7 @@
     "dev": "nodemon",
     "orchestrator": "npx ts-node packages/orchestrator/src/index.ts",
     "orchestrator:dev": "nodemon --watch packages/orchestrator/src --exec 'npx ts-node packages/orchestrator/src/index.ts'",
+    "switch-models": "npx ts-node scripts/switch-models.ts",
     "type-check": "tsc --noEmit",
     "prepare": "husky install",
     "pre-commit": "lint-staged"

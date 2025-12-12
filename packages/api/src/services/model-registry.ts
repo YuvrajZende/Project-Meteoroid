@@ -12,7 +12,7 @@
 // TYPES
 // ============================================
 
-export type ModelProvider = 'openai' | 'anthropic' | 'deepseek' | 'zai' | 'together' | 'openrouter';
+export type ModelProvider = 'openai' | 'anthropic' | 'deepseek' | 'zai' | 'together' | 'openrouter' | 'groq';
 export type ModelTier = 'fast' | 'balanced' | 'powerful';
 export type ModelCapability = 'analysis' | 'code-generation' | 'reasoning' | 'context-preparation';
 
@@ -94,6 +94,12 @@ export const PROVIDER_CONFIGS: Record<ModelProvider, ProviderConfig> = {
             'HTTP-Referer': 'https://lovable-backend.ai',
             'X-Title': 'Lovable Backend Orchestrator',
         },
+    },
+    groq: {
+        name: 'groq',
+        displayName: 'Groq',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKeyEnvVar: 'GROQ_API_KEY',
     },
 };
 
@@ -187,6 +193,67 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
         qualityScore: 70,
         baseUrl: process.env.OPENAI_BASE_URL || 'https://api.z.ai/api/coding/paas/v4',
         apiKeyEnvVar: 'OPENAI_API_KEY',
+    },
+
+    // Groq - ULTRA FAST (Hardware-accelerated LPU inference)
+    'llama-3.3-70b-versatile': {
+        id: 'llama-3.3-70b-versatile',
+        name: 'Llama 3.3 70B Versatile (Groq)',
+        provider: 'groq',
+        tier: 'fast',
+        capabilities: ['analysis', 'context-preparation', 'reasoning'],
+        pricing: {
+            inputPerMillion: 0.59,
+            outputPerMillion: 0.79,
+        },
+        maxContextTokens: 128000,
+        maxOutputTokens: 32768,
+        supportsStreaming: true,
+        supportsJsonMode: true,
+        avgLatencyMs: 200, // Ultra-fast due to LPU
+        qualityScore: 88,
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKeyEnvVar: 'GROQ_API_KEY',
+    },
+
+    'llama-3.1-8b-instant': {
+        id: 'llama-3.1-8b-instant',
+        name: 'Llama 3.1 8B Instant (Groq)',
+        provider: 'groq',
+        tier: 'fast',
+        capabilities: ['analysis', 'context-preparation'],
+        pricing: {
+            inputPerMillion: 0.05,
+            outputPerMillion: 0.08,
+        },
+        maxContextTokens: 128000,
+        maxOutputTokens: 8192,
+        supportsStreaming: true,
+        supportsJsonMode: true,
+        avgLatencyMs: 100, // Ultra-fast
+        qualityScore: 75,
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKeyEnvVar: 'GROQ_API_KEY',
+    },
+
+    'mixtral-8x7b-32768': {
+        id: 'mixtral-8x7b-32768',
+        name: 'Mixtral 8x7B (Groq)',
+        provider: 'groq',
+        tier: 'fast',
+        capabilities: ['analysis', 'context-preparation', 'reasoning'],
+        pricing: {
+            inputPerMillion: 0.24,
+            outputPerMillion: 0.24,
+        },
+        maxContextTokens: 32768,
+        maxOutputTokens: 32768,
+        supportsStreaming: true,
+        supportsJsonMode: true,
+        avgLatencyMs: 150,
+        qualityScore: 82,
+        baseUrl: 'https://api.groq.com/openai/v1',
+        apiKeyEnvVar: 'GROQ_API_KEY',
     },
 
     // ============================================
@@ -363,11 +430,42 @@ export function estimateCost(
  * Returns [fastModel, powerfulModel]
  */
 export function getRecommendedModelPair(): [ModelConfig, ModelConfig] {
-    // Recommended: DeepSeek V3 via OpenRouter (FAST) + GLM-4.6 via Z.AI (POWER)
-    const fastModel = MODEL_REGISTRY['deepseek/deepseek-chat'] || MODEL_REGISTRY['gpt-4o-mini'];
-    const powerfulModel = MODEL_REGISTRY['glm-4.6'] || MODEL_REGISTRY['deepseek/deepseek-chat'];
+    // Priority order for FAST models: Groq > DeepSeek > GPT-4o-mini
+    const fastModel = MODEL_REGISTRY['llama-3.3-70b-versatile']
+        || MODEL_REGISTRY['deepseek/deepseek-chat']
+        || MODEL_REGISTRY['gpt-4o-mini'];
+
+    // Priority order for POWER models: GLM-4.6 > DeepSeek > Claude
+    const powerfulModel = MODEL_REGISTRY['glm-4.6']
+        || MODEL_REGISTRY['deepseek-chat']
+        || MODEL_REGISTRY['claude-3-5-sonnet-20241022'];
 
     return [fastModel, powerfulModel];
+}
+
+/**
+ * Get model pair based on environment configuration
+ * Reads from FAST_MODEL_PROVIDER/FAST_MODEL_NAME and POWER_MODEL_PROVIDER/POWER_MODEL_NAME
+ */
+export function getConfiguredModelPair(): [ModelConfig, ModelConfig] {
+    const fastModelName = process.env.FAST_MODEL_NAME || 'llama-3.3-70b-versatile';
+    const powerModelName = process.env.POWER_MODEL_NAME || 'glm-4.6';
+
+    const fastModel = MODEL_REGISTRY[fastModelName] || getRecommendedModelPair()[0];
+    const powerfulModel = MODEL_REGISTRY[powerModelName] || getRecommendedModelPair()[1];
+
+    return [fastModel, powerfulModel];
+}
+
+/**
+ * List all available models for CLI selection
+ */
+export function listAllModels(): { fast: ModelConfig[]; balanced: ModelConfig[]; powerful: ModelConfig[] } {
+    return {
+        fast: Object.values(MODEL_REGISTRY).filter(m => m.tier === 'fast'),
+        balanced: Object.values(MODEL_REGISTRY).filter(m => m.tier === 'balanced'),
+        powerful: Object.values(MODEL_REGISTRY).filter(m => m.tier === 'powerful'),
+    };
 }
 
 /**

@@ -26,3 +26,17 @@ export {
     type AuditEntry,
     type AuditLoggerConfig,
 } from './audit-logger.js';
+
+// Phase 14: Constraint Injection
+export {
+    injectConstraints,
+    getAgentPromptAddition,
+    createCodeGenPrompt,
+    validateGeneratedCode,
+    getConstraintConfig,
+    BASE_SYSTEM_PROMPT,
+    AGENT_SPECIFIC_PROMPTS,
+    DO_NOT_SUGGEST_BLOCK,
+    type PromptContext,
+    type EnhancedPrompt,
+} from './constraint-injection.js';
