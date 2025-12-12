@@ -1,0 +1,51 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Agent Configuration",
+    "description": "Optional configuration file for agents",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Unique agent identifier (kebab-case)",
+            "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "name": {
+            "type": "string",
+            "description": "Human-readable agent name"
+        },
+        "tier": {
+            "type": "integer",
+            "enum": [
+                1,
+                2,
+                3
+            ],
+            "description": "Agent tier: 1=Core, 2=Specialized, 3=Support"
+        },
+        "capabilities": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "List of capabilities this agent provides"
+        },
+        "settings": {
+            "type": "object",
+            "description": "Custom agent-specific settings",
+            "additionalProperties": true
+        },
+        "dependencies": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Other agents this agent depends on"
+        }
+    },
+    "required": [
+        "id",
+        "name",
+        "tier",
+        "capabilities"
+    ]
+}
