@@ -114,20 +114,7 @@ export class DeploymentService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[DEPLOY] Initializing deployment service...');
-
-        const providers: string[] = [];
-        if (this.config.netlifyToken) providers.push('Netlify');
-        if (this.config.vercelToken) providers.push('Vercel');
-
-        if (providers.length === 0) {
-            console.warn('[DEPLOY] No deployment providers configured');
-        } else {
-            console.log(`[DEPLOY] Configured providers: ${providers.join(', ')}`);
-        }
-
         this.initialized = true;
-        console.log('[DEPLOY] Deployment service initialized');
     }
 
     /**

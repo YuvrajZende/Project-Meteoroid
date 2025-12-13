@@ -101,8 +101,6 @@ export class DatabaseAgentWrapper implements IAgent {
      * Called once when the orchestrator loads the agent
      */
     async initialize(config: AgentConfig): Promise<void> {
-        console.log(`🗄️ [${this.name}] Initializing...`);
-
         // Inject AI client if provided
         if (config.customSettings?.aiClient) {
             this.agent.setAIClient(config.customSettings.aiClient);
@@ -120,10 +118,6 @@ export class DatabaseAgentWrapper implements IAgent {
 
         this.isInitialized = true;
         this.initializationTime = new Date();
-
-        console.log(`✅ [${this.name}] Initialized successfully`);
-        console.log(`   Capabilities: ${this.capabilities.length}`);
-        console.log(`   Version: ${this.version}`);
     }
 
     /**

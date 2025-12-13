@@ -77,12 +77,7 @@ export class AIClient {
         };
 
         if (!this.config.apiKey) {
-            console.warn('[AI-CLIENT] ⚠️ No API key configured - some features may not work');
-            console.warn('[AI-CLIENT] Set one of: OPENAI_API_KEY, OPENROUTER_API_KEY, or DEEPSEEK_API_KEY');
-        } else {
-            console.log('[AI-CLIENT] Initialized');
-            console.log(`[AI-CLIENT] Base URL: ${this.config.baseUrl}`);
-            console.log(`[AI-CLIENT] Model: ${this.config.model}`);
+            // API key not configured - will throw on actual API call
         }
     }
 
@@ -163,10 +158,6 @@ export class AIClient {
             stream: false,
         };
 
-        console.log(`[AI-CLIENT] Sending request to ${url}`);
-        console.log(`[AI-CLIENT] Model: ${this.config.model}`);
-        console.log(`[AI-CLIENT] Messages: ${messages.length}`);
-
         const startTime = Date.now();
 
         // Create abort controller for timeout
@@ -192,11 +183,6 @@ export class AIClient {
             }
 
             const data = await response.json() as ChatCompletionResponse;
-            const duration = Date.now() - startTime;
-
-            console.log(`[AI-CLIENT] Response received in ${duration}ms`);
-            console.log(`[AI-CLIENT] Tokens used: ${data.usage?.total_tokens || 'unknown'}`);
-
             const content = data.choices[0]?.message?.content || '';
             return content;
 

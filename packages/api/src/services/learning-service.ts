@@ -160,11 +160,6 @@ export class LearningService {
         };
 
         this.vectorStore = getVectorStore();
-
-        console.log('[LEARNING] Service created:', {
-            enabled: this.config.enabled,
-            threshold: this.config.relevanceThreshold,
-        });
     }
 
     /**
@@ -173,14 +168,12 @@ export class LearningService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[LEARNING] Initializing...');
         await this.vectorStore.initialize();
 
         // Load existing patterns from database
         await this.loadPatterns();
 
         this.initialized = true;
-        console.log('[LEARNING] Initialized with', this.memoryPatterns.length, 'patterns');
     }
 
     // ============================================

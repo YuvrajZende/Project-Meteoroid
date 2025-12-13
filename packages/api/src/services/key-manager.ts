@@ -113,11 +113,6 @@ export class KeyManager extends EventEmitter {
             zaiKeys.unshift(process.env.ZAI_API_KEY);
         }
         this.registerKeys('zai', zaiKeys);
-
-        console.log('[KEY-MANAGER] Initialized:');
-        console.log(`   OpenAI: ${this.keys.get('openai')?.length || 0} keys`);
-        console.log(`   Anthropic: ${this.keys.get('anthropic')?.length || 0} keys`);
-        console.log(`   Z.AI: ${this.keys.get('zai')?.length || 0} keys`);
     }
 
     /**
@@ -212,7 +207,6 @@ export class KeyManager extends EventEmitter {
         keyMeta.lastError = 'Rate limited (429)';
 
         this.emit('rateLimited', { provider, key: this.maskKey(key) });
-        console.warn(`[KEY-MANAGER] Key ${this.maskKey(key)} rate limited. Blacklisted for ${this.config.blacklistDuration / 1000}s`);
     }
 
     /**
@@ -289,7 +283,6 @@ export class KeyManager extends EventEmitter {
                 }
 
                 // Continue to next attempt with different key
-                console.log(`[KEY-MANAGER] Retrying with different key (attempt ${attempt + 2}/${this.config.maxRetries})`);
             }
         }
 
@@ -384,8 +377,6 @@ export class KeyManager extends EventEmitter {
             key.blacklistedUntil = null;
             key.status = 'active';
         }
-
-        console.log(`[KEY-MANAGER] Refreshed all keys for ${provider}`);
     }
 }
 

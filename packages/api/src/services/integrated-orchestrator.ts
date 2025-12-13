@@ -176,13 +176,6 @@ export class IntegratedOrchestrator {
     async initialize(): Promise<void> {
         if (this.isInitialized) return;
 
-        console.log('[INTEGRATED-ORCHESTRATOR] Initializing...');
-        console.log(`[INTEGRATED-ORCHESTRATOR] AI Thinking: ${this.config.useAIThinking ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`[INTEGRATED-ORCHESTRATOR] Context Manager: ${this.config.useContextManager ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`[INTEGRATED-ORCHESTRATOR] Agent Monitor: ${this.config.useAgentMonitor ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`[INTEGRATED-ORCHESTRATOR] MCP Hub: ${this.config.useMCPHub ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`[INTEGRATED-ORCHESTRATOR] File Writer: ${this.config.useFileWriter ? 'ENABLED' : 'DISABLED'}`);
-
         // Register known agents with the monitor
         const knownAgents = ['auth-agent', 'security-agent', 'api-agent', 'database-agent', 'monitoring-agent'];
         for (const agent of knownAgents) {
@@ -190,7 +183,6 @@ export class IntegratedOrchestrator {
         }
 
         this.isInitialized = true;
-        console.log('[INTEGRATED-ORCHESTRATOR] Initialization complete');
     }
 
     /**
@@ -219,10 +211,6 @@ export class IntegratedOrchestrator {
         // Clear previous thinking traces
         this.thinkingEngine.clearTraces();
 
-        console.log(`\n${'='.repeat(70)}`);
-        console.log(`  INTEGRATED ORCHESTRATION - Task: ${input.taskId}`);
-        console.log(`${'='.repeat(70)}\n`);
-
         const addStep = (
             phase: OrchestrationStep['phase'],
             message: string,
@@ -238,7 +226,6 @@ export class IntegratedOrchestrator {
                 agent,
             };
             steps.push(step);
-            console.log(`[STEP ${step.stepNumber}] [${phase.toUpperCase()}] ${message}`);
             onProgress?.(step);
             return step;
         };

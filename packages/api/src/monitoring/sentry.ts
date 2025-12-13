@@ -34,7 +34,6 @@ export function initSentry(config: SentryConfig = {}): void {
     const dsn = config.dsn || process.env.SENTRY_DSN;
 
     if (!dsn) {
-        console.log('[SENTRY] DSN not configured, error tracking disabled');
         return;
     }
 
@@ -52,8 +51,6 @@ export function initSentry(config: SentryConfig = {}): void {
     //     new Sentry.Integrations.Http({ tracing: true }),
     //   ],
     // });
-
-    console.log(`[SENTRY] Initialized: ${environment} (${release})`);
 }
 
 /**

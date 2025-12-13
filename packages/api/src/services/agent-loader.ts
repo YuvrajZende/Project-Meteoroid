@@ -23,16 +23,9 @@ interface AgentLoadResult {
  * Agent loader configuration
  */
 interface AgentLoaderConfig {
-    /** Base directory for agents (default: 'agents') */
     agentsDir?: string;
-
-    /** Whether to auto-initialize agents after loading */
     autoInitialize?: boolean;
-
-    /** Model name to use for initialization */
     modelName?: string;
-
-    /** Enable verbose logging */
     verbose?: boolean;
 }
 
@@ -65,18 +58,13 @@ export class AgentLoader {
 
         const agentsPath = resolve(process.cwd(), this.config.agentsDir);
 
-        console.log('[AGENT-LOADER] Scanning for agents...');
-        this.log(`Base directory: ${agentsPath}`);
-
         try {
-            // Check if agents directory exists
             await stat(agentsPath);
         } catch {
-            console.log('[AGENT-LOADER] Agents directory not found. Creating structure...');
             return result;
         }
 
-        // Scan tier directories (core, specialized, support)
+        // Scan tier directories
         const tierDirs = ['core', 'specialized', 'support'];
 
         for (const tierDir of tierDirs) {
@@ -85,15 +73,12 @@ export class AgentLoader {
             try {
                 await stat(tierPath);
             } catch {
-                this.log(`Tier directory not found: ${tierDir}`);
                 continue;
             }
 
-            // Scan agent directories within each tier
             const agentDirs = await readdir(tierPath);
 
             for (const agentDir of agentDirs) {
-                // Skip template directory
                 if (agentDir.startsWith('_')) {
                     result.skipped.push(join(tierDir, agentDir));
                     continue;
@@ -104,16 +89,13 @@ export class AgentLoader {
 
                 if (!agentStat.isDirectory()) continue;
 
-                // Look for index.ts or index.js
                 const indexFile = await this.findIndexFile(agentPath);
 
                 if (!indexFile) {
                     result.skipped.push(join(tierDir, agentDir));
-                    this.log(`No index file found in: ${agentDir}`);
                     continue;
                 }
 
-                // Try to load the agent
                 try {
                     const agent = await this.loadAgent(indexFile);
 
@@ -129,29 +111,15 @@ export class AgentLoader {
                         path: join(tierDir, agentDir),
                         error: errorMessage,
                     });
-                    console.error(`[AGENT-LOADER] Failed to load agent from ${agentDir}: ${errorMessage}`);
                 }
             }
         }
 
-        // Print summary
-        console.log('');
-        console.log('');
-        console.log('[AGENT-LOADER] Agent Loading Summary:');
-        console.log(`   Loaded: ${result.loaded.length}`);
-        console.log(`   Failed: ${result.failed.length}`);
-        console.log(`   Skipped: ${result.skipped.length}`);
-        console.log('');
-
-        // Auto-initialize if configured
+        // Auto-initialize if configured (silently)
         if (this.config.autoInitialize && result.loaded.length > 0) {
-            console.log('[AGENT-LOADER] Initializing agents...');
-            const initResult = await this.registry.initializeAll({
+            await this.registry.initializeAll({
                 modelName: this.config.modelName,
             });
-
-            console.log(`   Initialized: ${initResult.success.length}`);
-            console.log(`   Failed: ${initResult.failed.length}`);
         }
 
         return result;
@@ -169,7 +137,7 @@ export class AgentLoader {
                 await stat(filePath);
                 return filePath;
             } catch {
-                // File doesn't exist, try next
+                // File doesn't exist
             }
         }
 
@@ -180,15 +148,9 @@ export class AgentLoader {
      * Load an agent from a file
      */
     private async loadAgent(filePath: string): Promise<IAgent | null> {
-        this.log(`Loading agent from: ${filePath}`);
-
-        // Convert path to file URL for ESM import
         const fileUrl = pathToFileURL(filePath).href;
-
-        // Dynamic import
         const module = await import(fileUrl);
 
-        // Look for default export or a class that implements IAgent
         let agent: IAgent | null = null;
 
         // Check default export
@@ -196,14 +158,13 @@ export class AgentLoader {
             if (isValidAgent(module.default)) {
                 agent = module.default;
             } else if (typeof module.default === 'function') {
-                // It might be a class, try to instantiate
                 try {
                     const instance = new module.default();
                     if (isValidAgent(instance)) {
                         agent = instance;
                     }
                 } catch {
-                    this.log('Default export is not a valid agent class');
+                    // Not a valid class
                 }
             }
         }
@@ -226,15 +187,10 @@ export class AgentLoader {
                             break;
                         }
                     } catch {
-                        // Not a valid agent class
+                        // Not a valid class
                     }
                 }
             }
-        }
-
-        if (!agent) {
-            this.log(`No valid IAgent implementation found in: ${filePath}`);
-            return null;
         }
 
         return agent;
@@ -244,13 +200,8 @@ export class AgentLoader {
      * Reload all agents
      */
     public async reloadAll(): Promise<AgentLoadResult> {
-        console.log('🔄 Reloading all agents...');
-
-        // Shutdown and clear existing agents
         await this.registry.shutdownAll();
         this.registry.clear();
-
-        // Load again
         return this.loadAllAgents();
     }
 
@@ -259,15 +210,6 @@ export class AgentLoader {
      */
     public getRegistry(): AgentRegistry {
         return this.registry;
-    }
-
-    /**
-     * Conditional logging based on verbose setting
-     */
-    private log(message: string): void {
-        if (this.config.verbose) {
-            console.log(`  [AgentLoader] ${message}`);
-        }
     }
 }
 

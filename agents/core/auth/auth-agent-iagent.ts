@@ -44,9 +44,7 @@ export class AuthAgentWrapper implements IAgent {
      * Initialize the agent
      */
     async initialize(_config: AgentConfig): Promise<void> {
-        console.log(`🔐 [${this.name}] Initializing...`);
         this.isInitialized = true;
-        console.log(`✅ [${this.name}] Initialized`);
     }
 
     /**

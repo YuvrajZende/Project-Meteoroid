@@ -514,8 +514,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
             });
         }
     });
-
-    console.log('[ROUTES] Deployment routes registered: /api/v1/projects/:id/deploy, deployments, preview, rollback');
+    app.log.info('[ROUTES] Deployment routes registered: /api/v1/projects/:id/deploy, deployments, preview, rollback');
 }
 
 // ============================================
@@ -706,8 +705,7 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
             });
         }
     });
-
-    console.log('[ROUTES] GitHub routes registered: /api/v1/github/auth, callback, repos, commit');
+    app.log.info('[ROUTES] GitHub routes registered: /api/v1/github/auth, callback, repos, commit');
 }
 
 export default {

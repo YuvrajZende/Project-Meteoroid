@@ -29,11 +29,10 @@ export class AgentRegistry {
     }
 
     /**
-     * Register an agent with the registry
+     * Register an agent with the registry (silent)
      */
     public register(agent: IAgent, path: string): void {
         if (this.agents.has(agent.id)) {
-            console.warn(`⚠️ Agent "${agent.id}" already registered. Skipping.`);
             return;
         }
 
@@ -49,8 +48,6 @@ export class AgentRegistry {
             loadedAt: new Date(),
             status: 'uninitialized',
         });
-
-        console.log(`[AGENT-REGISTRY] Registered: ${agent.name} (${agent.id})`);
     }
 
     /**
@@ -71,17 +68,14 @@ export class AgentRegistry {
 
     /**
      * Get agents by capability
-     * Returns all agents that have the specified capability
      */
     public getByCapability(capability: string): IAgent[] {
         const result: IAgent[] = [];
-
         for (const agent of this.agents.values()) {
             if (agent.capabilities.includes(capability)) {
                 result.push(agent);
             }
         }
-
         return result;
     }
 
@@ -90,13 +84,11 @@ export class AgentRegistry {
      */
     public getByTier(tier: 1 | 2 | 3): IAgent[] {
         const result: IAgent[] = [];
-
         for (const agent of this.agents.values()) {
             if (agent.tier === tier) {
                 result.push(agent);
             }
         }
-
         return result;
     }
 
@@ -151,18 +143,16 @@ export class AgentRegistry {
      */
     public getAllCapabilities(): string[] {
         const capabilities = new Set<string>();
-
         for (const agent of this.agents.values()) {
             for (const cap of agent.capabilities) {
                 capabilities.add(cap);
             }
         }
-
         return Array.from(capabilities);
     }
 
     /**
-     * Initialize all registered agents
+     * Initialize all registered agents (silent)
      */
     public async initializeAll(config: { modelName?: string } = {}): Promise<{
         success: string[];
@@ -176,11 +166,9 @@ export class AgentRegistry {
                 await agent.initialize(config);
                 this.updateStatus(id, 'healthy');
                 success.push(id);
-                console.log(`[AGENT-REGISTRY] Initialized: ${agent.name}`);
-            } catch (error) {
+            } catch {
                 this.updateStatus(id, 'unhealthy');
                 failed.push(id);
-                console.error(`[AGENT-REGISTRY] Failed to initialize ${id}:`, error);
             }
         }
 
@@ -211,23 +199,22 @@ export class AgentRegistry {
     }
 
     /**
-     * Shutdown all agents
+     * Shutdown all agents (silent)
      */
     public async shutdownAll(): Promise<void> {
         for (const agent of this.agents.values()) {
             try {
                 if (agent.shutdown) {
                     await agent.shutdown();
-                    console.log(`🔄 Shutdown agent: ${agent.name}`);
                 }
-            } catch (error) {
-                console.error(`❌ Failed to shutdown agent ${agent.id}:`, error);
+            } catch {
+                // Silent shutdown
             }
         }
     }
 
     /**
-     * Clear all registered agents (for testing)
+     * Clear all registered agents
      */
     public clear(): void {
         this.agents.clear();
@@ -235,7 +222,7 @@ export class AgentRegistry {
     }
 
     /**
-     * Get summary of all agents for logging
+     * Get summary of all agents
      */
     public getSummary(): {
         total: number;

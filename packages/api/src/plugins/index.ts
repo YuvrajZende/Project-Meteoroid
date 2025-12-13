@@ -9,6 +9,7 @@ import { registerHelmet } from './helmet.js';
 import { registerRateLimit } from './rate-limit.js';
 import { registerSwagger } from './swagger.js';
 import { registerSensible } from './sensible.js';
+import { registerCSRF } from './csrf.js';
 
 /**
  * Register all plugins to the Fastify instance
@@ -26,7 +27,10 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
     await registerCors(app);
     await registerRateLimit(app);
 
-    // 3. Documentation (after security so routes are available)
+    // 3. CSRF Protection (after cookie support, before routes)
+    await registerCSRF(app);
+
+    // 4. Documentation (after security so routes are available)
     await registerSwagger(app);
 
     app.log.info('[PLUGINS] All plugins registered successfully');
@@ -38,4 +42,6 @@ export {
     registerRateLimit,
     registerSwagger,
     registerSensible,
+    registerCSRF,
 };
+

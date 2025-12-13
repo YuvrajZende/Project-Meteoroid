@@ -86,7 +86,7 @@ export class CodeGenService {
     private initialized = false;
 
     constructor() {
-        console.log('[CODEGEN-SERVICE] Created');
+        // Service created
     }
 
     /**
@@ -96,15 +96,11 @@ export class CodeGenService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[CODEGEN-SERVICE] Initializing...');
-
         try {
             // Check if the agents module is available
             // We'll use dynamic imports to handle the case where it's not built yet
             this.initialized = true;
-            console.log('[CODEGEN-SERVICE] Initialized successfully');
-        } catch (error) {
-            console.warn('[CODEGEN-SERVICE] Failed to initialize:', error);
+        } catch {
             // Service can still work in degraded mode
             this.initialized = true;
         }

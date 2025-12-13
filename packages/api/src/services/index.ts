@@ -379,3 +379,53 @@ export {
     type LearnedPattern,
     type PreContext,
 } from './learning-service.js';
+
+// ============================================
+// PHASE 19: SECURITY HARDENING
+// ============================================
+
+// Password Service (19.1 - Argon2id hashing)
+export {
+    PasswordService,
+    getPasswordService,
+    resetPasswordService,
+    type PasswordHashConfig,
+    type PasswordRequirements,
+    type PasswordValidationResult,
+    type PasswordVerifyResult,
+} from './password-service.js';
+
+// Encryption Service (19.2 - AES-256-GCM)
+export {
+    EncryptionService,
+    getEncryptionService,
+    resetEncryptionService,
+    encrypt,
+    decrypt,
+    generateSecureToken,
+    type EncryptionConfig,
+    type EncryptedData,
+    type KeyInfo,
+} from './encryption-service.js';
+
+// JWT Service (19.3 - Token management)
+export {
+    JWTService,
+    getJWTService,
+    resetJWTService,
+    type JWTConfig,
+    type JWTPayload,
+    type TokenPair,
+    type TokenVerifyResult,
+    type RefreshTokenData,
+} from './jwt-service.js';
+
+// OAuth State Service (19.4 - CSRF for OAuth)
+export {
+    OAuthStateService,
+    getOAuthStateService,
+    resetOAuthStateService,
+    type OAuthStateConfig,
+    type StoredState,
+    type StateValidationResult,
+} from './oauth-state-service.js';

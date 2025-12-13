@@ -177,14 +177,10 @@ export class PreviewService extends EventEmitter {
             collaborationEnabled: config?.collaborationEnabled ?? (process.env.COLLABORATION_ENABLED !== 'false'),
             sandboxPolicy: config?.sandboxPolicy || process.env.PREVIEW_SANDBOX_POLICY || DEFAULT_SANDBOX_POLICY,
         };
-
-        console.log('[PREVIEW] PreviewService initialized');
     }
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
-
-        console.log('[PREVIEW] Starting preview service...');
 
         // Start cleanup interval (every 5 minutes)
         this.cleanupInterval = setInterval(() => {
@@ -192,7 +188,6 @@ export class PreviewService extends EventEmitter {
         }, 5 * 60 * 1000);
 
         this.initialized = true;
-        console.log('[PREVIEW] Preview service ready');
     }
 
     // ============================================

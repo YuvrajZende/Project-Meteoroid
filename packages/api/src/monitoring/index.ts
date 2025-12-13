@@ -8,7 +8,7 @@ export {
     createRequestLogger,
     getLogger,
     setLogger,
-    LOG_EMOJIS,
+    LOG_LABELS,
     type LogLevel,
     type LoggerConfig,
 } from './logger.js';

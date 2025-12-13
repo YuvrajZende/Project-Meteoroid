@@ -89,12 +89,6 @@ export class VectorStoreService {
             chunkOverlap: config?.chunkOverlap || 200,
             similarityThreshold: config?.similarityThreshold || 0.7,
         };
-
-        console.log('[VECTOR-STORE] Created with config:', {
-            model: this.config.embeddingModel,
-            dimensions: this.config.dimensions,
-            chunkSize: this.config.chunkSize,
-        });
     }
 
     /**
@@ -103,30 +97,21 @@ export class VectorStoreService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[VECTOR-STORE] Initializing...');
-
         try {
             const supabase = getSupabaseAdmin();
             if (!supabase) {
-                console.warn('[VECTOR-STORE] Supabase not available, running in memory-only mode');
                 this.initialized = true;
                 return;
             }
 
             // Check if the code_embeddings table exists
-            const { error } = await supabase
+            await supabase
                 .from('code_embeddings')
                 .select('id')
                 .limit(1);
 
-            if (error && error.code === '42P01') {
-                console.warn('[VECTOR-STORE] code_embeddings table not found. Run the migration first.');
-            }
-
             this.initialized = true;
-            console.log('[VECTOR-STORE] Initialized successfully');
-        } catch (error) {
-            console.warn('[VECTOR-STORE] Initialization warning:', error);
+        } catch {
             this.initialized = true; // Continue in memory-only mode
         }
     }
@@ -150,7 +135,6 @@ export class VectorStoreService {
 
             if (!apiKey) {
                 // Return mock embedding for development
-                console.warn('[VECTOR-STORE] No OpenAI key, generating mock embedding');
                 return this.generateMockEmbedding();
             }
 

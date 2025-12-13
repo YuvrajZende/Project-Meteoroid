@@ -40,3 +40,22 @@ export {
     type PromptContext,
     type EnhancedPrompt,
 } from './constraint-injection.js';
+
+// Phase 19: Security Hardening - Auth Middleware
+export {
+    authenticate,
+    requireAuth,
+    optionalAuth,
+    requireAdmin,
+    requireRole,
+    requireScope,
+    requireRefreshToken,
+    registerAuthMiddleware,
+    getAuthUser,
+    hasRole,
+    hasAnyRole,
+    type AuthenticatedUser,
+    type APIKeyValidation,
+    type AuthOptions,
+} from './auth-middleware.js';
+

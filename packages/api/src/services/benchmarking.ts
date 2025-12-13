@@ -122,7 +122,6 @@ export class BenchmarkingService {
         this.supabaseEnabled = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
         if (this.supabaseEnabled) {
-            console.log('[BENCHMARKING] Supabase persistence enabled');
             // Flush pending records every 30 seconds
             this.flushInterval = setInterval(() => this.flushPendingRecords(), 30000);
         }

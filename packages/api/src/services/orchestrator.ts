@@ -91,27 +91,13 @@ export class OrchestratorService {
     async initialize(): Promise<void> {
         if (this.isInitialized) return;
 
-        // Check for API key (warn but don't crash)
-        const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEYS?.split(',')[0];
-        const hasValidKey = apiKey && apiKey !== 'your_key_here' && apiKey.length > 10;
-
-        console.log('[ORCHESTRATOR] Initializing Orchestrator Service...');
-        console.log(`   Model: ${this.config.modelName}`);
-        console.log(`   Thinking: ${this.config.thinkingEnabled ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`   Monitoring: ${this.config.monitoringEnabled ? 'ENABLED' : 'DISABLED'}`);
-
-        if (!hasValidKey) {
-            console.log('[ORCHESTRATOR] No AI API key configured - running in DEMO mode');
-            console.log('[ORCHESTRATOR] Set OPENAI_API_KEY in .env for full functionality');
-        } else {
-            console.log('[ORCHESTRATOR] AI API key configured');
-        }
+        // Check for API key (configuration status is reported in the main logger)
+        // Validation happens silently - no need to log during startup
 
         // TODO: Import and initialize the actual LangGraph orchestrator
         // const { graph } = await import('@loveable/orchestrator');
 
         this.isInitialized = true;
-        console.log('[ORCHESTRATOR] Service initialized');
     }
 
     /**
@@ -129,9 +115,6 @@ export class OrchestratorService {
         const agentsExecuted: string[] = [];
         const generatedFiles: ExecutionResult['generatedFiles'] = [];
         let stepCount = 0;
-
-        console.log(`\n[ORCHESTRATOR] Starting orchestration for task: ${context.taskId}`);
-        console.log(`[ORCHESTRATOR] Prompt: "${context.prompt.substring(0, 50)}..."`);
 
         try {
             // Report initial progress

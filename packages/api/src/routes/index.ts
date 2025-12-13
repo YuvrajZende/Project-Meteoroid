@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { registerHealthRoutes } from './health.js';
 import { registerAgentRoutes } from './agents.js';
 import { registerAuthRoutes } from './auth.js';
+import { registerSecureAuthRoutes } from './secure-auth.js';
 import { registerTaskRoutes } from './tasks.js';
 import { registerProjectRoutes } from './projects.js';
 import { registerWebhookRoutes } from './webhooks.js';
@@ -45,8 +46,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // SSE routes for real-time updates
     await registerSSERoutes(app);
 
-    // Authentication routes
+    // Authentication routes (original)
     await registerAuthRoutes(app);
+
+    // Phase 19: Secure Authentication routes (security hardening)
+    await registerSecureAuthRoutes(app);
 
     // Task management routes
     await registerTaskRoutes(app);
@@ -84,6 +88,7 @@ export {
     registerHealthRoutes,
     registerAgentRoutes,
     registerAuthRoutes,
+    registerSecureAuthRoutes,
     registerTaskRoutes,
     registerProjectRoutes,
     registerWebhookRoutes,
@@ -99,3 +104,4 @@ export {
     enhancedCodegenRoutes,
     vectorLearningRoutes,
 };
+

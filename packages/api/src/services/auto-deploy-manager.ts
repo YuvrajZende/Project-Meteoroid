@@ -98,10 +98,6 @@ export class AutoDeployManager extends EventEmitter {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[AUTO-DEPLOY] Initializing auto-deploy manager...');
-        console.log(`[AUTO-DEPLOY] Enabled: ${this.config.enabled}`);
-        console.log(`[AUTO-DEPLOY] Provider: ${this.config.provider}`);
-
         // Check Supabase configuration
         this.supabaseEnabled = !!(
             process.env.SUPABASE_URL &&
@@ -109,7 +105,6 @@ export class AutoDeployManager extends EventEmitter {
         );
 
         if (this.supabaseEnabled) {
-            console.log('[AUTO-DEPLOY] Database persistence enabled');
             // Flush pending records every 30 seconds
             this.flushInterval = setInterval(
                 () => this.flushPendingRecords(),
@@ -118,7 +113,6 @@ export class AutoDeployManager extends EventEmitter {
         }
 
         this.initialized = true;
-        console.log('[AUTO-DEPLOY] Auto-deploy manager initialized');
     }
 
     /**

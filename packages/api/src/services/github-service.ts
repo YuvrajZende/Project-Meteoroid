@@ -88,14 +88,7 @@ export class GitHubService {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('[GITHUB] Initializing GitHub service...');
-
-        if (!this.config.clientId || !this.config.clientSecret) {
-            console.warn('[GITHUB] GitHub OAuth not configured - some features will be disabled');
-        }
-
         this.initialized = true;
-        console.log('[GITHUB] GitHub service initialized');
     }
 
     /**
