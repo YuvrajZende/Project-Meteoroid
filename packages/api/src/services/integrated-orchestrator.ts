@@ -37,6 +37,9 @@ import { getCodePostProcessor, type CodePostProcessor } from './code-postprocess
 import { getEnhancedCodeGenerator, type EnhancedCodeGenerator } from './enhanced-code-generator.js';
 import { getVectorStore, type VectorStoreService } from './vector-store.js';
 import { getLearningService, type LearningService } from './learning-service.js';
+import { getQualityAssessment, type QualityAssessmentService } from './quality-assessment.js';
+import { getArchitectureKnowledge, type ArchitectureKnowledgeService } from './architecture-knowledge.js';
+
 
 
 // ============================================
@@ -54,6 +57,10 @@ export interface IntegratedOrchestratorConfig {
     useMCPHub: boolean;
     /** Enable file writing to disk */
     useFileWriter: boolean;
+    /** Enable multi-model pipeline (Phase 13) */
+    useMultiModel: boolean;
+    /** Enable quality assessment (Phase 21) */
+    useQualityAssessment: boolean;
     /** Maximum subtasks to process */
     maxSubtasks: number;
     /** Project details */
@@ -70,11 +77,18 @@ export interface OrchestrationInput {
     projectId: string;
     prompt: string;
     config?: Partial<IntegratedOrchestratorConfig>;
+    /** Context for code generation */
+    context?: {
+        language?: string;
+        framework?: string;
+        techStack?: string[];
+        existingCode?: string;
+    };
 }
 
 export interface OrchestrationStep {
     stepNumber: number;
-    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'enhanced-codegen' | 'cost-tracking' | 'finalize';
+    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'enhanced-codegen' | 'cost-tracking' | 'learning' | 'quality' | 'architecture' | 'finalize';
     agent?: string;
     message: string;
     timestamp: Date;
@@ -142,9 +156,11 @@ export class IntegratedOrchestrator {
     private enhancedCodeGenerator: EnhancedCodeGenerator;
     private vectorStore: VectorStoreService;
     private learningService: LearningService;
+    private qualityAssessment: QualityAssessmentService;
+    private architectureKnowledge: ArchitectureKnowledgeService;
     private isInitialized = false;
 
-    constructor(config?: Partial<IntegratedOrchestratorConfig & { useMultiModel: boolean }>) {
+    constructor(config?: Partial<IntegratedOrchestratorConfig>) {
         this.config = {
             useAIThinking: config?.useAIThinking ?? true,
             useContextManager: config?.useContextManager ?? true,
@@ -152,6 +168,7 @@ export class IntegratedOrchestrator {
             useMCPHub: config?.useMCPHub ?? true,
             useFileWriter: config?.useFileWriter ?? true,
             useMultiModel: config?.useMultiModel ?? true, // Enable multi-model by default!
+            useQualityAssessment: config?.useQualityAssessment ?? true, // Enable quality check by default
             maxSubtasks: config?.maxSubtasks ?? 3,
             project: config?.project,
         };
@@ -168,6 +185,8 @@ export class IntegratedOrchestrator {
         this.enhancedCodeGenerator = getEnhancedCodeGenerator();
         this.vectorStore = getVectorStore();
         this.learningService = getLearningService();
+        this.qualityAssessment = getQualityAssessment();
+        this.architectureKnowledge = getArchitectureKnowledge();
     }
 
     /**
@@ -361,15 +380,68 @@ export class IntegratedOrchestrator {
                     if (this.config.useMultiModel) {
                         addStep('multi-model', `Using two-stage pipeline: FAST (analysis) → POWER (generation)`, undefined, agent);
 
+                        // 🧠 PHASE 18: Build learning context from past experiences
+                        let learningContext = '';
+                        try {
+                            const preContext = await this.learningService.buildPreContext(subtask, input.projectId);
+
+                            if (preContext.experiences.length > 0 || preContext.warnings.length > 0 || preContext.patterns.length > 0) {
+                                learningContext = `
+LEARNING FROM PAST GENERATIONS:
+================================
+`;
+                                // Add successful experiences
+                                const successfulExperiences = preContext.experiences.filter(e => e.success).slice(0, 2);
+                                if (successfulExperiences.length > 0) {
+                                    learningContext += `✅ SUCCESSFUL PATTERNS (do similar):\n`;
+                                    for (const exp of successfulExperiences) {
+                                        learningContext += `- Previous task: "${exp.prompt.slice(0, 100)}..." worked well\n`;
+                                    }
+                                }
+
+                                // Add failure warnings
+                                if (preContext.warnings.length > 0) {
+                                    learningContext += `\n⚠️ AVOID THESE MISTAKES:\n`;
+                                    for (const warning of preContext.warnings.slice(0, 3)) {
+                                        learningContext += `- ${warning}\n`;
+                                    }
+                                }
+
+                                // Add learned patterns
+                                const goodPatterns = preContext.patterns.filter(p => p.patternType === 'success').slice(0, 2);
+                                if (goodPatterns.length > 0) {
+                                    learningContext += `\n📌 LEARNED BEST PRACTICES:\n`;
+                                    for (const pattern of goodPatterns) {
+                                        learningContext += `- ${pattern.description}\n`;
+                                    }
+                                }
+
+                                learningContext += `\nSuccess probability based on history: ${(preContext.successProbability * 100).toFixed(0)}%\n================================\n\n`;
+
+                                addStep('learning', `Injected context from ${preContext.experiences.length} past experiences, ${preContext.warnings.length} warnings`, {
+                                    experiences: preContext.experiences.length,
+                                    warnings: preContext.warnings.length,
+                                    patterns: preContext.patterns.length,
+                                    successProbability: preContext.successProbability,
+                                });
+                            }
+                        } catch (learningError) {
+                            console.warn('[ORCHESTRATOR] Could not build learning context:', learningError);
+                        }
+
+                        // Enhance prompt with learning context
+                        const enhancedPrompt = learningContext + subtask;
+
                         const multiModelResult = await this.multiModelOrchestrator.execute({
-                            prompt: subtask,
+                            prompt: enhancedPrompt,
                             taskId: input.taskId,
                             projectId: input.projectId,
                             userId: input.userId,
                             context: {
-                                existingCode: '', // Could be populated from context
-                                framework: 'Fastify',
-                                language: 'TypeScript',
+                                existingCode: input.context?.existingCode || '',
+                                framework: input.context?.framework || 'Fastify',
+                                language: input.context?.language || 'TypeScript',
+                                techStack: input.context?.techStack,
                             },
                         });
 
@@ -509,6 +581,144 @@ export class IntegratedOrchestrator {
             }
 
             // ============================================
+            // PHASE 4.3: QUALITY ASSESSMENT
+            // ============================================
+            let qualityScore = 0;
+            let qualityPassed = true;
+
+            if (this.config.useQualityAssessment && generatedCode.length > 0) {
+                addStep('quality', 'Assessing code quality...');
+
+                try {
+                    await this.qualityAssessment.initialize();
+
+                    // Convert generated code to files for assessment
+                    const filesToAssess = generatedCode.map((gen, idx) => ({
+                        path: `generated/${gen.agent}/file-${idx}.${input.context?.language === 'python' ? 'py' : input.context?.language === 'go' ? 'go' : 'ts'}`,
+                        content: gen.code,
+                    }));
+
+                    const assessment = await this.qualityAssessment.assess(
+                        filesToAssess,
+                        undefined, // blueprint would come from multiModelResult if available
+                        input.context?.language || 'typescript',
+                        input.context?.framework || 'fastify'
+                    );
+
+                    qualityScore = assessment.score;
+                    qualityPassed = assessment.passed;
+
+                    addStep('quality', `Quality assessment complete: ${assessment.score}/100 (${assessment.passed ? 'PASSED' : 'NEEDS IMPROVEMENT'})`, {
+                        score: assessment.score,
+                        passed: assessment.passed,
+                        issues: assessment.issues.length,
+                        errors: assessment.issues.filter(i => i.severity === 'error').length,
+                        warnings: assessment.issues.filter(i => i.severity === 'warning').length,
+                        recommendations: assessment.recommendations.slice(0, 3),
+                    });
+
+                    // If quality is too low and regeneration is suggested, log it
+                    if (assessment.shouldRegenerate) {
+                        console.warn(`[QUALITY] Quality score ${assessment.score} below threshold - regeneration suggested`);
+                        // Note: Not pushing to errors as this is a warning, not a failure
+                    }
+                } catch (qualityError) {
+                    const qualityErrorMsg = qualityError instanceof Error ? qualityError.message : 'Unknown quality error';
+                    console.warn('[QUALITY] Assessment failed:', qualityErrorMsg);
+                    // Don't fail orchestration for quality assessment errors
+                }
+            }
+
+            // ============================================
+            // PHASE 4.4: STORE ARCHITECTURE FOR FUTURE REFERENCE
+            // ============================================
+            // Note: This will be enhanced when the full blueprint comes from multi-model result
+            if (qualityPassed && generatedCode.length > 0) {
+                try {
+                    await this.architectureKnowledge.initialize();
+
+                    // Only store if generation was successful
+                    const generatedFilePaths = generatedCode.map((gen, idx) =>
+                        `${gen.agent}/file-${idx}.${input.context?.language === 'python' ? 'py' : input.context?.language === 'go' ? 'go' : 'ts'}`
+                    );
+
+                    // For now, log that we would store the architecture
+                    // Full integration with proper blueprint will come from multi-model orchestrator
+                    console.log(`[ARCH-KNOWLEDGE] Would store architecture for ${input.projectId} with ${generatedFilePaths.length} files, quality ${qualityScore}`);
+
+                    // TODO: Pass the actual blueprint from multiModelResult.architectureBlueprint
+                    // await this.architectureKnowledge.storeArchitecture(...)
+
+                } catch (archError) {
+                    console.warn('[ARCH-KNOWLEDGE] Failed to store architecture:', archError);
+                    // Don't fail orchestration for architecture storage errors
+                }
+            }
+
+            // ============================================
+            // PHASE 4.5: LEARNING - Store generation iterations and index code
+            // ============================================
+            addStep('finalize', 'Storing generation for AI learning...');
+
+            try {
+                // Initialize learning service
+                await this.learningService.initialize();
+
+                // Store each generation iteration for learning
+                for (const gen of generatedCode) {
+                    // Store generation iteration
+                    await this.learningService.storeIteration({
+                        taskId: input.taskId,
+                        projectId: input.projectId,
+                        userId: input.userId,
+                        prompt: input.prompt,
+                        generatedCode: [{
+                            path: `${gen.agent}/${gen.subtask.slice(0, 30)}`,
+                            content: gen.code,
+                            language: input.context?.language || 'typescript',
+                        }],
+                        config: {
+                            language: input.context?.language,
+                            framework: input.context?.framework,
+                            techStack: input.context?.techStack,
+                            agentsUsed: agentsExecuted,
+                        },
+                        success: errors.length === 0,
+                        errors: errors,
+                        metrics: {
+                            duration: Date.now() - startTime.getTime(),
+                            tokensUsed: 0, // Will be populated from cost tracker
+                            cost: 0,
+                        },
+                        createdAt: new Date(),
+                    });
+                }
+
+                // Index generated code for vector search
+                await this.vectorStore.initialize();
+
+                // Index each generated file
+                const filesToIndex = generatedCode.map((gen, idx) => ({
+                    path: `generated/${input.projectId}/gen-${idx}.${input.context?.language === 'python' ? 'py' : 'ts'}`,
+                    content: gen.code,
+                }));
+
+                if (filesToIndex.length > 0) {
+                    const indexResult = await this.vectorStore.indexProject(input.projectId, filesToIndex);
+                    addStep('finalize', `AI Learning: Indexed ${indexResult.chunksCreated} code chunks`, {
+                        chunksCreated: indexResult.chunksCreated,
+                        iterationsStored: generatedCode.length,
+                    });
+                }
+
+                console.log(`[LEARNING] Stored ${generatedCode.length} iterations for learning`);
+            } catch (learningError) {
+                const learningErrorMsg = learningError instanceof Error ? learningError.message : 'Unknown learning error';
+                console.warn('[LEARNING] Failed to store learning data:', learningErrorMsg);
+                // Don't fail the whole orchestration for learning errors
+            }
+
+            // ============================================
             // PHASE 5: FINALIZATION
             // ============================================
             addStep('finalize', 'Finalizing orchestration...');
@@ -560,7 +770,10 @@ export class IntegratedOrchestrator {
                 fileWriteResult = await this.fileWriter.writeProject(
                     input.projectId,
                     filesToWrite,
-                    { projectName: config.project?.name || input.projectId }
+                    {
+                        projectName: config.project?.name || input.projectId,
+                        language: input.context?.language, // Pass language so FileWriter knows not to create TS files for Python
+                    }
                 );
 
                 if (fileWriteResult.success) {
@@ -568,6 +781,37 @@ export class IntegratedOrchestrator {
                         filesWritten: fileWriteResult.filesWritten,
                         stats: processedOutput.stats,
                     });
+
+                    // Store processed files in knowledge embeddings for better context retrieval
+                    try {
+                        const { getSupabaseAdmin } = await import('./database-client.js');
+                        const supabase = getSupabaseAdmin();
+
+                        // Store knowledge embeddings for each processed file
+                        for (const file of processedOutput.files) {
+                            const embedding = await this.vectorStore.generateEmbedding(
+                                `File: ${file.path}\nType: ${file.type || 'code'}\nContent: ${file.content.slice(0, 2000)}`
+                            );
+
+                            await supabase.from('knowledge_embeddings').insert({
+                                content: `Project: ${input.projectId}\nPrompt: ${input.prompt.slice(0, 500)}\nFile: ${file.path}\n\n${file.content.slice(0, 5000)}`,
+                                embedding: `[${embedding.join(',')}]`,
+                                metadata: {
+                                    projectId: input.projectId,
+                                    taskId: input.taskId,
+                                    filePath: file.path,
+                                    fileType: file.type,
+                                    language: input.context?.language || 'typescript',
+                                    framework: input.context?.framework || 'fastify',
+                                    success: errors.length === 0,
+                                },
+                            });
+                        }
+
+                        addStep('finalize', `Stored ${processedOutput.files.length} files in knowledge base`);
+                    } catch (knowledgeError) {
+                        console.warn('[KNOWLEDGE] Failed to store knowledge embeddings:', knowledgeError);
+                    }
                 } else {
                     errors.push(...fileWriteResult.errors);
                     addStep('finalize', `File writing had errors: ${fileWriteResult.errors.join(', ')}`);

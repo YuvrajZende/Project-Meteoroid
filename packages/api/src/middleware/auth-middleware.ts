@@ -1,9 +1,9 @@
 /**
  * Authentication Middleware
- * Secure authentication using our JWT Service
+ * Uses Supabase for JWT verification and authentication
  * 
  * This middleware provides:
- * - JWT token verification
+ * - JWT token verification via Supabase
  * - Role-based access control
  * - API key authentication
  * - Request user decoration
@@ -12,7 +12,8 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getJWTService } from '../services/jwt-service.js';
+import { getSupabaseAdmin } from '../services/database-client.js';
+import crypto from 'crypto';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -67,11 +68,28 @@ declare module 'fastify' {
 }
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Extract Bearer token from Authorization header
+ */
+function extractBearerToken(authHeader: string | undefined): string | null {
+    if (!authHeader) return null;
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+        return parts[1];
+    }
+    return null;
+}
+
+// ============================================
 // AUTHENTICATION MIDDLEWARE
 // ============================================
 
 /**
  * Create authentication middleware with options
+ * Uses Supabase for JWT verification
  */
 export function authenticate(options: AuthOptions = {}) {
     const {
@@ -79,51 +97,59 @@ export function authenticate(options: AuthOptions = {}) {
         roles = [],
         scopes = [],
         allowApiKey = true,
-        allowRefreshToken = false,
+        // Note: allowRefreshToken is not used with Supabase - the SDK handles refresh tokens
     } = options;
 
     return async function authMiddleware(
         request: FastifyRequest,
         reply: FastifyReply
     ): Promise<void> {
-        const jwtService = getJWTService();
+        const supabase = getSupabaseAdmin();
         let authUser: AuthenticatedUser | null = null;
 
-        // Try Bearer token first
+        // Try Bearer token first - use Supabase to verify
         const authHeader = request.headers.authorization;
-        const bearerToken = jwtService.extractTokenFromHeader(authHeader);
+        const bearerToken = extractBearerToken(authHeader);
 
         if (bearerToken) {
-            const result = jwtService.verifyToken(bearerToken);
+            try {
+                // Use Supabase's getUser to verify the JWT
+                const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
 
-            if (result.valid && result.payload) {
-                // Check token type
-                if (result.payload.type === 'refresh' && !allowRefreshToken) {
-                    if (required) {
-                        reply.status(401).send({
-                            success: false,
-                            error: 'Invalid token type',
-                            message: 'Refresh tokens cannot be used for this endpoint',
-                        });
-                        return;
-                    }
-                } else {
+                if (user && !error) {
+                    // Get user metadata for role
+                    const role = (user.app_metadata?.role as string) ||
+                        (user.user_metadata?.role as string) ||
+                        'user';
+
                     authUser = {
-                        id: result.payload.sub,
-                        email: result.payload.email,
-                        role: result.payload.role,
-                        tokenType: result.payload.type,
-                        claims: result.payload,
+                        id: user.id,
+                        email: user.email || '',
+                        role: role,
+                        tokenType: 'access',
+                        claims: {
+                            ...user.user_metadata,
+                            ...user.app_metadata,
+                            email_confirmed: user.email_confirmed_at !== null,
+                        },
                     };
+                } else if (required) {
+                    reply.status(401).send({
+                        success: false,
+                        error: 'Authentication failed',
+                        message: error?.message || 'Invalid token',
+                    });
+                    return;
                 }
-            } else if (required) {
-                reply.status(401).send({
-                    success: false,
-                    error: 'Authentication failed',
-                    message: result.error || 'Invalid token',
-                    expired: result.expired,
-                });
-                return;
+            } catch (err) {
+                if (required) {
+                    reply.status(401).send({
+                        success: false,
+                        error: 'Authentication failed',
+                        message: err instanceof Error ? err.message : 'Token verification failed',
+                    });
+                    return;
+                }
             }
         }
 
@@ -196,20 +222,70 @@ export function authenticate(options: AuthOptions = {}) {
 }
 
 /**
- * Validate API key (placeholder - should be database lookup)
+ * Validate API key against database
  */
 async function validateAPIKey(apiKey: string): Promise<APIKeyValidation> {
-    // TODO: Implement actual API key validation against database
-    // This is a placeholder that should be replaced with actual logic
-
     // Format: prefix_hash (e.g., "lvb_xxxx...")
     if (!apiKey.startsWith('lvb_')) {
         return { valid: false, userId: '', scopes: [], name: '' };
     }
 
-    // In production, look up the API key hash in database
-    // For now, return invalid
-    return { valid: false, userId: '', scopes: [], name: '' };
+    try {
+        // Hash the API key to match against stored hash
+        const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+
+        const supabase = getSupabaseAdmin();
+
+        // Look up the API key in database
+        const { data, error } = await supabase
+            .from('api_keys')
+            .select('id, user_id, name, scopes, is_active, expires_at, revoked_at')
+            .eq('key_hash', keyHash)
+            .single();
+
+        if (error || !data) {
+            return { valid: false, userId: '', scopes: [], name: '' };
+        }
+
+        // Check if key is active
+        if (!data.is_active) {
+            return { valid: false, userId: '', scopes: [], name: '' };
+        }
+
+        // Check if key is revoked
+        if (data.revoked_at) {
+            return { valid: false, userId: '', scopes: [], name: '' };
+        }
+
+        // Check if key is expired
+        if (data.expires_at && new Date(data.expires_at) < new Date()) {
+            return { valid: false, userId: '', scopes: [], name: '' };
+        }
+
+        // Update last used timestamp (fire and forget)
+        void (async () => {
+            try {
+                await supabase
+                    .from('api_keys')
+                    .update({
+                        last_used_at: new Date().toISOString(),
+                    })
+                    .eq('id', data.id);
+            } catch {
+                // Ignore update errors
+            }
+        })();
+
+        return {
+            valid: true,
+            userId: data.user_id,
+            scopes: data.scopes || ['read'],
+            name: data.name,
+        };
+    } catch (err) {
+        console.error('[AUTH] API key validation error:', err);
+        return { valid: false, userId: '', scopes: [], name: '' };
+    }
 }
 
 // ============================================
@@ -247,6 +323,7 @@ export function requireScope(...scopes: string[]) {
 
 /**
  * Allow only refresh tokens (for refresh endpoint)
+ * Note: With Supabase, refresh is handled by the SDK
  */
 export const requireRefreshToken = authenticate({
     required: true,
@@ -266,7 +343,7 @@ export async function registerAuthMiddleware(app: FastifyInstance): Promise<void
     app.decorateRequest('authUser', null);
     app.decorateRequest('isAuthenticated', false);
 
-    app.log.info('[AUTH] Authentication middleware registered');
+    app.log.info('[AUTH] Authentication middleware registered (Supabase-based)');
 }
 
 // ============================================

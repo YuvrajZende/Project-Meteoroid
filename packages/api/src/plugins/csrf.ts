@@ -40,14 +40,35 @@ const DEFAULT_CONFIG: CSRFConfig = {
     headerName: 'X-CSRF-Token',
     tokenExpiry: 3600, // 1 hour
     excludeRoutes: [
+        // Health and status
         /^\/health$/,
         /^\/status$/,
         /^\/docs/,
+
+        // Webhooks (external services)
         /^\/api\/v1\/webhooks/,
-        /^\/api\/v1\/auth\/login$/,      // Login doesn't need CSRF (no session yet)
-        /^\/api\/v1\/auth\/signup$/,     // Signup doesn't need CSRF
-        /^\/api\/v1\/auth\/refresh$/,    // Refresh uses refresh token
-        /^\/api\/v1\/csrf-token$/,       // CSRF token endpoint itself
+
+        // Auth routes (no session yet)
+        /^\/api\/v1\/auth\//,
+
+        // CSRF token endpoint itself
+        /^\/api\/v1\/csrf-token$/,
+
+        // API routes - typically use Bearer tokens or API keys
+        // CSRF protection is for browser-based attacks, not API usage
+        /^\/api\/v1\/orchestrator/,
+        /^\/api\/v1\/codegen/,
+        /^\/api\/v1\/vector/,
+        /^\/api\/v1\/learning/,
+        /^\/api\/v1\/deployments/,
+        /^\/api\/v1\/preview/,
+        /^\/api\/v1\/agents/,
+        /^\/api\/v1\/projects/,
+        /^\/api\/v1\/tasks/,
+        /^\/api\/v1\/benchmarks/,
+        /^\/api\/v1\/templates/,
+        /^\/api\/v1\/metrics/,
+        /^\/api\/v1\/enhanced-codegen/,
     ],
     protectedMethods: ['POST', 'PUT', 'PATCH', 'DELETE'],
 };

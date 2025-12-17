@@ -59,3 +59,14 @@ export {
     type AuthOptions,
 } from './auth-middleware.js';
 
+// Phase 19: Security Hardening - IP Blocking
+export {
+    registerIPBlocking,
+    ipBlockingMiddleware,
+    blockIP,
+    unblockIP,
+    isIPBlocked,
+    checkFailedAttempts,
+    clearIPBlockCache,
+    type IPBlockConfig,
+} from './ip-blocking.js';

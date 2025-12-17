@@ -666,6 +666,28 @@ Here's how cost tracking was integrated with the database:
 
 ---
 
+## 📝 Example: Architecture Blueprint Generator (Phase 20)
+
+Here's how the Architecture Blueprint was integrated:
+
+| Layer | File | What was added |
+|-------|------|----------------|
+| 1 | `architecture-blueprint.ts` | Created ArchitectureBlueprintGenerator with ASCII templates |
+| 2 | `services/index.ts` | Exported getArchitectureBlueprintGenerator and types |
+| 3 | `multi-model-orchestrator.ts` | Added Stage 1.5 blueprint generation, passed to Stage 2 |
+| 4 | (Not needed) | Uses existing /orchestrator/execute endpoint - blueprint in response |
+| 5 | `index.ts` | No startup changes needed (stateless generator) |
+| 6 | `PROJECT_CONTEXT.md` | Documented Phase 20 features |
+| 7 | (Not needed) | No database persistence - in-memory generation |
+
+### Key Design Decisions:
+- **In-memory only**: Blueprints are generated on-demand, not stored
+- **Integration point**: Stage 1.5 between analysis and code generation
+- **Graceful fallback**: If blueprint fails, continue with normal generation
+- **ASCII format**: Matches existing `Whole system.md` for consistency
+
+---
+
 ## 🎯 Best Practices
 
 1. **Always use singletons** - Use `getXXXService()` pattern for consistency
@@ -673,8 +695,9 @@ Here's how cost tracking was integrated with the database:
 3. **Config via .env** - All settings should be configurable
 4. **Enable by default** - New features should work out of the box
 5. **Graceful fallback** - If feature fails, don't crash the main flow
-6. **Document immediately** - Update PERSON1_TASK_LIST.md as you go
+6. **Document immediately** - Update PROJECT_CONTEXT.md as you go
 7. **Validate UUIDs** - Always use `isValidUUID()` before database insert
 8. **Batch inserts** - Queue records and flush periodically for performance
 9. **Add shutdown hooks** - Flush pending records before server shutdown
 10. **Run migrations first** - Always apply SQL before deploying code changes
+11. **Use ASCII diagrams** - Generate architecture blueprints for complex features

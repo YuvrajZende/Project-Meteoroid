@@ -381,51 +381,105 @@ export {
 } from './learning-service.js';
 
 // ============================================
-// PHASE 19: SECURITY HARDENING
+// PHASE 19: SECURITY (Simplified - Using Supabase)
 // ============================================
 
-// Password Service (19.1 - Argon2id hashing)
+// MFA Service (19.5 - Multi-Factor Authentication) - Optional premium feature
 export {
-    PasswordService,
-    getPasswordService,
-    resetPasswordService,
-    type PasswordHashConfig,
-    type PasswordRequirements,
-    type PasswordValidationResult,
-    type PasswordVerifyResult,
-} from './password-service.js';
+    MFAService,
+    getMFAService,
+    type MFASetupResult,
+    type MFAVerifyResult,
+    type MFAStatus,
+} from './mfa-service.js';
 
-// Encryption Service (19.2 - AES-256-GCM)
-export {
-    EncryptionService,
-    getEncryptionService,
-    resetEncryptionService,
-    encrypt,
-    decrypt,
-    generateSecureToken,
-    type EncryptionConfig,
-    type EncryptedData,
-    type KeyInfo,
-} from './encryption-service.js';
+// Note: The following services were REMOVED (Supabase handles them):
+// - Password Service (Supabase uses Bcrypt)
+// - JWT Service (Supabase generates JWTs)
+// - Encryption Service (Supabase encrypts at rest)
+// - OAuth State Service (Supabase handles PKCE)
+// - Request Signing Service (Not needed for user-facing API)
+// - Secret Rotation Service (Over-engineered)
+// - Vault Service (Over-engineered)
 
-// JWT Service (19.3 - Token management)
-export {
-    JWTService,
-    getJWTService,
-    resetJWTService,
-    type JWTConfig,
-    type JWTPayload,
-    type TokenPair,
-    type TokenVerifyResult,
-    type RefreshTokenData,
-} from './jwt-service.js';
+// ============================================
+// PHASE 20: ARCHITECTURE BLUEPRINT GENERATOR
+// ============================================
 
-// OAuth State Service (19.4 - CSRF for OAuth)
+// Architecture Blueprint Generator (ASCII art system design)
 export {
-    OAuthStateService,
-    getOAuthStateService,
-    resetOAuthStateService,
-    type OAuthStateConfig,
-    type StoredState,
-    type StateValidationResult,
-} from './oauth-state-service.js';
+    ArchitectureBlueprintGenerator,
+    getArchitectureBlueprintGenerator,
+    type RouteDefinition,
+    type ServiceDefinition,
+    type DatabaseTable,
+    type AgentDefinition,
+    type MiddlewareDefinition,
+    type ArchitectureBlueprint,
+    type BlueprintRequest,
+} from './architecture-blueprint.js';
+
+// ============================================
+// PHASE 21: CODE QUALITY & KNOWLEDGE (Phase 21)
+// ============================================
+
+// Quality Assessment Service (Code quality evaluation before postprocessing)
+export {
+    QualityAssessmentService,
+    getQualityAssessment,
+    type QualityAssessmentConfig,
+    type QualityAssessmentResult,
+    type QualityIssue,
+} from './quality-assessment.js';
+
+// Architecture Knowledge Service (Cross-reference past architectures)
+export {
+    ArchitectureKnowledgeService,
+    getArchitectureKnowledge,
+    type StoredArchitecture,
+    type ArchitectureMatch,
+} from './architecture-knowledge.js';
+
+// ============================================
+// PHASE 21: ENHANCED INTELLIGENCE
+// ============================================
+
+// Intent Classifier (Determine user intent: question vs code generation vs edit)
+export {
+    IntentClassifier,
+    getIntentClassifier,
+    type UserIntent,
+    type IntentAnalysis,
+} from './intent-classifier.js';
+
+// Robust JSON Parser (Fix malformed LLM responses)
+export {
+    RobustJSONParser,
+    getRobustJSONParser,
+    type JSONParseResult,
+} from './robust-json-parser.js';
+
+// Enhanced Learning Context Builder (Build rich context from past generations)
+export {
+    EnhancedLearningContextBuilder,
+    getEnhancedLearningContextBuilder,
+    type LearningContext,
+} from './enhanced-learning-context.js';
+
+// ============================================
+// PHASE 22: AI-DRIVEN LEARNING & INTELLIGENCE
+// ============================================
+
+// AI Intent Analyzer (Uses AI to determine intent/language instead of regex)
+export {
+    AIIntentAnalyzer,
+    getAIIntentAnalyzer,
+    type AIIntentAnalysis,
+} from './ai-intent-analyzer.js';
+
+// Vector Learning System (Semantic search using Supabase embeddings)
+export {
+    VectorLearningSystem,
+    getVectorLearningSystem,
+    type VectorLearningContext,
+} from './vector-learning-system.js';

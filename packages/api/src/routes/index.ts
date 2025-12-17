@@ -7,7 +7,6 @@ import type { FastifyInstance } from 'fastify';
 import { registerHealthRoutes } from './health.js';
 import { registerAgentRoutes } from './agents.js';
 import { registerAuthRoutes } from './auth.js';
-import { registerSecureAuthRoutes } from './secure-auth.js';
 import { registerTaskRoutes } from './tasks.js';
 import { registerProjectRoutes } from './projects.js';
 import { registerWebhookRoutes } from './webhooks.js';
@@ -46,11 +45,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // SSE routes for real-time updates
     await registerSSERoutes(app);
 
-    // Authentication routes (original)
+    // Authentication routes (Supabase-based)
     await registerAuthRoutes(app);
 
-    // Phase 19: Secure Authentication routes (security hardening)
-    await registerSecureAuthRoutes(app);
+    // Note: Phase 19 secure-auth routes REMOVED
+    // Supabase handles JWT, password hashing, OAuth with PKCE
+    // Use the standard auth.ts routes which integrate with Supabase
 
     // Task management routes
     await registerTaskRoutes(app);
@@ -88,7 +88,6 @@ export {
     registerHealthRoutes,
     registerAgentRoutes,
     registerAuthRoutes,
-    registerSecureAuthRoutes,
     registerTaskRoutes,
     registerProjectRoutes,
     registerWebhookRoutes,
@@ -104,4 +103,3 @@ export {
     enhancedCodegenRoutes,
     vectorLearningRoutes,
 };
-

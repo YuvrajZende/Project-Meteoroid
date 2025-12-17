@@ -170,10 +170,50 @@ export class LearningService {
 
         await this.vectorStore.initialize();
 
-        // Load existing patterns from database
+        // Load existing data from database
         await this.loadPatterns();
+        await this.loadIterationsFromDatabase();
+
+        console.log(`[LEARNING] Initialized with ${this.memoryIterations.length} iterations, ${this.memoryPatterns.length} patterns`);
 
         this.initialized = true;
+    }
+
+    /**
+     * Load past iterations from database
+     */
+    private async loadIterationsFromDatabase(): Promise<void> {
+        const supabase = getSupabaseAdmin();
+        if (!supabase) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('generation_iterations')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (!error && data && data.length > 0) {
+                this.memoryIterations = data.map((row: Record<string, unknown>) => ({
+                    id: row.id as string,
+                    taskId: row.task_id as string,
+                    projectId: row.project_id as string,
+                    userId: row.user_id as string | undefined,
+                    prompt: row.prompt as string,
+                    generatedCode: (row.generated_code as Array<{ path: string; content: string; language: string }>) || [],
+                    config: (row.config as Record<string, unknown>) || {},
+                    success: row.success as boolean,
+                    errors: (row.errors as string[]) || [],
+                    feedback: row.feedback as GenerationIteration['feedback'],
+                    testResults: row.test_results as GenerationIteration['testResults'],
+                    metrics: (row.metrics as GenerationIteration['metrics']) || { duration: 0, tokensUsed: 0 },
+                    createdAt: new Date(row.created_at as string),
+                }));
+                console.log(`[LEARNING] Loaded ${this.memoryIterations.length} iterations from database`);
+            }
+        } catch (error) {
+            console.warn('[LEARNING] Could not load iterations from database:', error);
+        }
     }
 
     // ============================================
@@ -201,21 +241,27 @@ export class LearningService {
         const supabase = getSupabaseAdmin();
         if (supabase) {
             try {
-                await supabase.from('generation_iterations').insert({
-                    id: iterationWithId.id,
+                const { error } = await supabase.from('generation_iterations').insert({
+                    // Let database auto-generate UUID - don't provide id
                     task_id: iteration.taskId,
-                    project_id: iteration.projectId,
-                    user_id: iteration.userId,
+                    project_id: iteration.projectId, // TEXT column after migration
+                    user_id: iteration.userId || null, // TEXT column after migration
                     prompt: iteration.prompt,
                     generated_code: iteration.generatedCode,
                     config: iteration.config,
                     success: iteration.success,
                     errors: iteration.errors,
-                    feedback: iteration.feedback,
-                    test_results: iteration.testResults,
+                    feedback: iteration.feedback || null,
+                    test_results: iteration.testResults || null,
                     metrics: iteration.metrics,
                     created_at: iterationWithId.createdAt.toISOString(),
                 });
+
+                if (error) {
+                    console.error('[LEARNING] DB insert error:', error);
+                } else {
+                    console.log('[LEARNING] Successfully stored iteration in database');
+                }
             } catch (error) {
                 console.warn('[LEARNING] Failed to store iteration in DB:', error);
             }
@@ -368,22 +414,28 @@ export class LearningService {
             };
             this.memoryPatterns.push(patternWithId);
 
-            // Store in database
+            // Store in database (without custom id - let DB generate UUID)
             const supabase = getSupabaseAdmin();
             if (supabase) {
                 try {
-                    await supabase.from('learned_patterns').insert({
-                        id: patternWithId.id,
+                    const { error } = await supabase.from('learned_patterns').insert({
+                        // Don't provide 'id' - let database auto-generate UUID
                         pattern_type: pattern.patternType,
-                        description: pattern.description,
-                        example: pattern.example,
-                        context: pattern.context,
+                        description: pattern.description.slice(0, 500), // Limit length
+                        example: pattern.example.slice(0, 2000), // Limit length
+                        context: pattern.context.slice(0, 500),
                         frequency: pattern.frequency,
                         confidence: pattern.confidence,
-                        related_prompts: pattern.relatedPrompts,
+                        related_prompts: pattern.relatedPrompts.slice(0, 10), // Limit array size
                     });
+
+                    if (error) {
+                        console.error('[LEARNING] Pattern storage error:', error.message);
+                    } else {
+                        console.log('[LEARNING] Pattern stored in database successfully');
+                    }
                 } catch (error) {
-                    // Table might not exist, that's ok
+                    console.error('[LEARNING] Failed to store pattern:', error);
                 }
             }
         }
@@ -474,17 +526,105 @@ export class LearningService {
             .map(p => p.description)
             .slice(0, 5);
 
-        // Generate suggested approach
-        if (preContext.experiences.length > 0) {
+        // Search knowledge_embeddings for relevant code examples
+        try {
+            const knowledgeResults = await this.searchKnowledgeEmbeddings(prompt, projectId);
+            if (knowledgeResults.length > 0) {
+                // Add relevant code snippets from knowledge base
+                const snippets = knowledgeResults.slice(0, 2).map(r =>
+                    `File: ${r.filePath}\n${r.content.slice(0, 500)}...`
+                ).join('\n\n');
+
+                if (snippets) {
+                    preContext.suggestedApproach = `RELEVANT CODE FROM KNOWLEDGE BASE:\n${snippets}`;
+                }
+            }
+        } catch (error) {
+            console.warn('[LEARNING] Could not search knowledge embeddings:', error);
+        }
+
+        // Generate suggested approach from past experiences
+        if (!preContext.suggestedApproach && preContext.experiences.length > 0) {
             const successfulExperience = preContext.experiences.find(e => e.success);
             if (successfulExperience) {
                 preContext.suggestedApproach = `Based on similar successful task: ${successfulExperience.prompt.slice(0, 100)}...`;
             }
         }
 
-        console.log(`[LEARNING] Pre-context built: ${preContext.experiences.length} experiences, ${preContext.warnings.length} warnings`);
+        console.log(`[LEARNING] Pre-context built: ${preContext.experiences.length} experiences, ${preContext.warnings.length} warnings, ${preContext.patterns.length} patterns`);
 
         return preContext;
+    }
+
+    /**
+     * Search knowledge_embeddings for relevant code context
+     */
+    private async searchKnowledgeEmbeddings(prompt: string, projectId?: string): Promise<Array<{ filePath: string; content: string; similarity: number }>> {
+        const supabase = getSupabaseAdmin();
+        if (!supabase) return [];
+
+        try {
+            // Generate embedding for the prompt
+            const embedding = await this.vectorStore.generateEmbedding(prompt);
+
+            // Search knowledge_embeddings table directly
+            const { data, error } = await supabase.rpc('match_knowledge_embeddings', {
+                query_embedding: embedding,
+                match_threshold: 0.6,
+                match_count: 5,
+                p_project_id: projectId || null
+            });
+
+            if (error) {
+                // If the RPC doesn't exist, try a simpler query
+                console.warn('[LEARNING] match_knowledge_embeddings RPC not found, using fallback');
+                return [];
+            }
+
+            return (data || []).map((row: Record<string, unknown>) => ({
+                filePath: row.file_path as string || 'unknown',
+                content: row.content as string || '',
+                similarity: row.similarity as number || 0,
+            }));
+        } catch (error) {
+            console.warn('[LEARNING] Knowledge embedding search failed:', error);
+            // Try fallback direct query
+            return await this.fallbackCodeSearch(projectId);
+        }
+    }
+
+    /**
+     * Fallback: Get recent code embeddings directly without vector search
+     */
+    private async fallbackCodeSearch(projectId?: string): Promise<Array<{ filePath: string; content: string; similarity: number }>> {
+        const supabase = getSupabaseAdmin();
+        if (!supabase) return [];
+
+        try {
+            let query = supabase
+                .from('code_embeddings')
+                .select('file_path, content')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (projectId) {
+                query = query.eq('project_id', projectId);
+            }
+
+            const { data, error } = await query;
+
+            if (error || !data) {
+                return [];
+            }
+
+            return data.map((row: { file_path: string; content: string }) => ({
+                filePath: row.file_path || 'unknown',
+                content: row.content || '',
+                similarity: 0.5, // Default similarity for fallback
+            }));
+        } catch {
+            return [];
+        }
     }
 
     /**

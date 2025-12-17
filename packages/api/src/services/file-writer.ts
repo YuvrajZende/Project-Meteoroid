@@ -140,6 +140,7 @@ export class FileWriterService {
         options?: {
             projectName?: string;
             includeScaffold?: boolean;
+            language?: string; // 'python' | 'typescript' | 'javascript' | 'go' | 'rust' | 'java' | etc.
         }
     ): Promise<WriteResult> {
         const projectPath = path.join(this.config.outputDir, projectId);
@@ -148,13 +149,35 @@ export class FileWriterService {
 
         console.log(`[FILE-WRITER] Writing project to: ${projectPath}`);
 
+        // Detect language from options or file extensions
+        const langLower = options?.language?.toLowerCase() || '';
+
+        // Languages that should NOT get TypeScript scaffold files
+        const isNonTsProject =
+            langLower === 'python' || files.some(f => f.path.endsWith('.py')) ||
+            langLower === 'go' || langLower === 'golang' || files.some(f => f.path.endsWith('.go')) ||
+            langLower === 'rust' || files.some(f => f.path.endsWith('.rs')) ||
+            langLower === 'java' || files.some(f => f.path.endsWith('.java')) ||
+            langLower === 'csharp' || langLower === 'c#' || files.some(f => f.path.endsWith('.cs')) ||
+            langLower === 'cpp' || langLower === 'c++' || files.some(f => f.path.endsWith('.cpp')) ||
+            langLower === 'ruby' || files.some(f => f.path.endsWith('.rb')) ||
+            langLower === 'php' || files.some(f => f.path.endsWith('.php')) ||
+            langLower === 'kotlin' || files.some(f => f.path.endsWith('.kt')) ||
+            langLower === 'swift' || files.some(f => f.path.endsWith('.swift'));
+
+        console.log(`[FILE-WRITER] Language: ${options?.language || 'unknown'}, isNonTsProject: ${isNonTsProject}`);
+
         try {
             // Create project directory
             await fs.mkdir(projectPath, { recursive: true });
-            await fs.mkdir(path.join(projectPath, 'src'), { recursive: true });
 
-            // Write scaffold files if requested
-            if (options?.includeScaffold !== false) {
+            // Only create src/ folder for TypeScript/JavaScript projects
+            if (!isNonTsProject) {
+                await fs.mkdir(path.join(projectPath, 'src'), { recursive: true });
+            }
+
+            // Write scaffold files if requested (only for TypeScript/JavaScript)
+            if (options?.includeScaffold !== false && !isNonTsProject) {
                 // package.json
                 if (this.config.createPackageJson) {
                     const packageJsonPath = path.join(projectPath, 'package.json');

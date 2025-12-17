@@ -46,7 +46,7 @@ export interface AICodeResponse {
 export class CodePostProcessor {
 
     /**
-     * Process raw AI output into clean, connected code files
+     * Process raw AI output into clean, usable code files
      */
     async process(rawOutput: string, projectName: string): Promise<ProcessedOutput> {
         const errors: string[] = [];
@@ -85,7 +85,20 @@ export class CodePostProcessor {
 
         console.log(`[CODE-POSTPROCESSOR] Parsed ${files.length} files`);
 
-        // Step 2: Clean each file
+        // Step 1.5: Filter out garbage files (invalid paths, URLs, database files, etc.)
+        const filteredFiles = files.filter(f => this.isValidFilePath(f.path));
+        const removedGarbage = files.length - filteredFiles.length;
+        if (removedGarbage > 0) {
+            console.log(`[CODE-POSTPROCESSOR] Filtered out ${removedGarbage} invalid files`);
+        }
+        files = filteredFiles;
+
+        // Detect the primary project language from files
+        const projectLanguage = this.detectProjectLanguage(files);
+        const isTypeScriptProject = projectLanguage === 'typescript' || projectLanguage === 'javascript';
+        console.log(`[CODE-POSTPROCESSOR] Detected project language: ${projectLanguage}, isTS: ${isTypeScriptProject}`);
+
+        // Step 2: Clean each file (universal step)
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const cleanResult = this.cleanFileContent(file.content);
@@ -93,32 +106,49 @@ export class CodePostProcessor {
             if (cleanResult.hadJsonBlocks) removedJsonBlocks++;
         }
 
-        // Step 3: Fix imports across all files
-        const importFixResult = this.fixImportsAcrossFiles(files);
-        files = importFixResult.files;
-        fixedImports = importFixResult.fixedCount;
-        warnings.push(...importFixResult.warnings);
+        // TypeScript-specific processing (skip for other languages)
+        let entryPoint: GeneratedFile | undefined;
 
-        // Step 4: Add missing exports
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const exportResult = this.ensureProperExports(file);
-            file.content = exportResult.content;
-            if (exportResult.addedExports) addedExports++;
-        }
+        if (isTypeScriptProject) {
+            // Step 3: Fix imports across all files (TypeScript only)
+            const importFixResult = this.fixImportsAcrossFiles(files);
+            files = importFixResult.files;
+            fixedImports = importFixResult.fixedCount;
+            warnings.push(...importFixResult.warnings);
 
-        // Step 5: Generate connected entry point
-        const entryPoint = this.generateEntryPoint(files, projectName);
-
-        // Step 6: Validate TypeScript syntax (basic check)
-        for (const file of files) {
-            const syntaxErrors = this.validateTypescriptSyntax(file.content);
-            if (syntaxErrors.length > 0) {
-                warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+            // Step 4: Add missing exports (TypeScript only)
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const exportResult = this.ensureProperExports(file);
+                file.content = exportResult.content;
+                if (exportResult.addedExports) addedExports++;
             }
+
+            // Step 5: Generate connected entry point (TypeScript only)
+            entryPoint = this.generateEntryPoint(files, projectName);
+
+            // Step 6: Validate TypeScript syntax (basic check)
+            for (const file of files) {
+                const syntaxErrors = this.validateTypescriptSyntax(file.content);
+                if (syntaxErrors.length > 0) {
+                    warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                }
+            }
+        } else {
+            console.log(`[CODE-POSTPROCESSOR] Skipping TypeScript-specific processing for ${projectLanguage} project`);
+            // Provide a dummy entry point for non-TS projects if the interface requires it
+            // Or, if generateEntryPoint can handle non-TS, call it here.
+            // For now, creating a minimal dummy entry point.
+            entryPoint = {
+                path: 'README.md',
+                content: `# ${projectName}\n\nThis project was generated in ${projectLanguage}.`,
+                language: 'markdown',
+                type: 'config',
+            };
         }
 
         console.log('[CODE-POSTPROCESSOR] Processing complete');
+        console.log(`  Project Language: ${projectLanguage}`);
         console.log(`  Files: ${files.length}`);
         console.log(`  Fixed imports: ${fixedImports}`);
         console.log(`  Removed JSON blocks: ${removedJsonBlocks}`);
@@ -127,7 +157,7 @@ export class CodePostProcessor {
         return {
             success: errors.length === 0,
             files,
-            entryPoint,
+            entryPoint: entryPoint!, // Assert non-null as it's always assigned
             errors,
             warnings,
             stats: {
@@ -137,6 +167,66 @@ export class CodePostProcessor {
                 addedExports,
             },
         };
+    }
+
+    /**
+     * Detect the primary language of the project from generated files
+     */
+    private detectProjectLanguage(files: GeneratedFile[]): string {
+        const languageCounts: Record<string, number> = {};
+
+        for (const file of files) {
+            const ext = file.path.substring(file.path.lastIndexOf('.'));
+            const lang = this.extensionToLanguage(ext);
+            languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+        }
+
+        // Find the most common language
+        let maxCount = 0;
+        let dominantLanguage = 'typescript'; // Default to TypeScript if no files or unknown
+
+        for (const [lang, count] of Object.entries(languageCounts)) {
+            if (count > maxCount) {
+                maxCount = count;
+                dominantLanguage = lang;
+            }
+        }
+
+        return dominantLanguage;
+    }
+
+    /**
+     * Map file extension to language
+     */
+    private extensionToLanguage(ext: string): string {
+        const extMap: Record<string, string> = {
+            '.ts': 'typescript',
+            '.tsx': 'typescript',
+            '.js': 'javascript',
+            '.jsx': 'javascript',
+            '.py': 'python',
+            '.go': 'go',
+            '.rs': 'rust',
+            '.java': 'java',
+            '.cs': 'csharp',
+            '.cpp': 'cpp',
+            '.c': 'c',
+            '.rb': 'ruby',
+            '.php': 'php',
+            '.kt': 'kotlin',
+            '.swift': 'swift',
+            '.json': 'json',
+            '.yaml': 'yaml',
+            '.yml': 'yaml',
+            '.xml': 'xml',
+            '.html': 'html',
+            '.css': 'css',
+            '.scss': 'scss',
+            '.less': 'less',
+            '.md': 'markdown',
+            '.txt': 'text',
+        };
+        return extMap[ext] || 'unknown';
     }
 
     /**
@@ -492,11 +582,7 @@ export class CodePostProcessor {
         // Categorize files
         const routes = files.filter(f => f.path.includes('/routes/') || f.path.includes('.routes.'));
         const services = files.filter(f => f.path.includes('/services/') || f.path.includes('.service.'));
-        const _schemas = files.filter(f => f.path.includes('/schemas/') || f.path.endsWith('.schema.ts'));
-        const _libs = files.filter(f => f.path.includes('/lib/'));
         const prismaFiles = files.filter(f => f.path.includes('prisma'));
-
-        // Note: _schemas and _libs are available for future use when we add schema validation imports
 
         // Check if Prisma is used
         const usesPrisma = prismaFiles.length > 0 || files.some(f => f.content.includes('@prisma/client'));
@@ -657,6 +743,106 @@ export { app${usesPrisma ? ', prisma' : ''} };
         if (path.endsWith('.prisma') || path.includes('schema')) return 'schema';
         if (path.endsWith('.json') || path.includes('config')) return 'config';
         return 'code';
+    }
+
+    /**
+     * Check if a file path is valid (not garbage from AI hallucinations)
+     */
+    private isValidFilePath(filePath: string): boolean {
+        // Normalize the path
+        const path = filePath.trim();
+
+        // Reject empty paths
+        if (!path || path.length === 0) return false;
+
+        // Reject paths that look like URLs or domain names
+        if (path.includes('://') || path.match(/^[a-z]+\.[a-z]+\//i)) return false;
+        if (path.includes('github.com') || path.includes('example.com')) return false;
+        if (path.match(/^[a-z0-9-]+\.(com|org|net|io|dev|app)$/i)) return false;
+
+        // Reject database files
+        if (path.endsWith('.db') || path.endsWith('.sqlite') || path.endsWith('.sqlite3')) return false;
+
+        // Reject paths starting with special characters
+        if (path.startsWith('/') && !path.startsWith('/src')) return false;
+
+        // Reject paths with URL-like patterns
+        if (path.includes('http://') || path.includes('https://')) return false;
+
+        // Reject paths that are just file extensions
+        if (path.match(/^\.[a-z]+$/i)) return false;
+
+        // Reject paths with quotes or special JSON characters
+        if (path.includes('"') || path.includes("'") || path.startsWith('{') || path.startsWith('[')) return false;
+
+        // Reject very long paths (likely garbage)
+        if (path.length > 200) return false;
+
+        // Reject paths with multiple consecutive slashes or dots
+        if (path.includes('//') || path.includes('..')) return false;
+
+        // Reject TypeScript/JavaScript files when project is Python (detected via file list)
+        // This is handled elsewhere
+
+        // Accept paths that have valid extensions
+        const validExtensions = [
+            // Python
+            '.py', '.pyi', '.pyx',
+            // JavaScript/TypeScript
+            '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+            // Go
+            '.go',
+            // Rust
+            '.rs',
+            // Java/Kotlin
+            '.java', '.kt', '.kts',
+            // C#
+            '.cs', '.csx',
+            // C/C++
+            '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.hh',
+            // Ruby
+            '.rb', '.rake',
+            // PHP
+            '.php',
+            // Swift
+            '.swift',
+            // Config/Data
+            '.json', '.yaml', '.yml', '.toml', '.xml', '.csv',
+            '.sql', '.prisma',
+            '.md', '.txt', '.env',
+            '.html', '.css', '.scss', '.less',
+            '.sh', '.bat', '.ps1',
+            // Config files without extensions or special names
+            'Dockerfile', 'Makefile', '.gitignore', '.env.example', '.env.local',
+            'requirements.txt', 'setup.py', 'pyproject.toml',
+            'package.json', 'tsconfig.json', 'jest.config.js', 'vite.config.ts',
+            // Go project files
+            'go.mod', 'go.sum',
+            // Rust project files
+            'Cargo.toml', 'Cargo.lock',
+            // Java/Maven/Gradle
+            'pom.xml', 'build.gradle', 'build.gradle.kts', 'settings.gradle',
+            // C# project files
+            '.csproj', '.sln', '.fsproj', 'appsettings.json', 'appsettings.Development.json',
+            // Ruby
+            'Gemfile', 'Gemfile.lock', 'Rakefile',
+            // PHP
+            'composer.json', 'composer.lock',
+        ];
+
+        const hasValidExtension = validExtensions.some(ext =>
+            path.endsWith(ext) || path.split('/').pop() === ext
+        );
+
+        if (!hasValidExtension) {
+            // Check if it's a directory-like path without extension (could be __init__.py parent)
+            const lastPart = path.split('/').pop() || '';
+            if (lastPart.includes('.') && !validExtensions.some(ext => lastPart.endsWith(ext))) {
+                return false; // Has invalid extension
+            }
+        }
+
+        return true;
     }
 }
 
