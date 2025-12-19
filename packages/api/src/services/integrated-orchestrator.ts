@@ -40,6 +40,15 @@ import { getLearningService, type LearningService } from './learning-service.js'
 import { getQualityAssessment, type QualityAssessmentService } from './quality-assessment.js';
 import { getArchitectureKnowledge, type ArchitectureKnowledgeService } from './architecture-knowledge.js';
 
+// Phase 21: Service Integration Framework
+import { getServiceRegistry, type ServiceRegistry } from './service-registry/index.js';
+import { getConnectionManager, type ConnectionManager } from './connection-manager/index.js';
+
+// Phase 24: Context Management System
+import { getEntityExtractor, type EntityExtractorService } from './entity-extractor.js';
+import { getGenerationContext, type GenerationContextService, type GenerationContext } from './generation-context.js';
+import { buildSubtaskPrompt, getEntityConstraints } from './prompt-templates.js';
+
 
 
 // ============================================
@@ -158,6 +167,12 @@ export class IntegratedOrchestrator {
     private learningService: LearningService;
     private qualityAssessment: QualityAssessmentService;
     private architectureKnowledge: ArchitectureKnowledgeService;
+    // Phase 21: Service Integration
+    private serviceRegistry: ServiceRegistry;
+    private connectionManager: ConnectionManager;
+    // Phase 24: Context Management
+    private entityExtractor: EntityExtractorService;
+    private generationContextService: GenerationContextService;
     private isInitialized = false;
 
     constructor(config?: Partial<IntegratedOrchestratorConfig>) {
@@ -187,6 +202,12 @@ export class IntegratedOrchestrator {
         this.learningService = getLearningService();
         this.qualityAssessment = getQualityAssessment();
         this.architectureKnowledge = getArchitectureKnowledge();
+        // Phase 21: Service Integration
+        this.serviceRegistry = getServiceRegistry();
+        this.connectionManager = getConnectionManager();
+        // Phase 24: Context Management
+        this.entityExtractor = getEntityExtractor();
+        this.generationContextService = getGenerationContext();
     }
 
     /**
@@ -275,6 +296,63 @@ export class IntegratedOrchestrator {
                 });
 
                 addStep('init', 'Context initialized', { contextKey: `${input.projectId}:${input.userId}` });
+            }
+
+            // ============================================
+            // PHASE 1.5: ENTITY EXTRACTION (Phase 24)
+            // ============================================
+            addStep('init', 'Starting entity extraction...');
+
+            let generationContext: GenerationContext | null = null;
+            let entityConstraints = '';
+
+            try {
+                // Create a generation context for this task
+                generationContext = this.generationContextService.createContext(
+                    input.taskId,
+                    input.projectId,
+                    input.userId || 'anonymous',
+                    input.prompt,
+                    input.context?.language || 'typescript',
+                    input.context?.framework || 'fastify'
+                );
+
+                // Extract entities from the prompt
+                const extraction = await this.entityExtractor.extract(input.prompt);
+
+                if (extraction.success && extraction.entities.length > 0) {
+                    // Set entities on the context
+                    this.generationContextService.setEntities(generationContext.id, extraction);
+
+                    // Build entity constraints for prompts
+                    entityConstraints = getEntityConstraints(generationContext);
+
+                    // Get enabled features properly
+                    const enabledFeatures: string[] = [];
+                    const features = extraction.features;
+                    if (features.authentication) enabledFeatures.push('authentication');
+                    if (features.realTime) enabledFeatures.push('realTime');
+                    if (features.fileUpload) enabledFeatures.push('fileUpload');
+                    if (features.payments) enabledFeatures.push('payments');
+                    if (features.notifications) enabledFeatures.push('notifications');
+                    if (features.search) enabledFeatures.push('search');
+
+                    addStep('init', `Extracted ${extraction.entities.length} entities in ${extraction.extractionTime}ms`, {
+                        entities: extraction.entities.map(e => e.name),
+                        features: enabledFeatures,
+                        projectType: extraction.projectType,
+                    });
+
+                    console.log(`[ORCHESTRATOR] Extracted entities: ${extraction.entities.map(e => e.name).join(', ')}`);
+                } else {
+                    addStep('init', 'No entities extracted (will use fallback context)', {
+                        error: extraction.error,
+                    });
+                }
+            } catch (extractError) {
+                const errMsg = extractError instanceof Error ? extractError.message : 'Unknown error';
+                console.warn('[ORCHESTRATOR] Entity extraction failed:', errMsg);
+                addStep('init', 'Entity extraction failed (continuing without)', { error: errMsg });
             }
 
             // ============================================
@@ -429,8 +507,42 @@ LEARNING FROM PAST GENERATIONS:
                             console.warn('[ORCHESTRATOR] Could not build learning context:', learningError);
                         }
 
-                        // Enhance prompt with learning context
-                        const enhancedPrompt = learningContext + subtask;
+                        // Phase 23 + 24: Build enhanced prompt with entity constraints
+                        // Use the new prompt template system if we have a generation context
+                        let enhancedPrompt = learningContext;
+
+                        if (generationContext && generationContext.entities.length > 0) {
+                            // Phase 24: Use structured prompt template with entity constraints
+                            enhancedPrompt += buildSubtaskPrompt(subtask, generationContext);
+
+                            // Track subtask in context
+                            this.generationContextService.setCurrentSubtask(generationContext.id, subtask);
+                        } else {
+                            // Fallback: Use Phase 23 original prompt context
+                            const originalPromptContext = `
+ORIGINAL USER REQUEST (Maintain this context for ALL code generation):
+================================================================================
+${input.prompt}
+================================================================================
+
+CURRENT SUBTASK: ${subtask}
+
+IMPORTANT: You are generating code for a specific system described above.
+- Stay focused on the ORIGINAL REQUEST, not generic patterns
+- All generated code should directly relate to: "${input.prompt.substring(0, 100)}..."
+- Do NOT generate unrelated CRUD operations or generic scaffolding
+- If the request mentions "chat", generate chat-related code (rooms, messages, etc.)
+- If the request mentions "auth", generate auth-related code
+- Match your output to the user's specific domain
+
+`;
+                            enhancedPrompt += originalPromptContext;
+                        }
+
+                        // Always add entity constraints if available
+                        if (entityConstraints) {
+                            enhancedPrompt += entityConstraints;
+                        }
 
                         const multiModelResult = await this.multiModelOrchestrator.execute({
                             prompt: enhancedPrompt,
@@ -1042,6 +1154,48 @@ LEARNING FROM PAST GENERATIONS:
             }
             console.log(`${'='.repeat(70)}\n`);
 
+            // ============================================
+            // PHASE 24: FINALIZE GENERATION CONTEXT
+            // ============================================
+            if (generationContext) {
+                try {
+                    // Add generated files to context
+                    if (fileWriteResult?.filesWritten) {
+                        for (const filePath of fileWriteResult.filesWritten) {
+                            this.generationContextService.addGeneratedFile(generationContext.id, {
+                                path: filePath,
+                                language: input.context?.language || 'typescript',
+                                type: filePath.includes('route') ? 'route' :
+                                    filePath.includes('service') ? 'service' :
+                                        filePath.includes('model') || filePath.includes('schema') ? 'model' : 'utility',
+                            });
+                        }
+                    }
+
+                    // Finalize context with metrics - this will trigger database persistence
+                    this.generationContextService.finalize(
+                        generationContext.id,
+                        errors.length === 0,
+                        {
+                            duration: totalDuration,
+                            cost: 0, // TODO: Get from cost tracker
+                            qualityScore: undefined, // TODO: Get from quality assessment
+                        }
+                    );
+
+                    // Validate that expected entities were implemented
+                    const validation = this.generationContextService.validateEntitiesImplemented(generationContext.id);
+                    if (!validation.valid && validation.missing.length > 0) {
+                        console.warn(`[ORCHESTRATOR] Missing entity implementations: ${validation.missing.join(', ')}`);
+                        addStep('finalize', `⚠️ Missing entities: ${validation.missing.join(', ')}`);
+                    }
+
+                    addStep('finalize', 'Generation context finalized and saved for learning');
+                } catch (ctxError) {
+                    console.warn('[ORCHESTRATOR] Failed to finalize generation context:', ctxError);
+                }
+            }
+
             return {
                 success: errors.length === 0,
                 taskId: input.taskId,
@@ -1116,6 +1270,9 @@ LEARNING FROM PAST GENERATIONS:
         enhancedCodeGenerator: EnhancedCodeGenerator;
         vectorStore: VectorStoreService;
         learningService: LearningService;
+        // Phase 21: Service Integration
+        serviceRegistry: ServiceRegistry;
+        connectionManager: ConnectionManager;
     } {
         return {
             aiClient: this.aiClient,
@@ -1126,7 +1283,61 @@ LEARNING FROM PAST GENERATIONS:
             enhancedCodeGenerator: this.enhancedCodeGenerator,
             vectorStore: this.vectorStore,
             learningService: this.learningService,
+            // Phase 21: Service Integration
+            serviceRegistry: this.serviceRegistry,
+            connectionManager: this.connectionManager,
         };
+    }
+
+    /**
+     * Get user's configured services context for AI prompts (Phase 21)
+     * Retrieves all connected services for a user and returns context for code generation
+     */
+    async getServiceContext(userId: string): Promise<{
+        connectedServices: Array<{
+            serviceId: string;
+            serviceName: string;
+            category: string;
+            capabilities: string[];
+        }>;
+        serviceInstructions: string;
+    }> {
+        try {
+            const connections = await this.connectionManager.getUserConnections(userId);
+
+            const connectedServices = connections.map(conn => {
+                const service = this.serviceRegistry.getService(conn.serviceId);
+                return {
+                    serviceId: conn.serviceId,
+                    serviceName: service?.name || conn.serviceId,
+                    category: service?.category || 'unknown',
+                    capabilities: service?.capabilities || [],
+                };
+            });
+
+            // Build agent instructions from connected services
+            let serviceInstructions = '';
+            if (connectedServices.length > 0) {
+                serviceInstructions = '\n\nCONNECTED SERVICES:\n';
+                for (const conn of connectedServices) {
+                    const service = this.serviceRegistry.getService(conn.serviceId);
+                    if (service?.agentInstructions) {
+                        serviceInstructions += `\n${service.name}:\n${service.agentInstructions}\n`;
+                    }
+                }
+            }
+
+            return {
+                connectedServices,
+                serviceInstructions,
+            };
+        } catch (error) {
+            console.warn('[ORCHESTRATOR] Failed to get service context:', error);
+            return {
+                connectedServices: [],
+                serviceInstructions: '',
+            };
+        }
     }
 
     /**

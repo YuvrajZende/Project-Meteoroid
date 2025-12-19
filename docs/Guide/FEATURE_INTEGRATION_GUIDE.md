@@ -3,6 +3,20 @@
 A step-by-step guide for properly connecting new features to the Loveable Backend system.
 
 ---
+📁 packages/api/src/services/
+├── integrated-orchestrator.ts  ✅ THE PRODUCTION ONE (1261 lines)
+│   └── Uses: ThinkingEngine, ContextManager, AgentMonitor, MCPHub,
+│             FileWriter, VectorStore, LearningService, QualityAssessment,
+│             MultiModelOrchestrator, ServiceRegistry, ConnectionManager
+│
+├── multi-model-orchestrator.ts ✅ USED BY INTEGRATED (1095 lines)
+│   └── Two-stage pipeline: Fast Model → Power Model
+│
+├── orchestrator.ts             ⚠️ LEGACY/REDUNDANT (368 lines)
+│   └── Simple placeholder with hardcoded delays
+│
+└── index.ts exports BOTH (but routes use only Integrated)
+---
 
 ## 📋 Overview
 
@@ -701,3 +715,36 @@ Here's how the Architecture Blueprint was integrated:
 9. **Add shutdown hooks** - Flush pending records before server shutdown
 10. **Run migrations first** - Always apply SQL before deploying code changes
 11. **Use ASCII diagrams** - Generate architecture blueprints for complex features
+
+---
+
+## 📝 Example: Context Management System (Phase 24)
+
+Here's how the Context Management System was integrated:
+
+| Layer | File | What was added |
+|-------|------|----------------|
+| 1 | `entity-extractor.ts` | EntityExtractorService - AI-powered entity extraction |
+| 1 | `generation-context.ts` | GenerationContextService - Pipeline context tracking |
+| 1 | `prompt-templates.ts` | Standardized prompt builders with context injection |
+| 2 | `services/index.ts` | Exported all new services and types |
+| 3 | `integrated-orchestrator.ts` | Added Phase 1.5 entity extraction, prompt template usage |
+| 4 | `routes/context.ts` | Created 7 API endpoints for context management |
+| 5 | `routes/index.ts` | Registered context routes |
+| 5 | `index.ts` | Added shutdown hook for GenerationContextService |
+| 6 | (Uses existing AI env vars) | No new configuration needed |
+| 7 | `015_generation_contexts.sql` | Created 3 tables for context persistence |
+
+### Key Design Decisions:
+- **Entity-first approach**: Extract entities BEFORE code generation
+- **Context persistence**: Store all contexts for learning
+- **Graceful fallback**: If extraction fails, use Phase 23 prompt injection
+- **Validation**: Check if expected entities were implemented
+- **Template system**: Standardized prompts ensure context is never lost
+
+### Integration Flow:
+```
+User Prompt → Entity Extraction → Context Created → Thinking → 
+Code Generation (with entity constraints) → Validation → 
+Context Finalized → Saved to Database for Learning
+```

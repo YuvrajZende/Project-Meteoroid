@@ -11,8 +11,12 @@ import {
     getBenchmarkingService,
     getPreviewService,
     getKeyManager,
-    getIntegratedOrchestrator
+    getIntegratedOrchestrator,
+    initializeServiceRegistry,
+    getConnectionManager,
+    getGenerationContext,
 } from './services/index.js';
+import { initializeAdapters } from './services/adapters/adapter-factory.js';
 import { checkSupabaseConnection, checkVectorStore } from './services/database-client.js';
 import { flush } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
@@ -69,6 +73,10 @@ async function bootstrap(): Promise<void> {
 
                 const previewService = getPreviewService();
                 await previewService.shutdown();
+
+                // Phase 24: Flush generation contexts
+                const generationContext = getGenerationContext();
+                await generationContext.shutdown();
 
                 await flush(5000);
                 await app.close();
@@ -174,6 +182,48 @@ async function bootstrap(): Promise<void> {
         logger.status('Preview', previewEnabled ? 'Enabled' : 'Disabled', previewEnabled);
         logger.status('Auto-Deploy', deployEnabled ? 'Netlify' : 'Disabled', deployEnabled);
 
+        // Phase 21: Service Integration Framework
+        const serviceIntegrationEnabled = process.env.SERVICE_INTEGRATION_ENABLED !== 'false';
+        if (serviceIntegrationEnabled) {
+            try {
+                // Initialize service registry and adapters
+                const registry = await initializeServiceRegistry();
+                await initializeAdapters();
+                const registryStats = registry.getStats();
+                const allServices = registry.getAllServices();
+
+                logger.section('Service Integration (Phase 21)');
+                logger.status('Service Registry', `${registryStats.totalServices} services registered`, registryStats.totalServices > 0);
+
+                // List registered services
+                const serviceList = allServices.map(s => s.name).join(', ');
+                logger.info('Available', serviceList);
+
+                // Show categories with counts
+                const categoryInfo = Object.entries(registryStats.byCategory)
+                    .filter(([_, count]) => count > 0)
+                    .map(([cat, count]) => `${cat}(${count})`)
+                    .join(', ');
+                logger.info('Categories', categoryInfo);
+
+                logger.status('Adapters', 'Initialized', true);
+
+                // Get connection manager ready (if DB available)
+                if (dbStatus.connected) {
+                    getConnectionManager(); // Initialize singleton
+                    logger.status('Connection Manager', 'Ready', true);
+                } else {
+                    logger.status('Connection Manager', 'DB not connected', false);
+                }
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logger.status('Service Integration', `Failed: ${errorMsg}`, false);
+            }
+        } else {
+            logger.section('Service Integration (Phase 21)');
+            logger.status('Service Registry', 'Disabled via env', false);
+        }
+
         // Routes Section
         logger.section('Endpoints');
         logger.info('API Base', '/api/v1');
@@ -181,6 +231,9 @@ async function bootstrap(): Promise<void> {
         logger.info('Orchestrator', '/api/v1/orchestrator/*');
         logger.info('CodeGen', '/api/v1/codegen/*');
         logger.info('Preview', '/api/v1/preview/*');
+        logger.info('Services', '/api/v1/services/*');
+        logger.info('Connections', '/api/v1/connections/*');
+        logger.info('Context', '/api/v1/context/*');
 
         // Final ready message
         logger.ready(address, `${address}/docs`);

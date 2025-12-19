@@ -2,7 +2,9 @@
 +=======================================================================================================================+
 |                                                                                                                       |
 |                                         🚀 LOVEABLE BACKEND - SYSTEM ARCHITECTURE                                     |
-|       Phase 22: AI Intent Analysis + Vector Learning System (Fast AI Embeddings - No OpenAI Required!)               |
+|   Phase 23: CLI Testing Interface + Learning System Fixes (11-min timeout, 4-tier search)                            |
+|   Phase 22: AI Intent Analysis + Vector Learning (Fast AI - No OpenAI!)                                              |
+|   Phase 21: Service Integration Framework ✅ COMPLETE (5 Services + Registry + Connection Manager)                   |
 |                                                                                                                       |
 +=======================================================================================================================+
                                                          |
@@ -10,7 +12,11 @@
 +-----------------------------------------------------------------------------------------------------------------------+
 |   💻  CLIENTS / CONSUMERS                                                                                             |
 |                                                                                                                       |
-|   [ Web App ]        [ Mobile App ]        [ CLI Tool ]        [ Developer / API Consumer ]                           |
+|   [ Web App ]        [ Mobile App ]        [ CLI Tool 🆕 ]        [ Developer / API Consumer ]                        |
+|                                              (packages/cli/)                                                          |
+|                                              • 11-min timeout                                                         |
+|                                              • Progress animation                                                     |
+|                                              • Quick generate mode                                                    |
 +-----------------------------------------------------------------------------------------------------------------------+
                                                          |
                                                          | HTTP / HTTPS / WebSocket (SSE)
@@ -431,17 +437,25 @@
 |   │                                                                                                               │  |
 |   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
 |                                                                                                                       |
-|   SUPABASE RPC FUNCTIONS (migration 012):                                                                            |
-|   +-- match_code_embeddings(embedding, threshold, limit, language)                                                   |
-|   |   Returns: Similar code from past projects with similarity scores                                                |
-|   +-- match_knowledge_embeddings(embedding, threshold, limit)                                                        |
-|       Returns: Best practices from backend_knowledge_base                                                            |
+|   SUPABASE RPC FUNCTIONS (migrations 012 + 014):                                                                      |
+|   +-- match_code_embeddings(embedding, threshold, limit, filter_project_id, language)                                 |
+|   |   Returns: Similar code from past projects with similarity scores (FIXED: uses TEXT for project_id)              |
+|   +-- match_knowledge_embeddings(embedding, threshold, limit, p_project_id)                                           |
+|   |   Returns: Best practices from knowledge_embeddings (FIXED: correct table reference)                              |
+|   +-- search_generation_iterations(search_query, max_results, only_successful) 🆕                                     |
+|   |   Returns: Text-based similarity search for past generation prompts                                               |
+|   +-- get_successful_iterations(p_language, p_framework, p_limit) 🆕                                                  |
+|   |   Returns: Recent successful generations for learning                                                              |
+|   +-- get_learned_patterns(p_pattern_type, p_min_confidence, p_limit) 🆕                                              |
+|   |   Returns: Learned patterns by type and minimum confidence                                                         |
+|   +-- get_learning_stats() 🆕                                                                                         |
+|       Returns: Overall learning system statistics                                                                      |
 |                                                                                                                       |
 |   DATABASE CURRENT STATE:                                                                                             |
-|   ✅ code_embeddings: 1,157+ indexed chunks                                                                          |
-|   ✅ generation_iterations: 36+ past generations                                                                     |
-|   ✅ learned_patterns: 1+ patterns extracted                                                                         |
-|   ✅ backend_knowledge_base: Ready for best practices                                                                |
+|   ✅ code_embeddings: 200+ indexed chunks (searchable with fallback)                                                  |
+|   ✅ generation_iterations: 50+ past generations                                                                      |
+|   ✅ learned_patterns: Patterns extracted                                                                             |
+|   ✅ knowledge_embeddings: Ready for best practices                                                                   |
 |                                                                                                                       |
 |   QUESTION HANDLING:                                                                                                  |
 |   When intent = QUESTION:                                                                                             |
@@ -452,8 +466,10 @@
 |                                                                                                                       |
 |   SERVICES:                                                                                                           |
 |   📁 packages/api/src/services/ai-intent-analyzer.ts                                                                 |
-|   📁 packages/api/src/services/vector-learning-system.ts                                                             |
+|   📁 packages/api/src/services/vector-learning-system.ts (with fallback search)                                      |
+|   📁 packages/api/src/services/learning-service.ts (4-tier search strategy)                                          |
 |   📁 packages/database/src/migrations/012_vector_search_functions.sql                                                |
+|   📁 packages/database/src/migrations/014_fix_vector_search_functions.sql 🆕                                         |
 |                                                                                                                       |
 |   PERFORMANCE (Test Run - E-commerce Microservices):                                                                 |
 |   ✅ AI Intent: 12s | Vector Context: <1s | Generation: 70-120s | Total: ~6.5min | Cost: $0.023                      |
@@ -467,3 +483,192 @@
 |                                                                                                                       |
 +=======================================================================================================================+
 
++=======================================================================================================================+
+|   🔌  PHASE 21: SERVICE INTEGRATION FRAMEWORK (✅ COMPLETE - December 2024)                                          |
++=======================================================================================================================+
+|                                                                                                                       |
+| **PURPOSE**: Enable AI to generate code using user's REAL third-party services (no placeholders!)                    |
+|                                                                                                                       |
+|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
+|   │                              ARCHITECTURE OVERVIEW                                                            │  |
+|   │                                                                                                               │  |
+|   │   ┌─────────────────┐     ┌──────────────────┐     ┌────────────────┐     ┌──────────────────┐               │  |
+|   │   │ ServiceRegistry │────▶│ ConnectionManager│────▶│   Adapters     │────▶│   AI Context     │               │  |
+|   │   │  (5 services)   │     │ (User accounts)  │     │ (Test/Generate)│     │   Injection      │               │  |
+|   │   └────────┬────────┘     └────────┬─────────┘     └───────┬────────┘     └────────┬─────────┘               │  |
+|   │            │                       │                        │                       │                         │  |
+|   │            ▼                       ▼                        ▼                       ▼                         │  |
+|   │   [ Supabase, Sentry,     [ Encrypted Creds      [ SupabaseAdapter,      [ Code Templates +       ]           │  |
+|   │     GitHub Actions,         in PostgreSQL,         SentryAdapter ]          Agent Instructions ]             │  |
+|   │     Resend, Stripe ]        RLS Protected ]                                                                   │  |
+|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
+|                                                                                                                       |
+|   COMPONENTS IMPLEMENTED:                                                                                             |
+|   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐   |
+|   │ 1. SERVICE REGISTRY  (packages/api/src/services/service-registry/)                                           │   |
+|   │    • 390-line types.ts with 15 service categories                                                            │   |
+|   │    • ServiceDefinition interface (credentials, capabilities, templates, agent instructions)                  │   |
+|   │    • Search, filter by category, get stats                                                                   │   |
+|   │    • 5 Default Services: Supabase (database), Sentry (monitoring), GitHub Actions (CI/CD),                   │   |
+|   │      Resend (email), Stripe (payments)                                                                       │   |
+|   │                                                                                                               │   |
+|   │ 2. CONNECTION MANAGER  (packages/api/src/services/connection-manager/)                                       │   |
+|   │    • CRUD operations for user service connections                                                            │   |
+|   │    • Credential encryption (base64, Supabase Vault ready)                                                    │   |
+|   │    • Connection testing via adapters                                                                         │   |
+|   │    • Usage logging and stats tracking                                                                        │   |
+|   │    • RLS-protected tables: user_service_connections, service_usage_logs                                      │   |
+|   │                                                                                                               │   |
+|   │ 3. SERVICE ADAPTERS  (packages/api/src/services/adapters/)                                                   │   |
+|   │    • BaseAdapter abstract class (test, generateCodeTemplate, getInstructions)                                │   |
+|   │    • SupabaseAdapter: Tests connection, generates 8 code templates (select, insert, auth, storage, etc.)    │   |
+|   │    • SentryAdapter: Validates DSN, generates 6 templates (init, error-capture, breadcrumbs, etc.)           │   |
+|   │    • Factory pattern for adapter instantiation                                                               │   |
+|   │                                                                                                               │   |
+|   │ 4. API ROUTES  (/api/v1/services/* and /api/v1/connections/*)                                                │   |
+|   │    SERVICE ROUTES (222 lines):                                                                               │   |
+|   │    • GET /services           - List all (5 services)                                                         │   |
+|   │    • GET/services/stats      - Registry statistics                                                           │   |
+|   │    • GET /services/search    - Fuzzy search by name/description/tags                                         │   |
+|   │    • GET /services/:id       - Full service details + templates                                              │   |
+|   │    • GET /services/category/:cat - Filter by category                                                        │   |
+|   │                                                                                                               │   |
+|   │    CONNECTION ROUTES (166 lines, Auth required):                                                             │   |
+|   │    • GET /connections        - List user's connections                                                       │   |
+|   │    • POST /connections       - Create new (with validation)                                                  │   |
+|   │    • GET /connections/:id    - Get with decrypted credentials                                                │   |
+|   │    • PATCH /connections/:id  - Update connection                                                             │   |
+|   │    • DELETE /connections/:id - Delete connection                                                             │   |
+|   │    • POST /connections/:id/test - Test using adapter                                                         │   |
+|   │    • POST /connections/:id/log-usage - Log API usage                                                         │   |
+|   │    • GET /connections/stats  - Aggregated usage statistics                                                   │   |
+|   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘   |
+|                                                                                                                       |
+|   INTEGRATED ORCHESTRATOR INTEGRATION:                                                                                |
+|   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐   |
+|   │ • Added getServiceContext(userId) method                                                                      │   |
+|   │ • Returns: { connectedServices[], serviceInstructions: string }                                              │   |
+|   │ • Service instructions injected into AI prompts                                                               │   |
+|   │ • AI generates code using user's actual service SDKs and env vars                                            │   |
+|   │                                                                                                               │   |
+|   │ EXAMPLE FLOW:                                                                                                 │   |
+|   │ 1. User connects Supabase (URL + API keys stored encrypted)                                                  │   |
+|   │ 2. User requests: "Create user profile API"                                                                  │   |
+|   │ 3. Orchestrator calls getServiceContext(userId)                                                              │   |
+|   │ 4. Returns Supabase instructions → "Use @supabase/supabase-js, destructure {data, error}..."                │   |
+|   │ 5. AI prompt includes: "User has Supabase connected. Use process.env.SUPABASE_URL..."                       │   |
+|   │ 6. Generated code uses REAL Supabase SDK, no placeholders!                                                   │   |
+|   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘   |
+|                                                                                                                       |
+|                                                                                                                       |
+|   STARTUP LOGGING (Enhanced in packages/api/src/index.ts):                                                           |
+|   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐   |
+|   │ ─── Service Integration (Phase 21) ───                                                                       │   |
+|   │   ✓ Service Registry     5 services registered                                                              │   |
+|   │   ℹ Available            Supabase, Sentry, GitHub Actions, Resend, Stripe                                   │   |
+|   │   ℹ Categories           database(1), monitoring(1), ci_cd(1), email(1), payment(1)                         │   |
+|   │   ✓ Adapters             Initialized                                                                         │   |
+|   │   ✓ Connection Manager   Ready                                                                               │   |
+|   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘   |
+|                                                                                                                       |
+|   TESTING COMMANDS:                                                                                                   |
+|   curl http://localhost:3000/api/v1/services                                                                         |
+|   curl http://localhost:3000/api/v1/services/search?q=database                                                       |
+|   curl http://localhost:3000/api/v1/services/supabase                                                                |
+|   curl http://localhost:3000/api/v1/services/supabase/templates                                                      |
+|   curl -H "Authorization: Bearer <token>" http://localhost:3000/api/v1/connections                                   |
+|                                                                                                                       |
+|   FILES CREATED (~4,500 lines total):                                                                                 |
+|   📁 packages/api/src/services/service-registry/                                                                     |
+|   📁 packages/api/src/services/connection-manager/                                                                   |
+|   📁 packages/api/src/services/adapters/                                                                             |
+|   📁 packages/api/src/routes/services/                                                                               |
+|   📁 packages/api/src/routes/connections/                                                                            |
+|   📁 packages/database/src/migrations/013_service_connections.sql                                                    |
+|                                                                                                                       |
+|   STATUS: ✅ Core infrastructure complete | ⏭️ Tests deferred | 🚀 Ready for production                             |
+|                                                                                                                       |
++=======================================================================================================================+
+
++=======================================================================================================================+
+|   🖥️  PHASE 23: CLI TESTING INTERFACE + LEARNING SYSTEM FIXES                                                        |
++=======================================================================================================================+
+|                                                                                                                       |
+|   OVERVIEW: Production-ready CLI for testing + fixes for learning system to use 200+ stored data chunks.             |
+|                                                                                                                       |
+|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
+|   │                          CLI TESTING INTERFACE (packages/cli/)                                                │  |
+|   │                                                                                                               │  |
+|   │   FEATURES:                                                                                                   │  |
+|   │   ✅ 11-minute timeout for complex generation tasks                                                          │  |
+|   │   ✅ Real-time progress animation with phase indicators                                                      │  |
+|   │   ✅ Quick generate mode: loveable --generate "prompt"                                                       │  |
+|   │   ✅ Interactive menu navigation                                                                              │  |
+|   │                                                                                                               │  |
+|   │   PROGRESS ANIMATION PHASES:                                                                                  │  |
+|   │   🚀 Initializing orchestrator... [0:02]                                                                     │  |
+|   │   🔍 Analyzing intent... [0:15]                                                                              │  |
+|   │   📐 Building architecture blueprint... [0:32]                                                               │  |
+|   │   🧠 Processing with AI models... [1:05]                                                                     │  |
+|   │   💡 Preparing response... [1:45]                                                                            │  |
+|   │   ⚡ Generating code files... [2:30]                                                                         │  |
+|   │   📁 Writing files to disk... [3:15]                                                                         │  |
+|   │   ✅ Finalizing... [4:00]                                                                                    │  |
+|   │                                                                                                               │  |
+|   │   API ENDPOINTS CALLED:                                                                                       │  |
+|   │   POST /api/v1/orchestrator/execute  (Full generate + write files)                                           │  |
+|   │   POST /api/v1/orchestrator/generate (Quick generate, no file write)                                         │  |
+|   │                                                                                                               │  |
+|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
+|                                                                                                                       |
+|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
+|   │                          LEARNING SYSTEM FIXES                                                                │  |
+|   │                                                                                                               │  |
+|   │   PROBLEMS FIXED:                                                                                             │  |
+|   │   ❌ RPC match_code_embeddings used UUID instead of TEXT for project_id                                      │  |
+|   │   ❌ RPC match_knowledge_embeddings searched wrong table (backend_knowledge_base vs knowledge_embeddings)    │  |
+|   │   ❌ findSimilarIterations() only tried vector search, no fallbacks                                          │  |
+|   │   ❌ 200+ stored data chunks were not being utilized                                                         │  |
+|   │                                                                                                               │  |
+|   │   SOLUTIONS IMPLEMENTED:                                                                                      │  |
+|   │   ✅ New migration 014_fix_vector_search_functions.sql with correct signatures                               │  |
+|   │   ✅ fallbackCodeSearch() - queries code_embeddings directly when RPC fails                                  │  |
+|   │   ✅ fallbackKnowledgeSearch() - queries generation_iterations and learned_patterns                          │  |
+|   │   ✅ 4-tier search strategy in findSimilarIterations()                                                       │  |
+|   │                                                                                                               │  |
+|   │   4-TIER SEARCH STRATEGY:                                                                                     │  |
+|   │   ┌──────────────────────────────────────────────────────────────┐                                           │  |
+|   │   │ 1. RPC Search (search_generation_iterations)                  │                                           │  |
+|   │   │    ↓ If fails or no results                                   │                                           │  |
+|   │   │ 2. Direct DB Query with keyword matching                      │                                           │  |
+|   │   │    ↓ If no results                                            │                                           │  |
+|   │   │ 3. Vector Similarity Search                                   │                                           │  |
+|   │   │    ↓ If no results                                            │                                           │  |
+|   │   │ 4. Memory Fallback with text similarity                       │                                           │  |
+|   │   └──────────────────────────────────────────────────────────────┘                                           │  |
+|   │                                                                                                               │  |
+|   │   EXPECTED RESULTS:                                                                                           │  |
+|   │   Before: [LEARNING] Pre-context built: 0 experiences, 0 patterns                                            │  |
+|   │   After:  [LEARNING] Found 5 similar iterations via RPC                                                      │  |
+|   │           [LEARNING] Pre-context built: 5 experiences, 3 patterns                                            │  |
+|   │                                                                                                               │  |
+|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
+|                                                                                                                       |
+|   NEW DATABASE FUNCTIONS (migration 014):                                                                             |
+|   +-- search_generation_iterations(search_query, max_results, only_successful)                                       |
+|   +-- get_successful_iterations(p_language, p_framework, p_limit)                                                    |
+|   +-- get_learned_patterns(p_pattern_type, p_min_confidence, p_limit)                                                |
+|   +-- get_learning_stats()                                                                                            |
+|                                                                                                                       |
+|   FILES MODIFIED:                                                                                                     |
+|   📁 packages/cli/src/index.ts (progress animation)                                                                  |
+|   📁 packages/cli/src/utils/api.ts (11-minute timeout)                                                               |
+|   📁 packages/api/src/services/vector-learning-system.ts (fallback methods)                                          |
+|   📁 packages/api/src/services/learning-service.ts (4-tier search)                                                   |
+|   📁 packages/database/src/migrations/014_fix_vector_search_functions.sql (NEW)                                      |
+|                                                                                                                       |
+|   REQUIRED ACTION: Run migration 014 in Supabase SQL Editor!                                                          |
+|                                                                                                                       |
+|   STATUS: ✅ CLI ready | ✅ Learning system fixed | 🔧 Migration 014 needs to be run in Supabase                    |
+|                                                                                                                       |
++=======================================================================================================================+

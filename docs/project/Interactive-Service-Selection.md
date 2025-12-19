@@ -13,7 +13,175 @@ Example: const tasks = new Map(); // TODO: Replace with database
 User has no services → Ask intelligent questions → Generate PRODUCTION code → Guide setup
 Example: Real Supabase SDK with step-by-step setup instructions
 ```
+---
 
+## 📋 SERVICE CATEGORIES & PROVIDERS
+
+### 1. **DATABASE SERVICES**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Supabase** | Postgres + Auth + Storage + Realtime | Primary database, auth, file storage |
+| **MongoDB Atlas** | NoSQL document database | Flexible schema, high-scale apps |
+| **PlanetScale** | Serverless MySQL | Branching workflows, zero-downtime schema changes |
+| **Neon** | Serverless Postgres | Auto-scaling, branching |
+| **Firebase Firestore** | NoSQL realtime database | Mobile/web apps with offline support |
+| **Redis Cloud** | In-memory cache/store | Session management, caching, queues |
+| **Upstash** | Serverless Redis/Kafka | Edge-compatible caching |
+| **Prisma** | ORM/Database toolkit | Type-safe database access |
+
+### 2. **AUTHENTICATION & AUTHORIZATION**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Auth0** | Enterprise auth platform | OAuth, SSO, MFA, RBAC |
+| **Clerk** | Modern user management | Drop-in auth UI, user profiles |
+| **Firebase Auth** | Google's auth service | Social logins, phone auth |
+| **Supabase Auth** | Built-in Postgres auth | JWT, OAuth, magic links |
+| **WorkOS** | Enterprise SSO | SAML, Directory Sync |
+| **Magic** | Passwordless auth | Email magic links |
+| **Descope** | No-code auth flows | Visual auth builder |
+
+### 3. **MONITORING & OBSERVABILITY**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Sentry** | Error tracking & performance | Frontend/backend error monitoring |
+| **Datadog** | Full-stack observability | APM, logs, metrics, traces |
+| **Grafana Cloud** | Metrics & visualization | Custom dashboards, alerting |
+| **New Relic** | APM & infrastructure monitoring | Performance insights |
+| **LogRocket** | Session replay & logging | Frontend behavior tracking |
+| **Honeycomb** | Observability for distributed systems | Trace-based debugging |
+| **Better Stack (Logtail)** | Log management | Centralized logging |
+| **Axiom** | Serverless analytics | High-volume log analytics |
+
+### 4. **CI/CD & DEPLOYMENT**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **GitHub Actions** | CI/CD automation | Workflows, testing, deployment |
+| **GitLab CI/CD** | Integrated DevOps | Pipelines, container registry |
+| **CircleCI** | Continuous integration | Fast builds, caching |
+| **Jenkins** | Self-hosted automation | Custom pipelines |
+| **Travis CI** | Cloud CI service | Open source projects |
+| **Vercel** | Frontend deployment | Next.js, static sites |
+| **Netlify** | Jamstack deployment | Build & deploy static sites |
+| **Railway** | Infrastructure platform | Backend deployment, databases |
+| **Render** | Unified cloud | Web services, databases, cron jobs |
+| **Fly.io** | Edge deployment | Global app distribution |
+
+### 5. **CONTAINER & ORCHESTRATION**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Docker** | Containerization | App packaging, local dev |
+| **Kubernetes (K8s)** | Container orchestration | Production scaling, management |
+| **Docker Hub** | Container registry | Image storage, distribution |
+| **Google Kubernetes Engine (GKE)** | Managed K8s | Enterprise orchestration |
+| **Amazon EKS** | AWS managed K8s | AWS-integrated orchestration |
+| **Azure Kubernetes Service (AKS)** | Azure managed K8s | Azure-integrated orchestration |
+| **Portainer** | Container management UI | Visual Docker/K8s management |
+
+### 6. **API MANAGEMENT & GATEWAY**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Kong** | API gateway | Rate limiting, auth, routing |
+| **Nginx** | Web server & reverse proxy | Load balancing, SSL termination |
+| **Traefik** | Cloud-native proxy | Dynamic configuration |
+| **AWS API Gateway** | Managed API service | Serverless API endpoints |
+| **Postman** | API development | Testing, documentation |
+| **RapidAPI** | API marketplace | Third-party API integration |
+
+### 7. **FILE STORAGE & CDN**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **AWS S3** | Object storage | File uploads, backups |
+| **Cloudflare R2** | S3-compatible storage | No egress fees |
+| **Backblaze B2** | Cost-effective storage | Backups, archives |
+| **UploadThing** | File uploads for Next.js | Type-safe uploads |
+| **Cloudinary** | Media management | Image/video optimization |
+| **ImageKit** | Image CDN | Transformations, optimization |
+| **Vercel Blob** | Edge blob storage | Fast file serving |
+
+### 8. **MESSAGE QUEUES & EVENT STREAMING**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **RabbitMQ** | Message broker | Task queues, pub/sub |
+| **Apache Kafka** | Event streaming | High-throughput messaging |
+| **AWS SQS** | Managed queue service | Decoupled microservices |
+| **Redis Pub/Sub** | In-memory messaging | Real-time notifications |
+| **Upstash Kafka** | Serverless Kafka | Edge-compatible streaming |
+| **BullMQ** | Redis-based queue | Background jobs (current) |
+| **Inngest** | Event-driven workflows | Durable execution |
+
+### 9. **EMAIL & COMMUNICATION**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **SendGrid** | Transactional email | User notifications |
+| **Resend** | Developer-first email | React Email templates |
+| **Postmark** | Reliable email delivery | Transactional messages |
+| **AWS SES** | Cost-effective email | Bulk email sending |
+| **Mailgun** | Email automation | Marketing, transactional |
+| **Twilio** | SMS & voice | Phone verification |
+| **Vonage** | Communications API | SMS, voice, video |
+
+### 10. **PAYMENT PROCESSING**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Stripe** | Payment infrastructure | Subscriptions, invoices |
+| **PayPal** | Global payments | Checkout, invoicing |
+| **Paddle** | Merchant of record | Tax handling, compliance |
+| **LemonSqueezy** | Easy payments | Simple checkout |
+| **Square** | Point of sale | In-person & online |
+
+### 11. **SEARCH & ANALYTICS**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Algolia** | Search as a service | Fast, typo-tolerant search |
+| **Elasticsearch** | Search & analytics | Full-text search, logs |
+| **Meilisearch** | Open-source search | Fast, relevant search |
+| **Typesense** | Search engine | Instant search experience |
+| **Google Analytics** | Web analytics | User behavior tracking |
+| **Mixpanel** | Product analytics | Event-based tracking |
+| **PostHog** | Product analytics | Self-hosted option available |
+| **Plausible** | Privacy-friendly analytics | GDPR-compliant tracking |
+
+### 12. **AI & MACHINE LEARNING**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **OpenAI** | GPT models | Text generation, chat |
+| **Anthropic** | Claude models | Long context, reasoning |
+| **Z.AI** | GLM models | Current power model |
+| **Groq** | Fast LLM inference | Current fast model |
+| **Hugging Face** | ML model hub | Open-source models |
+| **Replicate** | Run ML models in cloud | Image generation, audio |
+| **ElevenLabs** | Voice AI | Text-to-speech |
+| **Pinecone** | Vector database | Semantic search |
+| **Weaviate** | Vector database | ML-powered search |
+
+### 13. **SECRETS & CONFIGURATION**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **HashiCorp Vault** | Secrets management | Encryption, key rotation |
+| **AWS Secrets Manager** | Managed secrets | RDS integration |
+| **Doppler** | SecretOps platform | Environment management |
+| **Infisical** | Open-source secrets | Self-hosted option |
+| **1Password** | Password manager | Team secrets |
+
+### 14. **FEATURE FLAGS & A/B TESTING**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **LaunchDarkly** | Feature management | Progressive rollouts |
+| **Split** | Feature flags | Experimentation |
+| **Flagsmith** | Open-source flags | Self-hosted option |
+| **PostHog** | Feature flags + analytics | Integrated platform |
+
+### 15. **TESTING & QA**
+| Service | Purpose | Agent Usage |
+|---------|---------|-------------|
+| **Playwright** | E2E testing | Browser automation |
+| **Cypress** | E2E testing | Developer experience |
+| **Jest** | Unit testing | JavaScript testing |
+| **Vitest** | Modern testing | Fast, ESM-native |
+| **BrowserStack** | Cross-browser testing | Real device testing |
+| **Percy** | Visual testing | Screenshot diffing |
+
+---
 ---
 
 ## 🎯 CORE PRINCIPLES

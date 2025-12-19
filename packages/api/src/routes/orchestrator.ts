@@ -954,5 +954,249 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         }
     });
 
-    app.log.info('[ROUTES] Orchestrator routes registered: /api/v1/orchestrator/* (INTEGRATED MODE)');
+    // ============================================
+    // PHASE 21: INTERACTIVE SERVICE SELECTION
+    // ============================================
+
+    /**
+     * POST /api/v1/orchestrator/generate-interactive - Check user's services and generate code or ask questions
+     */
+    app.post('/api/v1/orchestrator/generate-interactive', {
+        schema: {
+            tags: ['Orchestrator', 'Service Integration'],
+            summary: 'Interactive Code Generation with Service Selection',
+            description: 'Checks if user has services configured. If not, returns questions. If yes, generates code with their services.',
+            body: {
+                type: 'object',
+                required: ['prompt', 'userId'],
+                properties: {
+                    prompt: { type: 'string', minLength: 10, maxLength: 5000 },
+                    userId: { type: 'string' },
+                    projectId: { type: 'string' },
+                },
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        mode: { type: 'string', enum: ['generate', 'interactive'] },
+                        questions: { type: 'array' },
+                        result: { type: 'object' },
+                    },
+                },
+            },
+        },
+    }, async (request: FastifyRequest<{
+        Body: {
+            prompt: string;
+            userId: string;
+            projectId?: string;
+        }
+    }>, reply: FastifyReply) => {
+        const { prompt, userId, projectId } = request.body;
+
+        try {
+            // Import interactive selector
+            const { getInteractiveServiceSelector, getConnectionManager } = await import('../services/index.js');
+
+            const selector = getInteractiveServiceSelector();
+            const connectionManager = getConnectionManager();
+
+            // Check if user has any services configured
+            const connections = await connectionManager.getUserConnections(userId);
+
+            if (connections.length === 0) {
+                // NO SERVICES: Return questions
+                app.log.info('[INTERACTIVE] User has no services configured - generating questions');
+
+                const questions = await selector.generateQuestions(prompt, userId);
+
+                return reply.send({
+                    mode: 'interactive',
+                    message: 'To generate production-ready code, we need to know which services you\'re using.',
+                    questions,
+                    nextStep: 'Submit your answers to /api/v1/orchestrator/generate-interactive/submit',
+                });
+            } else {
+                // HAS SERVICES: Generate code normally with service context
+                app.log.info(`[INTERACTIVE] User has ${connections.length} service(s) configured - generating code`);
+
+                // Get service context for AI
+                const serviceContext = await orchestrator.getServiceContext(userId);
+
+                // Generate code with service context
+                const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const finalProjectId = projectId || `project-${Date.now()}`;
+
+                const result = await orchestrator.orchestrate(
+                    {
+                        taskId,
+                        userId,
+                        projectId: finalProjectId,
+                        prompt,
+                        context: {
+                            // Add service context to generation
+                            ...(serviceContext as any),
+                        } as any,
+                    },
+                    (step) => {
+                        app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
+                    }
+                );
+
+                return reply.send({
+                    mode: 'generate',
+                    message: `Generated code using your ${serviceContext.connectedServices.length} configured service(s)`,
+                    servicesUsed: serviceContext.connectedServices.map(s => s.serviceName),
+                    result: {
+                        success: result.success,
+                        taskId: result.taskId,
+                        projectId: result.projectId,
+                        generatedCode: result.generatedCode,
+                        totalDuration: result.totalDuration,
+                    },
+                });
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            return reply.status(500).send({
+                success: false,
+                error: 'Interactive generation failed',
+                message: errorMessage,
+            });
+        }
+    });
+
+    /**
+     * POST /api/v1/orchestrator/generate-interactive/submit - Process answers and generate code
+     */
+    app.post('/api/v1/orchestrator/generate-interactive/submit', {
+        schema: {
+            tags: ['Orchestrator', 'Service Integration'],
+            summary: 'Submit Service Selection Answers',
+            description: 'Process user\'s service selection answers and generate production-ready code with recommended services',
+            body: {
+                type: 'object',
+                required: ['prompt', 'userId', 'answers'],
+                properties: {
+                    prompt: { type: 'string', minLength: 10, maxLength: 5000 },
+                    userId: { type: 'string' },
+                    answers: { type: 'object' },
+                    projectId: { type: 'string' },
+                },
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        selectedServices: { type: 'array' },
+                        setupGuide: { type: 'object' },
+                        result: { type: 'object' },
+                    },
+                },
+            },
+        },
+    }, async (request: FastifyRequest<{
+        Body: {
+            prompt: string;
+            userId: string;
+            answers: Record<string, string>;
+            projectId?: string;
+        }
+    }>, reply: FastifyReply) => {
+        const { prompt, userId, answers, projectId } = request.body;
+
+        try {
+            // Import services
+            const {
+                getInteractiveServiceSelector,
+                getSetupGuideGenerator,
+                getServiceRegistry
+            } = await import('../services/index.js');
+
+            const selector = getInteractiveServiceSelector();
+            const guideGenerator = getSetupGuideGenerator();
+            const registry = getServiceRegistry();
+
+            // Process answers and select services
+            const selectedServices = await selector.selectServices(prompt, answers);
+
+            app.log.info(`[INTERACTIVE] Selected ${selectedServices.length} services for user`);
+
+            // Generate setup guide
+            const serviceIds = selectedServices.map(s => s.serviceId);
+            const setupGuide = guideGenerator.generate(serviceIds);
+
+            // Build AI instructions for selected services
+            let serviceInstructions = '\n\n## SELECTED SERVICES\n\n';
+            serviceInstructions += 'The user will configure these services. Generate code that uses them:\n\n';
+
+            for (const selection of selectedServices) {
+                const service = registry.getService(selection.serviceId);
+                if (service) {
+                    serviceInstructions += `### ${service.name}\n`;
+                    serviceInstructions += `**Why:** ${selection.reason}\n`;
+                    serviceInstructions += `**Use this:**\n${service.agentInstructions}\n\n`;
+                }
+            }
+
+            serviceInstructions += '\n**IMPORTANT:** Generate REAL production code using actual SDKs. NO placeholders!\n';
+
+            // Generate code with selected services context
+            const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const finalProjectId = projectId || `project-${Date.now()}`;
+
+            const result = await orchestrator.orchestrate(
+                {
+                    taskId,
+                    userId,
+                    projectId: finalProjectId,
+                    prompt: prompt + serviceInstructions,
+                    context: {
+                        serviceSelections: selectedServices,
+                    } as any,
+                },
+                (step) => {
+                    app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
+                }
+            );
+
+            return reply.send({
+                success: true,
+                message: `Code generated using ${selectedServices.length} selected service(s)`,
+                selectedServices: selectedServices.map(s => {
+                    const svc = registry.getService(s.serviceId);
+                    return {
+                        serviceId: s.serviceId,
+                        serviceName: svc?.name || s.serviceId,
+                        reason: s.reason,
+                        autoSelected: s.autoSelected,
+                    };
+                }),
+                setupGuide,
+                result: {
+                    success: result.success,
+                    taskId: result.taskId,
+                    projectId: result.projectId,
+                    generatedCode: result.generatedCode,
+                    totalDuration: result.totalDuration,
+                },
+                nextSteps: [
+                    'Follow the setup guide to configure your services',
+                    'Add credentials to your project dashboard',
+                    'Download the generated code and start building!',
+                ],
+            });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            return reply.status(500).send({
+                success: false,
+                error: 'Failed to process service selection',
+                message: errorMessage,
+            });
+        }
+    });
+
+    app.log.info('[ROUTES] Orchestrator routes registered: /api/v1/orchestrator/* (INTEGRATED MODE + Phase 21 Interactive)');
 }

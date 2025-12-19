@@ -15,6 +15,7 @@ export interface JSONParseResult<T = any> {
 export class RobustJSONParser {
     /**
      * Parse JSON with aggressive repair strategies
+     * Enhanced for Phase 23: Better handling of LLM malformed responses
      */
     parse<T = any>(input: string): JSONParseResult<T> {
         if (!input || input.trim().length === 0) {
@@ -68,13 +69,147 @@ export class RobustJSONParser {
         try {
             const data = JSON.parse(cleaned) as T;
             return { success: true, data, repairAttempted: true };
-        } catch (finalError) {
-            return {
-                success: false,
-                error: finalError instanceof Error ? finalError.message : 'Unknown parse error',
-                originalLength,
-            };
+        } catch { }
+
+        // Strategy 7: Fix unquoted property names (new for Phase 23)
+        cleaned = this.fixUnquotedPropertyNames(cleaned);
+        try {
+            const data = JSON.parse(cleaned) as T;
+            return { success: true, data, repairAttempted: true };
+        } catch { }
+
+        // Strategy 8: Try to extract files array from malformed response (for code generation)
+        const extractedData = this.extractFilesFromMalformed<T>(input);
+        if (extractedData) {
+            return { success: true, data: extractedData, repairAttempted: true };
         }
+
+        // Strategy 9: Deep search for any valid JSON object
+        const deepExtracted = this.deepExtractJSON<T>(input);
+        if (deepExtracted) {
+            return { success: true, data: deepExtracted, repairAttempted: true };
+        }
+
+        return {
+            success: false,
+            error: 'All repair strategies failed',
+            originalLength,
+        };
+    }
+
+    /**
+     * Fix unquoted property names (common LLM mistake)
+     */
+    private fixUnquotedPropertyNames(text: string): string {
+        // Match patterns like { path: "..." } and convert to { "path": "..." }
+        return text.replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    }
+
+    /**
+     * Extract files array from malformed response (for code generation specifically)
+     */
+    private extractFilesFromMalformed<T>(input: string): T | null {
+        try {
+            // Try to find "files" array pattern
+            const filesMatch = input.match(/"files"\s*:\s*\[([\s\S]*)/);
+            if (filesMatch) {
+                let filesContent = filesMatch[1];
+
+                // Find all file objects
+                const files: Array<{ path: string; content: string }> = [];
+                const filePattern = /\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"content"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+                let match;
+
+                while ((match = filePattern.exec(filesContent)) !== null) {
+                    files.push({
+                        path: match[1],
+                        content: match[2].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
+                    });
+                }
+
+                if (files.length > 0) {
+                    // Try to extract code and explanation too
+                    const codeMatch = input.match(/"code"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+                    const explanationMatch = input.match(/"explanation"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+
+                    const result = {
+                        code: codeMatch ? codeMatch[1] : 'Generated code',
+                        explanation: explanationMatch ? explanationMatch[1] : 'Generated code',
+                        files,
+                    };
+
+                    return result as T;
+                }
+            }
+        } catch {
+            // Extraction failed, return null
+        }
+        return null;
+    }
+
+    /**
+     * Deep search for any valid JSON object in the input
+     */
+    private deepExtractJSON<T>(input: string): T | null {
+        // Try multiple bracket positions
+        const possibleStarts = [];
+        let idx = 0;
+        while ((idx = input.indexOf('{', idx)) !== -1) {
+            possibleStarts.push(idx);
+            idx++;
+        }
+
+        // Try each starting position
+        for (const start of possibleStarts) {
+            let depth = 0;
+            let inString = false;
+            let escaped = false;
+
+            for (let i = start; i < input.length; i++) {
+                const char = input[i];
+
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+
+                if (char === '\\' && inString) {
+                    escaped = true;
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString) {
+                    if (char === '{') depth++;
+                    if (char === '}') depth--;
+
+                    if (depth === 0) {
+                        // Found a balanced object
+                        const candidate = input.substring(start, i + 1);
+                        try {
+                            const parsed = JSON.parse(candidate) as T;
+                            // Only return if it looks like a valid response (has expected properties)
+                            if (typeof parsed === 'object' && parsed !== null) {
+                                const hasValidProps = 'files' in parsed || 'code' in parsed ||
+                                    'complexity' in parsed || 'intent' in parsed;
+                                if (hasValidProps) {
+                                    return parsed;
+                                }
+                            }
+                        } catch {
+                            // Not valid JSON, try next
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -628,34 +628,122 @@ export class LearningService {
     }
 
     /**
-     * Find similar past iterations using vector search
+     * Find similar past iterations using database + memory search
+     * Uses the existing 200+ iterations stored in Supabase
      */
     private async findSimilarIterations(prompt: string): Promise<GenerationIteration[]> {
-        // First try vector search
-        const searchResults = await this.vectorStore.search(prompt, {
-            projectId: 'learning-iterations',
-            limit: this.config.maxExperiences,
-            threshold: this.config.relevanceThreshold,
-        });
-
-        // If we got results, find the matching iterations
         const matchedIterations: GenerationIteration[] = [];
 
-        for (const result of searchResults) {
-            // Extract iteration ID from file path
-            const idMatch = result.chunk.filePath.match(/iteration-([a-z0-9-]+)/);
-            if (idMatch) {
-                const iteration = this.memoryIterations.find(i => i.id === idMatch[1]);
-                if (iteration) {
-                    matchedIterations.push(iteration);
+        // 1. Try database RPC search first (uses pg_trgm text similarity)
+        const supabase = getSupabaseAdmin();
+        if (supabase) {
+            try {
+                const { data, error } = await supabase.rpc('search_generation_iterations', {
+                    search_query: prompt,
+                    max_results: this.config.maxExperiences,
+                    only_successful: false
+                });
+
+                if (!error && data && data.length > 0) {
+                    console.log(`[LEARNING] Found ${data.length} similar iterations via RPC`);
+
+                    for (const row of data) {
+                        if (row.similarity > 0.1) { // Any relevance
+                            matchedIterations.push({
+                                id: row.id,
+                                taskId: row.task_id,
+                                projectId: row.project_id,
+                                prompt: row.prompt,
+                                generatedCode: row.generated_code || [],
+                                config: row.config || {},
+                                success: row.success,
+                                errors: row.errors || [],
+                                metrics: { duration: 0, tokensUsed: 0 },
+                                createdAt: new Date(row.created_at),
+                            });
+                        }
+                    }
+                }
+            } catch (rpcError) {
+                console.warn('[LEARNING] RPC search failed, trying direct query');
+            }
+        }
+
+        // 2. If RPC failed, try direct database query with keyword matching
+        if (matchedIterations.length === 0 && supabase) {
+            try {
+                // Extract keywords from prompt
+                const keywords = prompt.toLowerCase()
+                    .split(/\s+/)
+                    .filter(w => w.length > 3)
+                    .slice(0, 5);
+
+                if (keywords.length > 0) {
+                    const { data, error } = await supabase
+                        .from('generation_iterations')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(this.config.maxExperiences * 3);
+
+                    if (!error && data) {
+                        // Filter and score by keyword matches
+                        const scored = data
+                            .map((row: any) => {
+                                const promptLower = (row.prompt || '').toLowerCase();
+                                const matchCount = keywords.filter(kw => promptLower.includes(kw)).length;
+                                return { row, score: matchCount / keywords.length };
+                            })
+                            .filter(item => item.score > 0.2)
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, this.config.maxExperiences);
+
+                        console.log(`[LEARNING] Found ${scored.length} iterations via keyword search`);
+
+                        for (const { row } of scored) {
+                            matchedIterations.push({
+                                id: row.id,
+                                taskId: row.task_id,
+                                projectId: row.project_id,
+                                prompt: row.prompt,
+                                generatedCode: row.generated_code || [],
+                                config: row.config || {},
+                                success: row.success,
+                                errors: row.errors || [],
+                                metrics: row.metrics || { duration: 0, tokensUsed: 0 },
+                                createdAt: new Date(row.created_at),
+                            });
+                        }
+                    }
+                }
+            } catch (dbError) {
+                console.warn('[LEARNING] Direct DB query failed:', dbError);
+            }
+        }
+
+        // 3. Also try vector search for semantic matches
+        if (matchedIterations.length < this.config.maxExperiences) {
+            const searchResults = await this.vectorStore.search(prompt, {
+                projectId: 'learning-iterations',
+                limit: this.config.maxExperiences - matchedIterations.length,
+                threshold: 0.5,
+            });
+
+            for (const result of searchResults) {
+                const idMatch = result.chunk.filePath.match(/iteration-([a-z0-9-]+)/);
+                if (idMatch) {
+                    const iteration = this.memoryIterations.find(i => i.id === idMatch[1]);
+                    if (iteration && !matchedIterations.find(m => m.id === iteration.id)) {
+                        matchedIterations.push(iteration);
+                    }
                 }
             }
         }
 
-        // Fall back to memory search if no results
-        if (matchedIterations.length === 0) {
+        // 4. Final fallback: memory search with text similarity
+        if (matchedIterations.length === 0 && this.memoryIterations.length > 0) {
+            console.log('[LEARNING] Using memory fallback search');
             return this.memoryIterations
-                .filter(i => this.textSimilarity(i.prompt, prompt) > this.config.relevanceThreshold)
+                .filter(i => this.textSimilarity(i.prompt, prompt) > 0.2)
                 .slice(0, this.config.maxExperiences);
         }
 

@@ -288,19 +288,22 @@ export class VectorStoreService {
 
             // Delete existing chunks for this file
             if (supabase) {
-                await supabase
-                    .from('code_embeddings')
-                    .delete()
-                    .eq('project_id', projectId)
-                    .eq('file_path', filePath);
+                await this.withRetry(async () => {
+                    await supabase
+                        .from('code_embeddings')
+                        .delete()
+                        .eq('project_id', projectId)
+                        .eq('file_path', filePath);
+                }, 2);
             }
 
             // Split into chunks
             const chunks = this.chunkContent(content, filePath);
             const language = this.detectLanguage(filePath);
             const insertedChunks: EmbeddedChunk[] = [];
+            let insertErrors = 0;
 
-            // Generate embeddings and store
+            // Generate embeddings and store (with batching and retry)
             for (const chunk of chunks) {
                 const embedding = await this.generateEmbedding(chunk.content);
 
@@ -318,32 +321,46 @@ export class VectorStoreService {
                 };
 
                 if (supabase) {
-                    const { error } = await supabase
-                        .from('code_embeddings')
-                        .insert({
-                            project_id: projectId,
-                            file_path: filePath,
-                            content: chunk.content,
-                            start_line: chunk.startLine,
-                            end_line: chunk.endLine,
-                            language,
-                            embedding: `[${embedding.join(',')}]`,
-                            embedding_model: this.config.embeddingModel,
-                        });
+                    // Use retry logic for socket error resilience
+                    const insertResult = await this.withRetry(async () => {
+                        const { error } = await supabase
+                            .from('code_embeddings')
+                            .insert({
+                                project_id: projectId,
+                                file_path: filePath,
+                                content: chunk.content,
+                                start_line: chunk.startLine,
+                                end_line: chunk.endLine,
+                                language,
+                                embedding: `[${embedding.join(',')}]`,
+                                embedding_model: this.config.embeddingModel,
+                            });
 
-                    if (error) {
-                        console.error('[VECTOR-STORE] Insert error:', error);
+                        if (error) {
+                            throw new Error(error.message || 'Insert failed');
+                        }
+                        return { success: true };
+                    }, 3); // Retry up to 3 times
+
+                    if (!insertResult.success) {
+                        insertErrors++;
+                        console.warn(`[VECTOR-STORE] Insert failed for chunk after retries: ${filePath}`);
                     }
                 }
 
                 insertedChunks.push(embeddedChunk);
             }
 
-            console.log(`[VECTOR-STORE] Indexed ${filePath}: ${insertedChunks.length} chunks`);
+            if (insertErrors > 0) {
+                console.warn(`[VECTOR-STORE] Indexed ${filePath} with ${insertErrors} errors: ${insertedChunks.length} chunks`);
+            } else {
+                console.log(`[VECTOR-STORE] Indexed ${filePath}: ${insertedChunks.length} chunks`);
+            }
 
             return {
-                success: true,
+                success: insertErrors === 0,
                 chunksCreated: insertedChunks.length,
+                error: insertErrors > 0 ? `${insertErrors} chunks failed to insert` : undefined,
             };
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -353,6 +370,48 @@ export class VectorStoreService {
                 error: errorMsg,
             };
         }
+    }
+
+    /**
+     * Retry helper with exponential backoff for transient errors
+     * Phase 23: Added for socket error resilience
+     */
+    private async withRetry<T>(
+        fn: () => Promise<T>,
+        maxRetries: number = 3,
+        baseDelayMs: number = 500
+    ): Promise<T & { success: boolean }> {
+        let lastError: Error | null = null;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const result = await fn();
+                return { ...result, success: true } as T & { success: boolean };
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+
+                // Check if it's a retryable error (socket errors, network issues)
+                const isRetryable =
+                    lastError.message.includes('fetch failed') ||
+                    lastError.message.includes('socket') ||
+                    lastError.message.includes('ECONNRESET') ||
+                    lastError.message.includes('ETIMEDOUT') ||
+                    lastError.message.includes('network') ||
+                    lastError.message.includes('UND_ERR');
+
+                if (!isRetryable || attempt === maxRetries - 1) {
+                    console.error(`[VECTOR-STORE] Operation failed after ${attempt + 1} attempts:`, lastError.message);
+                    return { success: false } as T & { success: boolean };
+                }
+
+                // Exponential backoff
+                const delay = baseDelayMs * Math.pow(2, attempt);
+                console.warn(`[VECTOR-STORE] Retrying after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+
+        return { success: false } as T & { success: boolean };
     }
 
     /**

@@ -1,32 +1,33 @@
 # 🚀 LOVEABLE BACKEND - COMPLETE PROJECT CONTEXT
 ## Person 1 Implementation Status & Team Onboarding Guide
 
-**Last Updated:** December 17, 2024  
-**Version:** 7.0.0  
-**Status:** Production-Ready - Phase 22 Complete (AI Intent + Vector Learning)
+**Last Updated:** December 19, 2024  
+**Version:** 7.1.0  
+**Status:** Production-Ready - Phase 23 Complete (CLI + Learning System Fixes)
 
 ---
 
 ## 📋 TABLE OF CONTENTS
 
 1. [What's Been Built (Person 1 Complete)](#whats-been-built)
-2. [AI Intent Analyzer + Vector Learning (Phase 22) - 🆕 NEW](#phase-22-ai-intent-vector-learning)
-3. [Multi-Model Pipeline (Phase 13)](#multi-model-pipeline)
-4. [Cost Tracking & Benchmarking](#cost-tracking)
-5. [CodeGen Agent Integration (Person 4)](#codegen-integration)
-6. [Opinionated Tech Stack Constraints (Phase 14)](#tech-stack-constraints)
-7. [Automated Deployment Pipeline (Phase 15)](#deployment-pipeline)
-8. [Enhanced Code Generation (Phase 17)](#enhanced-code-generation)
-9. [Vector Database & AI Learning (Phase 18)](#vector-ai-learning)
-10. [System Architecture](#system-architecture)
-11. [Database Setup (Supabase)](#database-setup)
-12. [API Server Structure](#api-server-structure)
-13. [Agent System Integration](#agent-system)
-14. [Where to Add Your Agents](#where-to-add-agents)
-15. [Testing & Development](#testing)
-16. [Team Member Guides](#team-guides)
-17. [Quick Start Reference](#quick-start)
-18. [Security Hardening (Phase 19)](#security-hardening)
+2. [CLI Testing Interface (Phase 23) - 🆕 NEW](#cli-testing-interface)
+3. [AI Intent Analyzer + Vector Learning (Phase 22)](#phase-22-ai-intent-vector-learning)
+4. [Multi-Model Pipeline (Phase 13)](#multi-model-pipeline)
+5. [Cost Tracking & Benchmarking](#cost-tracking)
+6. [CodeGen Agent Integration (Person 4)](#codegen-integration)
+7. [Opinionated Tech Stack Constraints (Phase 14)](#tech-stack-constraints)
+8. [Automated Deployment Pipeline (Phase 15)](#deployment-pipeline)
+9. [Enhanced Code Generation (Phase 17)](#enhanced-code-generation)
+10. [Vector Database & AI Learning (Phase 18)](#vector-ai-learning)
+11. [System Architecture](#system-architecture)
+12. [Database Setup (Supabase)](#database-setup)
+13. [API Server Structure](#api-server-structure)
+14. [Agent System Integration](#agent-system)
+15. [Where to Add Your Agents](#where-to-add-agents)
+16. [Testing & Development](#testing)
+17. [Team Member Guides](#team-guides)
+18. [Quick Start Reference](#quick-start)
+19. [Security Hardening (Phase 19)](#security-hardening)
 
 ---
 
@@ -206,6 +207,140 @@
   - Consistent file structure across projects
   - Power model has concrete reference to follow
   - Reduces ambiguity in code generation
+
+---
+
+## 🖥️ PHASE 23: CLI TESTING INTERFACE + LEARNING SYSTEM FIXES {#cli-testing-interface}
+
+### Overview
+
+Phase 23 introduces a **production-ready CLI** for testing code generation and fixes critical issues in the learning system to properly utilize 200+ stored data chunks.
+
+### CLI Testing Interface ✓
+
+**Location:** `packages/cli/`
+
+#### Features:
+
+| Feature | Description |
+|---------|-------------|
+| **Real-Time Progress Animation** | Animated spinner with phase indicators during generation |
+| **Extended Timeout** | 11-minute timeout for complex generation tasks |
+| **Quick Generate Mode** | Bypass interactive menus with `--generate "prompt"` flag |
+| **Phase-Based Feedback** | Visual progress through analysis, blueprint, generation phases |
+
+#### CLI Commands:
+
+```bash
+# Install CLI globally
+npm install -g @loveable/cli
+
+# Interactive mode
+loveable
+
+# Quick generate (bypasses menu)
+loveable --generate "Build a REST API for user management"
+```
+
+#### Progress Animation Phases:
+
+```
+🚀 Initializing orchestrator... [0:02]
+🔍 Analyzing intent... [0:15]
+📐 Building architecture blueprint... [0:32]
+🧠 Processing with AI models... [1:05]
+💡 Preparing response... [1:45]
+⚡ Generating code files... [2:30]
+📁 Writing files to disk... [3:15]
+✅ Finalizing... [4:00]
+```
+
+#### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/cli/src/index.ts` | Main CLI with progress animation |
+| `packages/cli/src/utils/api.ts` | API client with 11-minute timeout |
+
+### Learning System Fixes ✓
+
+**Problem:** Vector search RPC functions had incorrect signatures and the learning service wasn't using stored data.
+
+#### Issues Fixed:
+
+1. **RPC Function Signature Mismatch**
+   - `match_code_embeddings` was using `UUID` instead of `TEXT` for project_id
+   - `match_knowledge_embeddings` was searching wrong table (`backend_knowledge_base` vs `knowledge_embeddings`)
+   - Added missing `filter_project_id` parameter
+
+2. **Learning Service Not Finding Data**
+   - `findSimilarIterations()` was only doing vector search, now uses 4-tier strategy
+   - Added fallback methods when RPC functions fail
+
+3. **No Fallback When RPC Fails**
+   - Added `fallbackCodeSearch()` - queries code_embeddings directly
+   - Added `fallbackKnowledgeSearch()` - queries generation_iterations and learned_patterns
+
+#### New Migration: `014_fix_vector_search_functions.sql`
+
+**Run this in Supabase SQL Editor!**
+
+```sql
+-- Creates/fixes these functions:
+-- 1. match_code_embeddings (fixed project_id type)
+-- 2. match_knowledge_embeddings (fixed table reference)
+-- 3. search_generation_iterations (NEW - text similarity search)
+-- 4. get_successful_iterations (NEW - learning from past successes)
+-- 5. get_learned_patterns (NEW - pattern retrieval)
+-- 6. get_learning_stats (NEW - statistics)
+```
+
+#### New Search Strategy (4-Tier):
+
+```
+findSimilarIterations(prompt):
+  1. Try RPC search (search_generation_iterations)
+     ↓ If fails
+  2. Direct DB query with keyword matching
+     ↓ If no results
+  3. Vector similarity search
+     ↓ If no results
+  4. Memory fallback with text similarity
+```
+
+#### Expected Results After Fix:
+
+**Before:**
+```
+[LEARNING] Pre-context built: 0 experiences, 0 warnings, 1 patterns
+```
+
+**After:**
+```
+[LEARNING] Found 5 similar iterations via RPC
+[LEARNING] Pre-context built: 5 experiences, 2 warnings, 3 patterns
+```
+
+### Configuration
+
+```env
+# CLI Timeout (built-in)
+API_TIMEOUT=660000  # 11 minutes
+
+# Learning System
+VECTOR_SIMILARITY_THRESHOLD=0.5  # Lowered from 0.7 for better matches
+ENABLE_LEARNING_FALLBACKS=true   # Enable keyword search fallback
+```
+
+### Key Changes Summary
+
+| Component | Change |
+|-----------|--------|
+| `cli/src/index.ts` | Added animated progress indicator with phases |
+| `cli/src/utils/api.ts` | Increased timeout to 11 minutes |
+| `vector-learning-system.ts` | Added fallback code and knowledge search |
+| `learning-service.ts` | Rewrote `findSimilarIterations` with 4-tier strategy |
+| `014_fix_vector_search_functions.sql` | Fixed RPC functions and added new ones |
 
 ---
 

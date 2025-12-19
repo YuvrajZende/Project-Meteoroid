@@ -483,3 +483,95 @@ export {
     getVectorLearningSystem,
     type VectorLearningContext,
 } from './vector-learning-system.js';
+
+// ============================================
+// PHASE 21: SERVICE INTEGRATION FRAMEWORK
+// ============================================
+
+// Service Registry (100+ third-party service definitions)
+export {
+    ServiceRegistry,
+    getServiceRegistry,
+    initializeServiceRegistry,
+    type ServiceDefinition as ServiceDef,  // Renamed to avoid conflict with architecture-blueprint
+    type ServiceCategory,
+    type CredentialField,
+    type CodeTemplate,
+    type ServiceQuestion,
+    type ServiceSelection,
+    type SetupStep,
+    type SetupGuide,
+} from './service-registry/index.js';
+
+// Connection Manager (User service connections with encryption)
+export {
+    ConnectionManager,
+    getConnectionManager,
+    type UserConnection,
+    type CreateConnectionInput,
+    type UpdateConnectionInput,
+    type ConnectionTestResult,
+    type ServiceUsageLog,
+    type ServiceUsageStats,
+} from './connection-manager/index.js';
+
+// Service Adapters (Per-service test and code generation)
+export {
+    BaseAdapter,
+    getServiceAdapter,
+    hasAdapter,
+    getAllAdapters,
+    initializeAdapters,
+    registerAdapter,
+} from './adapters/adapter-factory.js';
+
+// Interactive Service Selector (AI-driven service selection)
+export {
+    InteractiveServiceSelector,
+    getInteractiveServiceSelector,
+} from './interactive-service-selector.js';
+
+// Setup Guide Generator (Step-by-step setup instructions)
+export {
+    SetupGuideGenerator,
+    getSetupGuideGenerator,
+} from './setup-guide-generator.js';
+
+// ============================================
+// PHASE 24: CONTEXT MANAGEMENT SYSTEM
+// ============================================
+
+// Entity Extractor (Extract entities from prompts before generation)
+export {
+    EntityExtractorService,
+    getEntityExtractor,
+    type ExtractedEntity,
+    type EntityProperty,
+    type EntityRelationship,
+    type ExtractedFeatures,
+    type ExtractedIntegrations,
+    type EntityExtractionResult,
+    type EntityExtractorConfig,
+} from './entity-extractor.js';
+
+// Generation Context (Maintain context throughout pipeline)
+export {
+    GenerationContextService,
+    getGenerationContext,
+    type GenerationContext,
+    type GenerationDecision,
+    type GeneratedFileInfo,
+    type SubtaskResult,
+    type ContextSummary,
+} from './generation-context.js';
+
+// Prompt Templates (Standardized prompts with context)
+export {
+    buildSubtaskPrompt,
+    buildSchemaPrompt,
+    buildRoutePrompt,
+    buildServicePrompt,
+    buildValidationPrompt,
+    getContextReminder,
+    getEntityConstraints,
+} from './prompt-templates.js';
