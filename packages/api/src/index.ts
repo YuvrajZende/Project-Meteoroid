@@ -15,6 +15,8 @@ import {
     initializeServiceRegistry,
     getConnectionManager,
     getGenerationContext,
+    getCodeQualityAgent,
+    getFrameworkOversightAgent,
 } from './services/index.js';
 import { initializeAdapters } from './services/adapters/adapter-factory.js';
 import { checkSupabaseConnection, checkVectorStore } from './services/database-client.js';
@@ -77,6 +79,13 @@ async function bootstrap(): Promise<void> {
                 // Phase 24: Flush generation contexts
                 const generationContext = getGenerationContext();
                 await generationContext.shutdown();
+
+                // Phase 25: Shutdown oversight agents
+                const codeQualityAgent = getCodeQualityAgent();
+                await codeQualityAgent.shutdown();
+
+                const oversightAgent = getFrameworkOversightAgent();
+                await oversightAgent.shutdown();
 
                 await flush(5000);
                 await app.close();
@@ -181,6 +190,20 @@ async function bootstrap(): Promise<void> {
         logger.info('Mode', 'Integrated (Real AI)');
         logger.status('Preview', previewEnabled ? 'Enabled' : 'Disabled', previewEnabled);
         logger.status('Auto-Deploy', deployEnabled ? 'Netlify' : 'Disabled', deployEnabled);
+
+        // Phase 25: Code Quality & Oversight Agents
+        const codeQualityAgent = getCodeQualityAgent();
+        const oversightAgent = getFrameworkOversightAgent();
+        await codeQualityAgent.initialize();
+        await oversightAgent.initialize();
+        const qualityStatus = codeQualityAgent.getStatus();
+        const oversightStatus = oversightAgent.getStatus();
+
+        logger.section('Quality & Oversight (Phase 25)');
+        logger.status('Code Quality Agent', qualityStatus.initialized ? 'Ready' : 'Not initialized', qualityStatus.initialized);
+        logger.info('Auto-Fix', qualityStatus.config.enableAutoFix ? 'Enabled' : 'Disabled');
+        logger.status('Oversight Agent', oversightStatus.initialized ? 'Ready' : 'Not initialized', oversightStatus.initialized);
+        logger.info('Learning', oversightStatus.config.enableLearning ? 'Enabled' : 'Disabled');
 
         // Phase 21: Service Integration Framework
         const serviceIntegrationEnabled = process.env.SERVICE_INTEGRATION_ENABLED !== 'false';

@@ -20,7 +20,7 @@ export interface APIResponse<T = unknown> {
 let config = {
     baseUrl: 'http://localhost:3000',
     token: '',
-    timeout: 660000, // 11 minutes for very long AI operations (Integrated Orchestrator can take 5-10 minutes)
+    timeout: 900000, // 15 minutes for very long AI operations (Integrated Orchestrator can take 8-12 minutes)
 };
 
 export function configure(options: Partial<typeof config>): void {
@@ -67,15 +67,18 @@ export async function request<T = unknown>(
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
+        // Use keepalive to prevent Windows from dropping long connections
         const response = await fetch(url, {
             method,
             headers: {
                 'Content-Type': 'application/json',
+                'Connection': 'keep-alive',
                 ...(config.token && { Authorization: `Bearer ${config.token}` }),
                 ...headers,
             },
             body: body ? JSON.stringify(body) : undefined,
             signal: controller.signal,
+            keepalive: true, // Keep connection alive for long requests
         });
 
         clearTimeout(timeoutId);

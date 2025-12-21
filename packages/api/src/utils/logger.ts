@@ -71,12 +71,15 @@ class ServerLogger {
     /** Print the main server banner */
     banner(version: string = '1.0.0'): void {
         if (this.silent) return;
+        const width = 52; // inner width
+        const pad = (text: string, len: number) => text + ' '.repeat(Math.max(0, len - text.length));
+
         console.log('');
-        console.log(`${colors.bold}${colors.cyan}╭${'─'.repeat(50)}╮${colors.reset}`);
-        console.log(`${colors.bold}${colors.cyan}│${colors.reset}  LOVEABLE BACKEND                               ${colors.cyan}│${colors.reset}`);
-        console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}AI-Powered Code Generation Server${colors.reset}              ${colors.cyan}│${colors.reset}`);
-        console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}Version ${version}${colors.reset}                                   ${colors.cyan}│${colors.reset}`);
-        console.log(`${colors.bold}${colors.cyan}╰${'─'.repeat(50)}╯${colors.reset}`);
+        console.log(`${colors.bold}${colors.cyan}╭${'─'.repeat(width)}╮${colors.reset}`);
+        console.log(`${colors.bold}${colors.cyan}│${colors.reset}  ${pad('LOVEABLE BACKEND', width - 3)}${colors.cyan}│${colors.reset}`);
+        console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}${pad('AI-Powered Code Generation Server', width - 3)}${colors.reset}${colors.cyan}│${colors.reset}`);
+        console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}${pad(`Version ${version}`, width - 3)}${colors.reset}${colors.cyan}│${colors.reset}`);
+        console.log(`${colors.bold}${colors.cyan}╰${'─'.repeat(width)}╯${colors.reset}`);
         console.log('');
     }
 
@@ -146,16 +149,19 @@ class ServerLogger {
     ready(address: string, docsUrl: string): void {
         if (this.silent) return;
         const elapsed = Date.now() - this.startTime;
+        const width = 52; // inner width
+        const pad = (text: string, len: number) => text + ' '.repeat(Math.max(0, len - text.length));
+        const emptyLine = ' '.repeat(width - 1);
 
         console.log('');
-        console.log(`${colors.bold}${colors.green}╭${'─'.repeat(50)}╮${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}  ${colors.bold}SERVER READY${colors.reset}                                   ${colors.green}│${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}                                                   ${colors.green}│${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}  ${colors.dim}Local:${colors.reset}    ${colors.cyan}${address}${colors.reset}                    ${colors.green}│${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}  ${colors.dim}Docs:${colors.reset}     ${colors.cyan}${docsUrl}${colors.reset}               ${colors.green}│${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}                                                   ${colors.green}│${colors.reset}`);
-        console.log(`${colors.green}│${colors.reset}  ${colors.dim}Started in ${elapsed}ms${colors.reset}                              ${colors.green}│${colors.reset}`);
-        console.log(`${colors.bold}${colors.green}╰${'─'.repeat(50)}╯${colors.reset}`);
+        console.log(`${colors.bold}${colors.green}╭${'─'.repeat(width)}╮${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}  ${colors.bold}${pad('SERVER READY', width - 3)}${colors.reset}${colors.green}│${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}${emptyLine}${colors.green}│${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}  ${colors.dim}Local:${colors.reset}    ${colors.cyan}${pad(address, width - 14)}${colors.reset}${colors.green}│${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}  ${colors.dim}Docs:${colors.reset}     ${colors.cyan}${pad(docsUrl, width - 14)}${colors.reset}${colors.green}│${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}${emptyLine}${colors.green}│${colors.reset}`);
+        console.log(`${colors.green}│${colors.reset}  ${colors.dim}${pad(`Started in ${elapsed}ms`, width - 3)}${colors.reset}${colors.green}│${colors.reset}`);
+        console.log(`${colors.bold}${colors.green}╰${'─'.repeat(width)}╯${colors.reset}`);
         console.log('');
     }
 

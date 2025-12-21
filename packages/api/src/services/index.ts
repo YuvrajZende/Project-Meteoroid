@@ -575,3 +575,32 @@ export {
     getContextReminder,
     getEntityConstraints,
 } from './prompt-templates.js';
+
+// ============================================
+// PHASE 25: CODE QUALITY & OVERSIGHT AGENTS
+// ============================================
+
+// Code Quality Agent (Validates and fixes generated code)
+export {
+    CodeQualityAgent,
+    getCodeQualityAgent,
+    createCodeQualityAgent,
+    type QualityCheck,
+    type QualityReport,
+    type QualityAgentConfig,
+    type ValidationContext,
+} from './code-quality-agent.js';
+
+// Framework Oversight Agent (Oversees pipeline, controls learning)
+export {
+    FrameworkOversightAgent,
+    getFrameworkOversightAgent,
+    createFrameworkOversightAgent,
+    type ContextInjection,
+    type PreContext as OversightPreContext,
+    type LearningDecision,
+    type OversightDecision,
+    type OversightAgentConfig,
+    type PostReviewResult,
+} from './framework-oversight-agent.js';
+

@@ -1,33 +1,35 @@
 # 🚀 LOVEABLE BACKEND - COMPLETE PROJECT CONTEXT
 ## Person 1 Implementation Status & Team Onboarding Guide
 
-**Last Updated:** December 19, 2024  
-**Version:** 7.1.0  
-**Status:** Production-Ready - Phase 23 Complete (CLI + Learning System Fixes)
+**Last Updated:** December 21, 2024  
+**Version:** 7.4.0  
+**Status:** Production-Ready - Phase 25.1 (Quality Oversight Bug Fix Applied)
 
 ---
 
 ## 📋 TABLE OF CONTENTS
 
 1. [What's Been Built (Person 1 Complete)](#whats-been-built)
-2. [CLI Testing Interface (Phase 23) - 🆕 NEW](#cli-testing-interface)
-3. [AI Intent Analyzer + Vector Learning (Phase 22)](#phase-22-ai-intent-vector-learning)
-4. [Multi-Model Pipeline (Phase 13)](#multi-model-pipeline)
-5. [Cost Tracking & Benchmarking](#cost-tracking)
-6. [CodeGen Agent Integration (Person 4)](#codegen-integration)
-7. [Opinionated Tech Stack Constraints (Phase 14)](#tech-stack-constraints)
-8. [Automated Deployment Pipeline (Phase 15)](#deployment-pipeline)
-9. [Enhanced Code Generation (Phase 17)](#enhanced-code-generation)
-10. [Vector Database & AI Learning (Phase 18)](#vector-ai-learning)
-11. [System Architecture](#system-architecture)
-12. [Database Setup (Supabase)](#database-setup)
-13. [API Server Structure](#api-server-structure)
-14. [Agent System Integration](#agent-system)
-15. [Where to Add Your Agents](#where-to-add-agents)
-16. [Testing & Development](#testing)
-17. [Team Member Guides](#team-guides)
-18. [Quick Start Reference](#quick-start)
-19. [Security Hardening (Phase 19)](#security-hardening)
+2. [Quality Oversight Agents (Phase 25) - ★ NEW](#phase-25-quality-oversight-agents)
+3. [Context Management System (Phase 24)](#phase-24-context-management)
+4. [CLI Testing Interface (Phase 23)](#cli-testing-interface)
+5. [AI Intent Analyzer + Vector Learning (Phase 22)](#phase-22-ai-intent-vector-learning)
+6. [Multi-Model Pipeline (Phase 13)](#multi-model-pipeline)
+7. [Cost Tracking & Benchmarking](#cost-tracking)
+8. [CodeGen Agent Integration (Person 4)](#codegen-integration)
+9. [Opinionated Tech Stack Constraints (Phase 14)](#tech-stack-constraints)
+10. [Automated Deployment Pipeline (Phase 15)](#deployment-pipeline)
+11. [Enhanced Code Generation (Phase 17)](#enhanced-code-generation)
+12. [Vector Database & AI Learning (Phase 18)](#vector-ai-learning)
+13. [System Architecture](#system-architecture)
+14. [Database Setup (Supabase)](#database-setup)
+15. [API Server Structure](#api-server-structure)
+16. [Agent System Integration](#agent-system)
+17. [Where to Add Your Agents](#where-to-add-agents)
+18. [Testing & Development](#testing)
+19. [Team Member Guides](#team-guides)
+20. [Quick Start Reference](#quick-start)
+21. [Security Hardening (Phase 19)](#security-hardening)
 
 ---
 
@@ -207,6 +209,265 @@
   - Consistent file structure across projects
   - Power model has concrete reference to follow
   - Reduces ambiguity in code generation
+
+---
+
+## 🛡️ PHASE 25: QUALITY OVERSIGHT AGENTS {#phase-25-quality-oversight-agents}
+
+### Overview
+
+Phase 25 introduces a **self-healing code generation system** with two new agents that validate, fix, and learn from every generation. This ensures permanently higher quality output.
+
+### Code Quality Agent ✓
+
+**Location:** `packages/api/src/services/code-quality-agent.ts` (~830 lines)
+
+**Purpose:** Validate generated code and auto-fix common issues before writing to disk.
+
+#### 7 Quality Checks:
+
+| Check | Issue Detected | Auto-Fix |
+|-------|---------------|----------|
+| **1. File Deduplication** | Multiple files with same path | Keep most complete version |
+| **2. Truncation Detection** | Incomplete/cut-off files | Mark truncation, log issue |
+| **3. Import Resolution** | Missing imports | Log missing dependencies |
+| **4. Syntax Validation** | Language mixing (TS in Python) | Clean up mixed syntax |
+| **5. Architecture Consistency** | Multiple frameworks (Express+Nest) | Log inconsistency |
+| **6. Entity Completeness** | Missing required entities | Log missing entities |
+| **7. Single Entry Point** | Both index.ts AND main.ts | Remove duplicate entry |
+
+#### Output:
+
+```typescript
+interface QualityReport {
+  overallScore: number;      // 0-100
+  checks: QualityCheck[];    // Individual check results
+  issuesLogged: boolean;     // If issues were stored in DB
+  autoFixesApplied: number;  // Count of auto-fixes
+}
+```
+
+### Framework Oversight Agent ✓
+
+**Location:** `packages/api/src/services/framework-oversight-agent.ts` (~660 lines)
+
+**Purpose:** Control learning decisions and inject context from past generations.
+
+#### Pre-Generation (buildPreContext):
+- Query vector store for similar successful patterns
+- Retrieve anti-patterns to avoid
+- Build context injections for prompts
+- Add standard warnings (no multiple entry points, etc.)
+- Recommend framework based on history
+
+#### Post-Generation (postGenerationReview):
+- Analyze QualityReport from Code Quality Agent
+- Make learning decisions based on score:
+  - **Score 80+**: Store as SUCCESS pattern (index for future retrieval)
+  - **Score 40-79**: Store as ITERATION (for gradual improvement)
+  - **Score <40**: Store as ANTI-PATTERN (to avoid in future)
+- Execute learning decisions to Supabase database
+- Index successful code patterns in vector store
+
+### Database Schema (Migration 016)
+
+**Location:** `packages/database/src/migrations/016_agent_learning.sql` (~196 lines)
+
+**Tables Created:**
+- `generation_issues`: Track quality issues found during validation
+- `validated_code_patterns`: Store successful patterns for vector search
+- `anti_patterns`: Store patterns to avoid in future generations
+- `learning_decisions`: Log oversight agent decisions for audit
+
+### Pipeline Integration
+
+```
+INIT → ENTITY EXTRACTION → PRE-CONTEXT (★) → THINKING → GENERATION → QUALITY CHECK (★) → REVIEW (★) → OUTPUT
+```
+
+**New orchestrator phases added:**
+- Phase 1.6: Pre-context building (Oversight Agent)
+- Phase 4.3.5: Code Quality validation (Code Quality Agent)
+- Phase 4.6: Post-generation review (Oversight Agent)
+
+### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/api/src/services/code-quality-agent.ts` | 7 quality checks + auto-fix |
+| `packages/api/src/services/framework-oversight-agent.ts` | Learning decisions + context |
+| `packages/database/src/migrations/016_agent_learning.sql` | Database schema |
+| `packages/api/src/services/integrated-orchestrator.ts` | Pipeline integration |
+
+### Benefits:
+- **Self-healing**: Auto-fixes common issues before writing
+- **Learning**: Stores patterns from every generation
+- **Context-aware**: Pre-context warns about past failures
+- **Quality-gated**: Only high-quality code gets stored as success patterns
+- **Debugging**: Full audit trail of learning decisions
+
+### Required Action:
+Run migration `016_agent_learning.sql` in Supabase SQL Editor!
+
+### 🔧 Phase 25.1: Critical Bug Fix (December 21, 2024)
+
+**Issue Discovered:** Phase 25 Code Quality Agent was causing **72% code loss** during replacement.
+
+**Root Cause:** 
+- The orchestrator generates multi-file combined code blocks per agent (e.g., ~22,000 chars)
+- Phase 25 was replacing these with individual file paths that didn't match
+- The replacement logic (`return fixedCode ? { ...gen, code: fixedCode } :`) accepted corrupted/empty content
+
+**The Fix (integrated-orchestrator.ts lines 845-862):**
+```typescript
+// Safety checks before replacement:
+// 1. fixedCode must exist and not be empty
+// 2. fixedCode must be at least 50% the size of original (prevent data loss)
+if (fixedCode && fixedCode.length > 0) {
+    const minAcceptableSize = Math.max(100, originalLen * 0.5);
+    if (fixedLen >= minAcceptableSize) {
+        console.log(`[CODE-QUALITY] Replaced ${path}: ${originalLen} -> ${fixedLen} chars`);
+        return { ...gen, code: fixedCode };
+    } else {
+        console.warn(`[CODE-QUALITY] Rejected replacement for ${path}: ${fixedLen} chars is less than 50% of original ${originalLen} chars`);
+        return gen; // Keep original
+    }
+}
+```
+
+**Result:** 
+| Metric | Before Fix | After Fix |
+|--------|------------|-----------|
+| Code to post-processor | 8,637 chars | **41,880 chars** |
+| Files written | 9 files | **25 files** ✅ |
+| Data loss | ~72% | **0%** ✅ |
+
+---
+
+## 📊 CURRENT SYSTEM STATUS {#system-status}
+
+**As of December 21, 2024 - All systems operational:**
+
+### ✅ Working Services
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| **Fastify API Server** | ✅ Running | Port 3000, ~5s startup |
+| **Supabase Database** | ✅ Connected | 188-326ms latency |
+| **Redis Cache** | ✅ Connected | 44-52ms latency |
+| **Vector Store** | ✅ Ready | 360+ embeddings indexed |
+| **AI Intent Analyzer** | ✅ Working | 98-100% confidence |
+| **Vector Learning System** | ✅ Working | 50 iterations loaded |
+| **Entity Extraction** | ✅ Working | ~20-45s per extraction |
+| **Multi-Model Pipeline** | ✅ Working | Groq (Fast) + Z.AI (Power) |
+| **Code Post-Processor** | ✅ Working | 22-35 files processed |
+| **File Writer** | ✅ Working | 25+ files per generation |
+| **Code Quality Agent** | ✅ Working | 86/100 avg score |
+| **Oversight Agent** | ✅ Working | 3 patterns stored per run |
+| **Learning Storage** | ✅ Working | 49+ chunks per generation |
+| **Cost Tracker** | ✅ Working | ~$0.005 per generation |
+| **Benchmarking** | ✅ Working | Metrics persisted to Supabase |
+
+### 🤖 Active Agents (5 Total)
+
+| Agent | Capabilities | Status |
+|-------|-------------|--------|
+| **Authentication Agent** | JWT, OAuth, MFA | ✅ Ready |
+| **Database Agent** | Prisma, Migrations, Schema | ✅ Ready |
+| **Monitoring Agent** | Logs, Metrics, Health | ✅ Ready |
+| **Security Agent** | Rate Limit, IP Block, Events | ✅ Ready |
+| **Code Generation Agent** | Multi-Model, Templates | ✅ Ready |
+
+### 🔌 AI Providers
+
+| Provider | Model | Purpose | Status |
+|----------|-------|---------|--------|
+| **Z.AI** | glm-4.6 | Power Model (Code Gen) | ✅ 1 key |
+| **Groq** | llama-3.3-70b-versatile | Fast Model (Analysis) | ✅ 1 key |
+| **OpenAI** | Not configured | Embeddings (optional) | ⏸️ 0 keys |
+| **Anthropic** | Not configured | Optional | ⏸️ 0 keys |
+
+### 📁 Output Generation Stats
+
+| Metric | Latest Run |
+|--------|------------|
+| Duration | ~7-8 minutes |
+| Agents Used | 3 (api-agent, database-agent, security-agent) |
+| Files Generated | 22-25 files |
+| Total Code | 40,000-60,000 chars |
+| Cost | $0.0045-0.0050 |
+| Vector Chunks | 49-72 chunks indexed |
+
+---
+
+## 🎯 PHASE 24: CONTEXT MANAGEMENT SYSTEM {#phase-24-context-management}
+
+### Overview
+
+Phase 24 introduces **entity extraction and context tracking** to ensure generated code matches exactly what the user requested.
+
+### Entity Extractor Service ✓
+
+**Location:** `packages/api/src/services/entity-extractor.ts`
+
+**Purpose:** Parse user prompts to extract structured entities before code generation.
+
+#### Extracted Data:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **Entities** | Models, tables, services | User, Product, Order |
+| **Fields** | Entity attributes with types | name: string, price: number |
+| **Relations** | hasOne, hasMany, manyToMany | User hasMany Orders |
+| **Features** | auth, payments, realTime | { authentication: true } |
+| **Project Type** | api, webapp, microservices | "realtime" |
+
+#### Example:
+
+```
+Input: "Build a chat app with users and messages"
+
+Output:
+- Entities: [User, Message]
+- Relations: User hasMany Messages
+- Features: { realTime: true }
+- ProjectType: "realtime"
+```
+
+### Generation Context Service ✓
+
+**Location:** `packages/api/src/services/generation-context.ts`
+
+**Purpose:** Track context throughout the entire generation lifecycle.
+
+#### Context Contains:
+- Original prompt and extracted entities
+- Current subtask being processed
+- Completed files with paths
+- Language/framework configuration
+
+### Prompt Templates ✓
+
+**Location:** `packages/api/src/services/prompt-templates.ts`
+
+**Purpose:** Inject entity constraints into AI prompts for focused code generation.
+
+#### Functions:
+- `buildSubtaskPrompt(subtask, context)`: Enhanced prompt with entities
+- `getEntityConstraints(context)`: Entity definitions for injection
+
+### Integration:
+- Entity extraction runs in Phase 1.5 of orchestrator
+- Context tracked through all generation phases
+- Entity constraints injected into AI prompts
+
+### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/api/src/services/entity-extractor.ts` | Parse prompts → entities |
+| `packages/api/src/services/generation-context.ts` | Track context lifecycle |
+| `packages/api/src/services/prompt-templates.ts` | Build enhanced prompts |
 
 ---
 

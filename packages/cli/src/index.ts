@@ -197,9 +197,9 @@ async function generateCode(): Promise<void> {
         spin.text = `${currentPhase.icon} ${currentPhase.message} [${timeStr}]`;
     }, 2000);
 
-    // Make the API request with extended timeout (12 minutes for complex generation)
+    // Make the API request with extended timeout (15 minutes for complex generation)
     // This ensures the CLI doesn't timeout before the server completes
-    const GENERATION_TIMEOUT = 720000; // 12 minutes
+    const GENERATION_TIMEOUT = 900000; // 15 minutes
     const response = await api.postWithTimeout<{
         success: boolean;
         // Common fields
