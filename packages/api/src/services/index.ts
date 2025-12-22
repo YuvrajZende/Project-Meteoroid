@@ -577,30 +577,55 @@ export {
 } from './prompt-templates.js';
 
 // ============================================
-// PHASE 25: CODE QUALITY & OVERSIGHT AGENTS
+// PHASE 26: PRODUCTION-READY CODE GENERATION
 // ============================================
 
-// Code Quality Agent (Validates and fixes generated code)
+// Dependency Registry (Auto-map imports to package.json)
 export {
-    CodeQualityAgent,
-    getCodeQualityAgent,
-    createCodeQualityAgent,
-    type QualityCheck,
-    type QualityReport,
-    type QualityAgentConfig,
-    type ValidationContext,
-} from './code-quality-agent.js';
+    DependencyRegistry,
+    getDependencyRegistry,
+    createDependencyRegistry,
+    type DependencyMapping,
+    type PackageJson,
+    type DependencyAnalysis,
+    type DependencyRecommendation,
+    type DependencyRegistryConfig,
+} from './dependency-registry.js';
 
-// Framework Oversight Agent (Oversees pipeline, controls learning)
+// Import Registry (Prevent duplicate imports)
 export {
-    FrameworkOversightAgent,
-    getFrameworkOversightAgent,
-    createFrameworkOversightAgent,
-    type ContextInjection,
-    type PreContext as OversightPreContext,
-    type LearningDecision,
-    type OversightDecision,
-    type OversightAgentConfig,
-    type PostReviewResult,
-} from './framework-oversight-agent.js';
+    ImportRegistry,
+    getImportRegistry,
+    createImportRegistry,
+    type ImportStatement,
+    type ImportConflict,
+    type ImportAnalysis,
+    type DeduplicationResult,
+} from './import-registry.js';
+
+// Complete Project Generator (Generate full production-ready projects)
+export {
+    CompleteProjectGenerator,
+    getCompleteProjectGenerator,
+    type CompleteProject,
+    type CodeFile as ProjectCodeFile,
+    type RouteFile,
+    type ServiceFile,
+    type ModelFile,
+    type MiddlewareFile,
+    type TestFile as ProjectTestFile,
+    type ConfigFile as ProjectConfigFile,
+} from './complete-project-generator.js';
+
+// Project Integrity Validator (Validate and prevent code loss)
+export {
+    ProjectIntegrityValidator,
+    getProjectIntegrityValidator,
+    type ValidationIssue,
+    type ValidationReport,
+    type ReplacementContext,
+    type ReplacementValidation,
+    type ValidationSeverity,
+    type ValidationIssueType,
+} from './project-integrity-validator.js';
 

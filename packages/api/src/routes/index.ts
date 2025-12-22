@@ -23,6 +23,7 @@ import { vectorLearningRoutes } from './vector-learning.js';
 import { servicesRoutes } from './services/index.js';
 import { connectionsRoutes } from './connections/index.js';
 import { contextRoutes } from './context.js';
+import { phase26Routes } from './phase26.js';
 
 /**
  * Register all routes to the Fastify instance
@@ -90,6 +91,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // Phase 24: Context Management routes
     await contextRoutes(app);
 
+    // Phase 26: Project Validation & Dependencies routes
+    await phase26Routes(app);
+
     app.log.info('[ROUTES] All routes registered successfully');
 }
 
@@ -114,4 +118,5 @@ export {
     vectorLearningRoutes,
     servicesRoutes,
     connectionsRoutes,
+    phase26Routes,
 };

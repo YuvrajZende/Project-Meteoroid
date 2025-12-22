@@ -2,14 +2,12 @@
 +=======================================================================================================================+
 |                                                                                                                       |
 |                                         🚀 LOVEABLE BACKEND - SYSTEM ARCHITECTURE                                     |
-|   Phase 25.1: Quality Oversight Bug Fix (Safety Checks for Code Replacement) ★ FIXED                                 |
-|   Phase 25: Quality Oversight Agents (Code Quality Agent + Framework Oversight Agent)                                 |
 |   Phase 24: Context Management System (Entity Extraction + Generation Context + Prompt Templates)                    |
 |   Phase 23: CLI Testing Interface + Learning System Fixes (11-min timeout, 4-tier search)                            |
 |   Phase 22: AI Intent Analysis + Vector Learning (Fast AI - No OpenAI!)                                              |
 |   Phase 21: Service Integration Framework ✅ COMPLETE (5 Services + Registry + Connection Manager)                   |
 |                                                                                                                       |
-|   📊 STATUS: ALL SYSTEMS OPERATIONAL - December 21, 2024                                                              |
+|   📊 STATUS: ALL SYSTEMS OPERATIONAL - December 22, 2024                                                              |
 |                                                                                                                       |
 +=======================================================================================================================+
                                                          |
@@ -157,30 +155,26 @@
 +------------------------+                    +------------------------+                      +-------------------------+
 
 +=======================================================================================================================+
-|   ⚙️  EXECUTION FLOW V6.1 (With Phase 24 Context + Phase 25.1 Quality Oversight Fix)                                  |
+|   \u2699\ufe0f  EXECUTION FLOW V6.2 (With Phase 24 Context Management)                                                |
 +=======================================================================================================================+
-|                                                                                                                       |
-|   0. AUTH:      User authenticates via OAuth OR Email/Password → Receives JWT Tokens (Supabase + Our JWT).           |
-|   1. SERVICES:  [Service Registry] loads user's connected services → Injects env vars + code templates.              |
+|                                                                                                                      |
+|   0. AUTH:      User authenticates via OAuth OR Email/Password \u2192 Receives JWT Tokens (Supabase + Our JWT).      |
+|   1. SERVICES:  [Service Registry] loads user's connected services \u2192 Injects env vars + code templates.         |
 |   2. INGEST:    User Request + [JWT Token] + [Stack Constraints] + [Services] -> Thinking Engine                     |
 |   3. VERIFY:    [Auth Middleware] validates JWT + checks blacklist + verifies roles.                                 |
-|   4. ENTITIES:  ★ [Entity Extractor] (Phase 24) parses prompt → Extracts models, relations, features, projectType.   |
-|   5. CONTEXT:   ★ [Generation Context] (Phase 24) creates context → Tracks subtasks, entities, and progress.         |
-|   6. PRECONTEXT:★ [Oversight Agent] (Phase 25) queries learning system → Builds pre-context with patterns/warnings.  |
-|   7. PLAN:      Groq/Llama-3.3 (Stage 1) analyzes complexity & needed agents. Checks [Vector DB] for similar plans.  |
-|   8. PREPARE:   [MCP Hub] alerts relevant Agents. [Context Manager] pulls history & [Learned Patterns] & [Services]. |
-|   9. FACTORY:   [Enhanced CodeGen] spins up. [Scaffold] -> [DB Schema] -> [Routes] -> [Tests] generated in parallel. |
-|  10. GENERATE:  GLM-4.6 (Stage 2) writes code using [Service Templates] + [Entity Constraints] injected into prompt. |
-|  11. VALIDATE:  ★ [Code Quality Agent] (Phase 25) runs 7 checks: Dedup, Truncation, Imports, Syntax, Arch, Entities. |
-|  12. SAFECHECK: ★ [Phase 25.1 Fix] Validates replacements are at least 50% of original size. Rejects bad replacements.|
-|  13. AUTOFIX:   ★ [Code Quality Agent] (Phase 25) auto-fixes issues where possible. Logs failures as anti-patterns.  |
-|  14. REVIEW:    ★ [Oversight Agent] (Phase 25) analyzes quality report → Decides: store success/anti-pattern/iterate. |
-|  15. LEARN:     ★ [Oversight Agent] (Phase 25) indexes successful patterns for future retrieval. Updates vector DB.   |
-|  16. OUTPUT:    Success -> Fixed Files Written -> Supabase Metadata Log -> Cost Calculated.                          |
-|  17. LOG:       [Security Event Logger] records action type, user, IP, success/failure.                              |
-|  18. PREVIEW:   [Live Preview System] hot-loads code -> Generates Sandbox URL -> Pushes to Client via SSE.           |
-|  19. DEPLOY:    (Async) [Auto-Deploy Manager] -> Commits to [GitHub] -> Triggers [Netlify] Build.                    |
-|                                                                                                                       |
+|   4. ENTITIES:  \u2605 [Entity Extractor] (Phase 24) parses prompt \u2192 Extracts models, relations, features, projectType.   |
+|   5. CONTEXT:   \u2605 [Generation Context] (Phase 24) creates context \u2192 Tracks subtasks, entities, and progress.         |
+|   6. PLAN:      Groq/Llama-3.3 (Stage 1) analyzes complexity & needed agents. Checks [Vector DB] for similar plans.  |
+|   7. PREPARE:   [MCP Hub] alerts relevant Agents. [Context Manager] pulls history & [Learned Patterns] & [Services]. |
+|   8. FACTORY:   [Enhanced CodeGen] spins up. [Scaffold] -> [DB Schema] -> [Routes] -> [Tests] generated in parallel. |
+|   9. GENERATE:  GLM-4.6 (Stage 2) writes code using [Service Templates] + [Entity Constraints] injected into prompt. |
+|  10. QUALITY:   [Quality Assessment] checks code quality \u2192 Scores the output and logs issues.                   |
+|  11. LEARN:     [Learning Service] stores iteration \u2192 Indexes code chunks in vector store for future context.   |
+|  12. OUTPUT:    Success -> Files Written -> Supabase Metadata Log -> Cost Calculated.                                |
+|  13. LOG:       [Security Event Logger] records action type, user, IP, success/failure.                              |
+|  14. PREVIEW:   [Live Preview System] hot-loads code -> Generates Sandbox URL -> Pushes to Client via SSE.           |
+|  15. DEPLOY:    (Async) [Auto-Deploy Manager] -> Commits to [GitHub] -> Triggers [Netlify] Build.                    |
+|                                                                                                                      |
 +=======================================================================================================================+
 
 +=======================================================================================================================+
@@ -323,19 +317,19 @@
 |   └─ Stripe, PayPal, Paddle, LemonSqueezy, Square                                                                    |
 |                                                                                                                       |
 |   🔍 SEARCH & ANALYTICS (8 services)                                                                                  |
-|   └─ Algolia, Elasticsearch, Meilisearch, Typesense, Google Analytics, Mixpanel, PostHog, Plausible                 |
+|   └─ Algolia, Elasticsearch, Meilisearch, Typesense, Google Analytics, Mixpanel, PostHog, Plausible                   |
 |                                                                                                                       |
 |   🤖 AI & ML (10 services)                                                                                            |
-|   └─ OpenAI, Anthropic, Z.AI, Groq, Hugging Face, Replicate, ElevenLabs, Pinecone, Weaviate                         |
+|   └─ OpenAI, Anthropic, Z.AI, Groq, Hugging Face, Replicate, ElevenLabs, Pinecone, Weaviate                           |
 |                                                                                                                       |
 |   🔑 SECRETS MANAGEMENT (5 services)                                                                                  |
-|   └─ HashiCorp Vault, AWS Secrets Manager, Doppler, Infisical, 1Password                                            |
+|   └─ HashiCorp Vault, AWS Secrets Manager, Doppler, Infisical, 1Password                                              |
 |                                                                                                                       |
 |   🚩 FEATURE FLAGS (4 services)                                                                                       |
-|   └─ LaunchDarkly, Split, Flagsmith, PostHog                                                                         |
+|   └─ LaunchDarkly, Split, Flagsmith, PostHog                                                                          |
 |                                                                                                                       |
 |   🧪 TESTING (6 services)                                                                                             |
-|   └─ Playwright, Cypress, Jest, Vitest, BrowserStack, Percy                                                          |
+|   └─ Playwright, Cypress, Jest, Vitest, BrowserStack, Percy                                                           |
 |                                                                                                                       |
 |   IMPLEMENTATION COMPONENTS:                                                                                          |
 |                                                                                                                       |
@@ -744,137 +738,7 @@
 +=======================================================================================================================+
 
 +=======================================================================================================================+
-|   🛡️  PHASE 25: QUALITY OVERSIGHT AGENTS (December 2024) ★ NEW                                                       |
-+=======================================================================================================================+
-|                                                                                                                       |
-|   OVERVIEW: Self-healing code generation with automatic validation, fixing, and learning.                            |
-|                                                                                                                       |
-|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
-|   │                          CODE QUALITY AGENT (~830 lines)                                                       │  |
-|   │                                                                                                               │  |
-|   │   PURPOSE: Validate and auto-fix generated code before writing to disk.                                       │  |
-|   │                                                                                                               │  |
-|   │   7 QUALITY CHECKS:                                                                                            │  |
-|   │   ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐  │  |
-|   │   │ CHECK                      │ ISSUE DETECTED                    │ AUTO-FIX                            │  │  |
-|   │   ├────────────────────────────────────────────────────────────────────────────────────────────────────────┤  │  |
-|   │   │ 1. File Deduplication      │ Multiple files with same path      │ Keep most complete version          │  │  |
-|   │   │ 2. Truncation Detection    │ Incomplete/cut-off files           │ Mark truncation, log issue          │  │  |
-|   │   │ 3. Import Resolution       │ Missing imports                    │ Log missing dependencies            │  │  |
-|   │   │ 4. Syntax Validation       │ Language mixing (TS in Python)     │ Clean up mixed syntax               │  │  |
-|   │   │ 5. Architecture Consistency│ Multiple frameworks (Express+Nest) │ Log inconsistency                   │  │  |
-|   │   │ 6. Entity Completeness     │ Missing required entities          │ Log missing entities                │  │  |
-|   │   │ 7. Single Entry Point      │ Both index.ts AND main.ts          │ Remove duplicate entry              │  │  |
-|   │   └────────────────────────────────────────────────────────────────────────────────────────────────────────┘  │  |
-|   │                                                                                                               │  |
-|   │   OUTPUT: QualityReport with score (0-100), checks passed/failed, auto-fixes applied                          │  |
-|   │                                                                                                               │  |
-|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
-|                                                                                                                       |
-|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
-|   │                          FRAMEWORK OVERSIGHT AGENT (~660 lines)                                                │  |
-|   │                                                                                                               │  |
-|   │   PURPOSE: Control learning decisions and inject context from past generations.                               │  |
-|   │                                                                                                               │  |
-|   │   PRE-GENERATION (buildPreContext):                                                                            │  |
-|   │   ✅ Query vector store for similar successful patterns                                                       │  |
-|   │   ✅ Retrieve anti-patterns to avoid                                                                          │  |
-|   │   ✅ Build context injections for prompts                                                                     │  |
-|   │   ✅ Add standard warnings (no multiple entry points, etc.)                                                   │  |
-|   │   ✅ Recommend framework based on history                                                                     │  |
-|   │                                                                                                               │  |
-|   │   POST-GENERATION (postGenerationReview):                                                                      │  |
-|   │   ✅ Analyze QualityReport from Code Quality Agent                                                            │  |
-|   │   ✅ Make learning decisions based on score:                                                                  │  |
-|   │      - Score 80+: Store as SUCCESS pattern (index for future retrieval)                                       │  |
-|   │      - Score 40-79: Store as ITERATION (for gradual improvement)                                              │  |
-|   │      - Score <40: Store as ANTI-PATTERN (to avoid in future)                                                  │  |
-|   │   ✅ Execute learning decisions to Supabase database                                                          │  |
-|   │   ✅ Index successful code patterns in vector store                                                           │  |
-|   │                                                                                                               │  |
-|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
-|                                                                                                                       |
-|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
-|   │                          DATABASE SCHEMA (migration 016_agent_learning.sql)                                    │  |
-|   │                                                                                                               │  |
-|   │   NEW TABLES:                                                                                                  │  |
-|   │   ✅ generation_issues: Track quality issues found during validation                                          │  |
-|   │   ✅ validated_code_patterns: Store successful patterns for vector search                                     │  |
-|   │   ✅ anti_patterns: Store patterns to avoid in future generations                                             │  |
-|   │   ✅ learning_decisions: Log oversight agent decisions for audit                                              │  |
-|   │                                                                                                               │  |
-|   │   RLS POLICIES: Users can only access their own data, service role has full access                            │  |
-|   │   INDEXES: Optimized for search by project_id, issue_type, severity, framework                                │  |
-|   │                                                                                                               │  |
-|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
-|                                                                                                                       |
-|   PIPELINE INTEGRATION:                                                                                                |
-|   ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐|
-|   │ INIT → ENTITY EXTRACTION → PRE-CONTEXT (★) → THINKING → GENERATION → QUALITY CHECK (★) → REVIEW (★) → OUTPUT    │|
-|   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘|
-|                                                                                                                       |
-|   FILES:                                                                                                               |
-|   📁 packages/api/src/services/code-quality-agent.ts (~830 lines)                                                     |
-|   📁 packages/api/src/services/framework-oversight-agent.ts (~660 lines)                                              |
-|   📁 packages/database/src/migrations/016_agent_learning.sql (~196 lines)                                             |
-|   📁 packages/api/src/services/integrated-orchestrator.ts (updated with Phase 25 steps)                               |
-|                                                                                                                       |
-|   BENEFITS:                                                                                                            |
-|   ✅ Self-healing: Auto-fixes common issues before writing                                                            |
-|   ✅ Learning: Stores patterns from every generation                                                                  |
-|   ✅ Context-aware: Pre-context warns about past failures                                                             |
-|   ✅ Quality-gated: Only high-quality code gets stored as success patterns                                            |
-|   ✅ Debugging: Full audit trail of learning decisions                                                                |
-|                                                                                                                       |
-|   REQUIRED ACTION: Run migration 016_agent_learning.sql in Supabase SQL Editor!                                       |
-|                                                                                                                       |
-|   STATUS: ✅ COMPLETE - Both agents integrated into IntegratedOrchestrator                                            |
-|                                                                                                                       |
-+=======================================================================================================================+
-
-+=======================================================================================================================+
-|   🔧  PHASE 25.1: QUALITY OVERSIGHT BUG FIX (December 21, 2024) ★ FIXED                                               |
-+=======================================================================================================================+
-|                                                                                                                       |
-|   ISSUE DISCOVERED: Phase 25 Code Quality Agent was causing 72% CODE LOSS during replacement.                         |
-|                                                                                                                       |
-|   ROOT CAUSE:                                                                                                          |
-|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
-|   │ 1. Orchestrator generates multi-file combined code blocks per agent (e.g., ~22,000 chars)                     │  |
-|   │ 2. Phase 25 was replacing these with individual file paths that didn't match                                   │  |
-|   │ 3. The replacement logic accepted corrupted/empty content without validation                                   │  |
-|   │    OLD: return fixedCode ? { ...gen, code: fixedCode } : gen;  // No size check!                               │  |
-|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
-|                                                                                                                       |
-|   THE FIX (integrated-orchestrator.ts lines 845-862):                                                                  |
-|   ┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────┐  |
-|   │ SAFETY CHECKS BEFORE REPLACEMENT:                                                                             │  |
-|   │ ✅ Check 1: fixedCode must exist AND not be empty                                                             │  |
-|   │ ✅ Check 2: fixedCode must be at least 50% the size of original (prevents data loss)                          │  |
-|   │ ✅ Check 3: Minimum threshold of 100 chars (small files can still be replaced)                                │  |
-|   │ ✅ Logging: Logs when replacement is accepted OR rejected with reason                                          │  |
-|   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────┘  |
-|                                                                                                                       |
-|   RESULT:                                                                                                              |
-|   ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ |
-|   │ METRIC                    │ BEFORE FIX           │ AFTER FIX                                                  │ |
-|   ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤ |
-|   │ Code to post-processor    │ 8,637 chars          │ 41,880 chars ✅                                            │ |
-|   │ Files written             │ 9 files              │ 25 files ✅                                                │ |
-|   │ Data loss                 │ ~72%                 │ 0% ✅                                                      │ |
-|   │ Patterns stored           │ 0 patterns           │ 3 patterns ✅                                              │ |
-|   └────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ |
-|                                                                                                                       |
-|   CONSOLE OUTPUT EXAMPLE:                                                                                              |
-|   [CODE-QUALITY] Rejected replacement for src/api-agent/...: 16 chars is less than 50% of original 24881 chars        |
-|   [CODE-QUALITY] Replaced src/database-agent/...: 9924 -> 9924 chars                                                  |
-|                                                                                                                       |
-|   STATUS: ✅ FIXED - All systems operational                                                                          |
-|                                                                                                                       |
-+=======================================================================================================================+
-
-+=======================================================================================================================+
-|   📊  COMPLETE SYSTEM STATUS (December 21, 2024)                                                                      |
+|   📊  COMPLETE SYSTEM STATUS (December 22, 2024)                                                                      |
 +=======================================================================================================================+
 |                                                                                                                       |
 |   ✅ WORKING SERVICES:                                                                                                 |
@@ -891,8 +755,7 @@
 |   │ Multi-Model Pipeline     │ ✅     │ Groq (Fast) + Z.AI (Power)                                               │  |
 |   │ Code Post-Processor      │ ✅     │ 22-35 files processed per run                                            │  |
 |   │ File Writer              │ ✅     │ 25+ files per generation                                                 │  |
-|   │ Code Quality Agent       │ ✅     │ 86/100 avg score, 7 checks                                               │  |
-|   │ Oversight Agent          │ ✅     │ 3 patterns stored per run                                                │  |
+|   │ Quality Assessment       │ ✅     │ Code quality scoring and issue detection                                 │  |
 |   │ Learning Storage         │ ✅     │ 49+ chunks indexed per generation                                        │  |
 |   │ Cost Tracker             │ ✅     │ ~$0.005 per generation                                                   │  |
 |   │ Benchmarking             │ ✅     │ Metrics persisted to Supabase                                            │  |

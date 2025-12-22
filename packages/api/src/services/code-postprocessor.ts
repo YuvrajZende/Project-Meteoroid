@@ -2,6 +2,7 @@
  * Code Post-Processor Service
  * 
  * Phase 17: Code Generation Quality Improvement
+ * Phase 26: Enhanced with DependencyRegistry and ImportRegistry
  * 
  * This service is responsible for:
  * 1. Parsing AI output (JSON or raw code)
@@ -10,7 +11,12 @@
  * 4. Ensuring imports are correct across files
  * 5. Generating proper entry point that connects all files
  * 6. Validating TypeScript before writing
+ * 7. Auto-detecting and registering dependencies (Phase 26)
+ * 8. Deduplicating imports across files (Phase 26)
  */
+
+import { getDependencyRegistry, type DependencyRegistry } from './dependency-registry.js';
+import { getImportRegistry, type ImportRegistry } from './import-registry.js';
 
 export interface GeneratedFile {
     path: string;
@@ -30,7 +36,10 @@ export interface ProcessedOutput {
         fixedImports: number;
         removedJsonBlocks: number;
         addedExports: number;
+        deduplicatedImports: number;  // Phase 26
+        detectedDependencies: number; // Phase 26
     };
+    packageJson?: object;  // Phase 26: Auto-generated package.json
 }
 
 export interface AICodeResponse {
@@ -44,6 +53,14 @@ export interface AICodeResponse {
 // ============================================
 
 export class CodePostProcessor {
+    // Phase 26: Service instances
+    private dependencyRegistry: DependencyRegistry;
+    private importRegistry: ImportRegistry;
+
+    constructor() {
+        this.dependencyRegistry = getDependencyRegistry();
+        this.importRegistry = getImportRegistry();
+    }
 
     /**
      * Process raw AI output into clean, usable code files
@@ -55,8 +72,14 @@ export class CodePostProcessor {
         let fixedImports = 0;
         let removedJsonBlocks = 0;
         let addedExports = 0;
+        let deduplicatedImports = 0;
+        let detectedDependencies = 0;
 
         console.log('[CODE-POSTPROCESSOR] Starting processing...');
+
+        // Phase 26: Clear registries for fresh analysis
+        this.dependencyRegistry.clear();
+        this.importRegistry.clear();
 
         // Step 1: Parse the AI output
         const parsed = this.parseAIOutput(rawOutput);
@@ -106,10 +129,29 @@ export class CodePostProcessor {
             if (cleanResult.hadJsonBlocks) removedJsonBlocks++;
         }
 
+        // Phase 26: Analyze dependencies across all files
+        const fileMap = new Map<string, string>();
+        for (const file of files) {
+            fileMap.set(file.path, file.content);
+            // Detect dependencies in each file
+            const deps = this.dependencyRegistry.analyzeCode(file.content, file.path);
+            detectedDependencies += deps.length;
+        }
+
         // TypeScript-specific processing (skip for other languages)
         let entryPoint: GeneratedFile | undefined;
 
         if (isTypeScriptProject) {
+            // Phase 26: Deduplicate imports in each file using ImportRegistry
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const result = this.importRegistry.deduplicateImports(file.content, file.path);
+                if (result.changesMade > 0) {
+                    file.content = result.deduplicatedCode;
+                    deduplicatedImports += result.changesMade;
+                }
+            }
+
             // Step 3: Fix imports across all files (TypeScript only)
             const importFixResult = this.fixImportsAcrossFiles(files);
             files = importFixResult.files;
@@ -147,12 +189,17 @@ export class CodePostProcessor {
             };
         }
 
+        // Phase 26: Generate package.json based on detected dependencies
+        const packageJson = this.dependencyRegistry.generatePackageJson(projectName);
+
         console.log('[CODE-POSTPROCESSOR] Processing complete');
         console.log(`  Project Language: ${projectLanguage}`);
         console.log(`  Files: ${files.length}`);
         console.log(`  Fixed imports: ${fixedImports}`);
         console.log(`  Removed JSON blocks: ${removedJsonBlocks}`);
         console.log(`  Added exports: ${addedExports}`);
+        console.log(`  Deduplicated imports: ${deduplicatedImports}`);
+        console.log(`  Detected dependencies: ${detectedDependencies}`);
 
         return {
             success: errors.length === 0,
@@ -165,9 +212,13 @@ export class CodePostProcessor {
                 fixedImports,
                 removedJsonBlocks,
                 addedExports,
+                deduplicatedImports,
+                detectedDependencies,
             },
+            packageJson,
         };
     }
+
 
     /**
      * Detect the primary language of the project from generated files

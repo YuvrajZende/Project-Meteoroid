@@ -49,9 +49,12 @@ import { getEntityExtractor, type EntityExtractorService } from './entity-extrac
 import { getGenerationContext, type GenerationContextService, type GenerationContext } from './generation-context.js';
 import { buildSubtaskPrompt, getEntityConstraints } from './prompt-templates.js';
 
-// Phase 25: Code Quality & Oversight Agents
-import { getCodeQualityAgent, type CodeQualityAgent, type QualityReport } from './code-quality-agent.js';
-import { getFrameworkOversightAgent, type FrameworkOversightAgent, type PreContext } from './framework-oversight-agent.js';
+// Phase 26: Production-Ready Code Generation
+import { getDependencyRegistry, type DependencyRegistry } from './dependency-registry.js';
+import { getImportRegistry, type ImportRegistry } from './import-registry.js';
+import { getCompleteProjectGenerator, type CompleteProjectGenerator } from './complete-project-generator.js';
+import { getProjectIntegrityValidator, type ProjectIntegrityValidator } from './project-integrity-validator.js';
+
 
 
 // ============================================
@@ -100,7 +103,7 @@ export interface OrchestrationInput {
 
 export interface OrchestrationStep {
     stepNumber: number;
-    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'enhanced-codegen' | 'cost-tracking' | 'learning' | 'quality' | 'oversight' | 'architecture' | 'finalize';
+    phase: 'init' | 'thinking' | 'analysis' | 'agent-selection' | 'execution' | 'code-generation' | 'multi-model' | 'enhanced-codegen' | 'cost-tracking' | 'learning' | 'quality' | 'architecture' | 'finalize';
     agent?: string;
     message: string;
     timestamp: Date;
@@ -176,9 +179,11 @@ export class IntegratedOrchestrator {
     // Phase 24: Context Management
     private entityExtractor: EntityExtractorService;
     private generationContextService: GenerationContextService;
-    // Phase 25: Code Quality & Oversight
-    private codeQualityAgent: CodeQualityAgent;
-    private oversightAgent: FrameworkOversightAgent;
+    // Phase 26: Production-Ready Code Generation
+    private dependencyRegistry: DependencyRegistry;
+    private importRegistry: ImportRegistry;
+    private completeProjectGenerator: CompleteProjectGenerator;
+    private projectIntegrityValidator: ProjectIntegrityValidator;
     private isInitialized = false;
 
     constructor(config?: Partial<IntegratedOrchestratorConfig>) {
@@ -214,9 +219,11 @@ export class IntegratedOrchestrator {
         // Phase 24: Context Management
         this.entityExtractor = getEntityExtractor();
         this.generationContextService = getGenerationContext();
-        // Phase 25: Code Quality & Oversight
-        this.codeQualityAgent = getCodeQualityAgent();
-        this.oversightAgent = getFrameworkOversightAgent();
+        // Phase 26: Production-Ready Code Generation
+        this.dependencyRegistry = getDependencyRegistry();
+        this.importRegistry = getImportRegistry();
+        this.completeProjectGenerator = getCompleteProjectGenerator();
+        this.projectIntegrityValidator = getProjectIntegrityValidator();
     }
 
     /**
@@ -362,44 +369,6 @@ export class IntegratedOrchestrator {
                 const errMsg = extractError instanceof Error ? extractError.message : 'Unknown error';
                 console.warn('[ORCHESTRATOR] Entity extraction failed:', errMsg);
                 addStep('init', 'Entity extraction failed (continuing without)', { error: errMsg });
-            }
-
-            // ============================================
-            // PHASE 1.6: PRE-CONTEXT BUILDING (Phase 25)
-            // ============================================
-            addStep('init', 'Building pre-context from learning system...');
-
-            let oversightPreContext: PreContext | null = null;
-
-            try {
-                await this.oversightAgent.initialize();
-                oversightPreContext = await this.oversightAgent.buildPreContext(input.prompt);
-
-                if (oversightPreContext.injections.length > 0 || oversightPreContext.warnings.length > 0) {
-                    addStep('init', `Pre-context built: ${oversightPreContext.injections.length} injections, ${oversightPreContext.warnings.length} warnings`, {
-                        injections: oversightPreContext.injections.length,
-                        warnings: oversightPreContext.warnings.length,
-                        recommendedFramework: oversightPreContext.recommendedFramework,
-                        entities: oversightPreContext.entities.length,
-                    });
-
-                    // Add oversight warnings to entity constraints
-                    if (oversightPreContext.warnings.length > 0) {
-                        const warningsBlock = `
-⚠️ LEARNED WARNINGS (from past generations):
-${oversightPreContext.warnings.map(w => `- ${w}`).join('\n')}
-`;
-                        entityConstraints = warningsBlock + entityConstraints;
-                    }
-
-                    console.log(`[OVERSIGHT] Built pre-context with ${oversightPreContext.injections.length} injections`);
-                } else {
-                    addStep('init', 'No pre-context available (empty learning history)');
-                }
-            } catch (oversightError) {
-                const errMsg = oversightError instanceof Error ? oversightError.message : 'Unknown error';
-                console.warn('[ORCHESTRATOR] Pre-context building failed:', errMsg);
-                addStep('init', 'Pre-context building failed (continuing without)', { error: errMsg });
             }
 
             // ============================================
@@ -790,106 +759,6 @@ IMPORTANT: You are generating code for a specific system described above.
             }
 
             // ============================================
-            // PHASE 4.3.5: CODE QUALITY AGENT VALIDATION (Phase 25)
-            // ============================================
-            let codeQualityReport: QualityReport | null = null;
-            let fixedGeneratedCode = generatedCode;
-
-            // DEBUG: Log what we have before Phase 25
-            console.log(`[DEBUG] Before Phase 25: ${generatedCode.length} code blocks`);
-            for (const gen of generatedCode) {
-                console.log(`[DEBUG] Code block from ${gen.agent}: ${gen.code.length} chars`);
-            }
-
-            if (generatedCode.length > 0) {
-                addStep('quality', 'Running Phase 25 Code Quality Agent...');
-
-                try {
-                    await this.codeQualityAgent.initialize();
-
-                    // Convert generated code to Map for validation
-                    const filesMap = new Map<string, string>();
-                    for (const gen of generatedCode) {
-                        const ext = input.context?.language === 'python' ? 'py' :
-                            input.context?.language === 'go' ? 'go' : 'ts';
-                        const path = `src/${gen.agent}/${gen.subtask.slice(0, 30).replace(/\s+/g, '_')}.${ext}`;
-                        filesMap.set(path, gen.code);
-                    }
-
-                    // Run validation with entity context
-                    const validationResult = await this.codeQualityAgent.validateAndFix(
-                        filesMap,
-                        {
-                            originalPrompt: input.prompt,
-                            entities: generationContext?.entities || [],
-                            framework: input.context?.framework || 'fastify',
-                            language: input.context?.language || 'typescript',
-                            subtasks: aiAnalysis?.subtasks || [],
-                            projectId: input.projectId,
-                        }
-                    );
-
-
-                    codeQualityReport = validationResult.report;
-
-                    // Phase 25 code replacement with safety checks
-                    // Only replace if the fixed code is valid and doesn't cause data loss
-                    if (validationResult.fixedFiles.size > 0) {
-                        fixedGeneratedCode = generatedCode.map((gen) => {
-                            const ext = input.context?.language === 'python' ? 'py' :
-                                input.context?.language === 'go' ? 'go' : 'ts';
-                            const path = `src/${gen.agent}/${gen.subtask.slice(0, 30).replace(/\s+/g, '_')}.${ext}`;
-                            const fixedCode = validationResult.fixedFiles.get(path);
-
-                            // Safety checks before replacement:
-                            // 1. fixedCode must exist and not be empty
-                            // 2. fixedCode must be at least 50% the size of original (prevent data loss)
-                            // 3. Original code must be less than 100 chars if we're replacing with much smaller
-                            if (fixedCode && fixedCode.length > 0) {
-                                const originalLen = gen.code.length;
-                                const fixedLen = fixedCode.length;
-                                const minAcceptableSize = Math.max(100, originalLen * 0.5);
-
-                                if (fixedLen >= minAcceptableSize) {
-                                    console.log(`[CODE-QUALITY] Replaced ${path}: ${originalLen} -> ${fixedLen} chars`);
-                                    return { ...gen, code: fixedCode };
-                                } else {
-                                    console.warn(`[CODE-QUALITY] Rejected replacement for ${path}: ${fixedLen} chars is less than 50% of original ${originalLen} chars`);
-                                    return gen; // Keep original
-                                }
-                            }
-                            return gen; // No fix available, keep original
-                        });
-                    }
-
-
-                    addStep('quality', `Code Quality Agent: ${codeQualityReport.overallScore}/100 (${codeQualityReport.checks.filter(c => c.passed).length}/${codeQualityReport.checks.length} checks passed)`, {
-                        score: codeQualityReport.overallScore,
-                        checksTotal: codeQualityReport.checks.length,
-                        checksPassed: codeQualityReport.checks.filter(c => c.passed).length,
-                        autoFixesApplied: codeQualityReport.checks.filter(c => c.autoFixApplied).length,
-                        issuesLogged: codeQualityReport.issuesLogged,
-                        shouldProceed: validationResult.shouldProceed,
-                    });
-
-                    if (!validationResult.shouldProceed) {
-                        console.warn(`[CODE-QUALITY] Score ${codeQualityReport.overallScore} below threshold - quality check failed`);
-                    }
-
-                    // Log failed checks for debugging
-                    const failedChecks = codeQualityReport.checks.filter(c => !c.passed);
-                    if (failedChecks.length > 0) {
-                        console.log(`[CODE-QUALITY] Failed checks: ${failedChecks.map(c => c.name).join(', ')}`);
-                    }
-                } catch (codeQualityError) {
-                    const errorMsg = codeQualityError instanceof Error ? codeQualityError.message : 'Unknown error';
-                    console.warn('[CODE-QUALITY] Validation failed:', errorMsg);
-                    addStep('quality', `Code Quality Agent failed: ${errorMsg}`);
-                }
-            }
-
-
-            // ============================================
             // PHASE 4.4: STORE ARCHITECTURE FOR FUTURE REFERENCE
             // ============================================
             // Note: This will be enhanced when the full blueprint comes from multi-model result
@@ -979,66 +848,17 @@ IMPORTANT: You are generating code for a specific system described above.
             }
 
             // ============================================
-            // PHASE 4.6: OVERSIGHT POST-REVIEW (Phase 25)
-            // ============================================
-            if (codeQualityReport && fixedGeneratedCode.length > 0) {
-                addStep('learning', 'Oversight Agent reviewing generation for learning...');
-
-                try {
-                    // Convert fixed code to Map for post-review
-                    const filesMap = new Map<string, string>();
-                    for (const gen of fixedGeneratedCode) {
-                        const ext = input.context?.language === 'python' ? 'py' :
-                            input.context?.language === 'go' ? 'go' : 'ts';
-                        const path = `src/${gen.agent}/${gen.subtask.slice(0, 30).replace(/\s+/g, '_')}.${ext}`;
-                        filesMap.set(path, gen.code);
-                    }
-
-                    const postReview = await this.oversightAgent.postGenerationReview(
-                        filesMap,
-                        {
-                            originalPrompt: input.prompt,
-                            projectId: input.projectId,
-                            framework: input.context?.framework || 'fastify',
-                            language: input.context?.language || 'typescript',
-                            entities: generationContext?.entities || [],
-                        },
-                        codeQualityReport
-                    );
-
-                    addStep('learning', `Oversight review complete: ${postReview.patternsStored} patterns stored, ${postReview.learningDecisions.length} decisions made`, {
-                        patternsStored: postReview.patternsStored,
-                        decisionsCount: postReview.learningDecisions.length,
-                        recommendations: postReview.recommendations.slice(0, 3),
-                        decisions: postReview.learningDecisions.map(d => ({
-                            storeAs: d.storeAs,
-                            reason: d.reason,
-                        })),
-                    });
-
-                    // Log recommendations for the user
-                    if (postReview.recommendations.length > 0) {
-                        console.log('[OVERSIGHT] Recommendations:', postReview.recommendations.join('; '));
-                    }
-                } catch (oversightReviewError) {
-                    const errMsg = oversightReviewError instanceof Error ? oversightReviewError.message : 'Unknown error';
-                    console.warn('[OVERSIGHT] Post-review failed:', errMsg);
-                    addStep('learning', `Oversight post-review failed: ${errMsg}`);
-                }
-            }
-
-            // ============================================
             // PHASE 5: FINALIZATION
             // ============================================
             addStep('finalize', 'Finalizing orchestration...');
 
             // Write generated code to files
             let fileWriteResult: WriteResult | undefined;
-            if (config.useFileWriter && fixedGeneratedCode.length > 0) {
+            if (config.useFileWriter && generatedCode.length > 0) {
                 addStep('finalize', 'Processing and writing generated code...');
 
-                // Combine all generated code for post-processing (use quality-fixed version)
-                const allCode = fixedGeneratedCode.map(gc => gc.code).join('\n\n');
+                // Combine all generated code for post-processing
+                const allCode = generatedCode.map(gc => gc.code).join('\n\n');
 
                 // DEBUG: Log what we're sending to post-processor
                 console.log(`[DEBUG] Sending to post-processor: ${allCode.length} chars total`);
@@ -1474,6 +1294,11 @@ IMPORTANT: You are generating code for a specific system described above.
         // Phase 21: Service Integration
         serviceRegistry: ServiceRegistry;
         connectionManager: ConnectionManager;
+        // Phase 26: Production-Ready Code Generation
+        dependencyRegistry: DependencyRegistry;
+        importRegistry: ImportRegistry;
+        completeProjectGenerator: CompleteProjectGenerator;
+        projectIntegrityValidator: ProjectIntegrityValidator;
     } {
         return {
             aiClient: this.aiClient,
@@ -1487,8 +1312,14 @@ IMPORTANT: You are generating code for a specific system described above.
             // Phase 21: Service Integration
             serviceRegistry: this.serviceRegistry,
             connectionManager: this.connectionManager,
+            // Phase 26: Production-Ready Code Generation
+            dependencyRegistry: this.dependencyRegistry,
+            importRegistry: this.importRegistry,
+            completeProjectGenerator: this.completeProjectGenerator,
+            projectIntegrityValidator: this.projectIntegrityValidator,
         };
     }
+
 
     /**
      * Get user's configured services context for AI prompts (Phase 21)
