@@ -1,20 +1,28 @@
 /**
  * Orchestrator Routes
  * API endpoints for REAL AI-powered orchestration
- * Uses IntegratedOrchestrator (not demo mode)
+ * 
+ * Uses IntegratedOrchestrator for all code generation
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+
+// Main orchestrator - IntegratedOrchestrator (the one that works!)
 import {
     getIntegratedOrchestrator,
-    getAIClient,
     getMultiModelOrchestrator,
     type OrchestrationStep,
+} from '../services/orchestration/index.js';
+
+// Other services
+import {
+    getAIClient,
+    getAgentRegistry,
+    getContextManager,
+    getThinkingEngine,
+    getArchitectureBlueprintGenerator,
 } from '../services/index.js';
-import { getAgentRegistry } from '../services/agent-registry.js';
-import { getContextManager, getThinkingEngine } from '../services/core-services.js';
-import { getArchitectureBlueprintGenerator } from '../services/architecture-blueprint.js';
 
 // ============================================
 // SCHEMAS
@@ -61,7 +69,7 @@ const ThinkAnalysisSchema = z.object({
  */
 export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<void> {
 
-    // Initialize the orchestrator at startup
+    // Initialize the IntegratedOrchestrator (the main working orchestrator)
     const orchestrator = getIntegratedOrchestrator();
     await orchestrator.initialize();
 
@@ -227,40 +235,37 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             app.log.warn(`[VECTOR-LEARNING] Could not build context: ${error?.message || error}`);
         }
 
-        // Progress tracking for SSE (future)
-        const progressSteps: OrchestrationStep[] = [];
-
-        // Execute REAL orchestration
+        // Execute orchestration using IntegratedOrchestrator
         const result = await orchestrator.orchestrate(
             {
                 taskId,
                 userId,
                 projectId,
                 prompt: body.prompt,
-                config: body.config,
-                context, // Pass language, framework, techStack (now with auto-detection)
+                context: {
+                    language: context.language,
+                    framework: context.framework,
+                    techStack: context.techStack,
+                    existingCode: context.existingCode,
+                },
             },
-            (step) => {
-                progressSteps.push(step);
+            (step: OrchestrationStep) => {
                 app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
             }
         );
 
         app.log.info(`[ORCHESTRATOR] Task ${taskId} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
 
+        // Return the IntegratedOrchestrator response format
         return reply.send({
             success: result.success,
             taskId: result.taskId,
             projectId: result.projectId,
             totalDuration: result.totalDuration,
-            steps: result.steps.length,
+            steps: result.steps?.length || 0,
             agentsExecuted: result.agentsExecuted,
             generatedCode: result.generatedCode,
-            taskAnalysis: result.taskAnalysis,
-            aiAnalysis: result.aiAnalysis,
-            thinkingTraces: result.thinkingTraces,
-            errors: result.errors,
-            // Phase 22: Include AI intent  analysis and vector learning context
+            // Intent analysis
             intentAnalysis: {
                 intent: intentAnalysis.intent,
                 confidence: intentAnalysis.confidence,
@@ -269,6 +274,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 reasoning: intentAnalysis.reasoning,
             },
             vectorLearningUsed: !!vectorContext,
+            // Pass through any errors
+            errors: result.errors,
         });
     });
 
@@ -349,14 +356,14 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         },
     }, async (_request: FastifyRequest, reply: FastifyReply) => {
         const status = orchestrator.getStatus();
-        const services = orchestrator.getServices();
         const registry = getAgentRegistry();
         const summary = registry.getSummary();
-        const aiConfig = services.aiClient.getConfig();
+        const aiClient = getAIClient();
+        const aiConfig = aiClient.getConfig();
 
         return reply.send({
             initialized: status.initialized,
-            mode: 'INTEGRATED', // Not demo mode!
+            mode: 'MODULAR', // New Phase 27 modular orchestrator
             config: status.config,
             services: {
                 aiClient: {
@@ -364,15 +371,13 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                     model: aiConfig.model,
                     baseUrl: aiConfig.baseUrl,
                 },
-                thinkingEngine: 'available',
-                contextManager: 'available',
-                agentMonitor: 'available',
-                mcpHub: 'available',
+                analysisPhase: 'available',
+                generationPhase: 'available',
+                validationPhase: 'available',
             },
             agents: {
                 total: summary.total,
                 byTier: summary.byTier,
-                statuses: status.agentStatuses,
             },
         });
     });
@@ -399,19 +404,19 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         const registry = getAgentRegistry();
         const agents = registry.getAll();
         const summary = registry.getSummary();
-        const status = orchestrator.getStatus();
+        const orchestratorStatus = orchestrator.getStatus();
 
         // Merge agent registry with monitor status
-        const agentStatusMap = new Map(status.agentStatuses.map(s => [s.agentId, s]));
+        const agentStatusMap = new Map((orchestratorStatus as any).agentStatuses?.map((s: any) => [s.agentId, s]) || []);
 
         return reply.send({
-            agents: agents.map(agent => ({
+            agents: agents.map((agent: { id: string; name: string; tier: number; capabilities: string[] }) => ({
                 id: agent.id,
                 name: agent.name,
                 tier: agent.tier,
                 capabilities: agent.capabilities,
-                status: agentStatusMap.get(agent.id)?.status || 'idle',
-                lastExecution: agentStatusMap.get(agent.id)?.lastExecution,
+                status: (agentStatusMap.get(agent.id) as any)?.status || 'idle',
+                lastExecution: (agentStatusMap.get(agent.id) as any)?.lastExecution,
             })),
             summary: {
                 total: summary.total,
@@ -850,8 +855,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
     }, async (_request: FastifyRequest, reply: FastifyReply) => {
         try {
             // Import learning service
-            const { getLearningService } = await import('../services/learning-service.js');
-            const { getSupabaseAdmin } = await import('../services/database-client.js');
+            const { getLearningService } = await import('../services/index.js');
+            const { getSupabaseAdmin } = await import('../services/index.js');
 
             const learningService = getLearningService();
             await learningService.initialize();
@@ -926,7 +931,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         },
     }, async (_request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const { getLearningService } = await import('../services/learning-service.js');
+            const { getLearningService } = await import('../services/index.js');
             const learningService = getLearningService();
             await learningService.initialize();
 
@@ -935,7 +940,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             return reply.send({
                 success: true,
                 count: patterns.length,
-                patterns: patterns.map(p => ({
+                patterns: patterns.map((p: { patternType: string; description: string; example: string; context: string; frequency: number; confidence: number }) => ({
                     type: p.patternType,
                     description: p.description,
                     example: p.example.slice(0, 200),
@@ -1039,7 +1044,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                             ...(serviceContext as any),
                         } as any,
                     },
-                    (step) => {
+                    (step: OrchestrationStep) => {
                         app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
                     }
                 );
@@ -1047,7 +1052,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 return reply.send({
                     mode: 'generate',
                     message: `Generated code using your ${serviceContext.connectedServices.length} configured service(s)`,
-                    servicesUsed: serviceContext.connectedServices.map(s => s.serviceName),
+                    servicesUsed: serviceContext.connectedServices.map((s: { serviceName: string }) => s.serviceName),
                     result: {
                         success: result.success,
                         taskId: result.taskId,
@@ -1157,7 +1162,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                         serviceSelections: selectedServices,
                     } as any,
                 },
-                (step) => {
+                (step: OrchestrationStep) => {
                     app.log.info(`[STEP ${step.stepNumber}] ${step.phase}: ${step.message}`);
                 }
             );

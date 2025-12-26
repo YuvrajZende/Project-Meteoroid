@@ -15,7 +15,6 @@ import { registerOrchestratorRoutes } from './orchestrator.js';
 import { registerTemplateRoutes } from './templates.js';
 import { registerSSERoutes } from './websocket.js';
 import { registerBenchmarkRoutes } from './benchmarks.js';
-import { registerCodeGenRoutes } from './codegen.js';
 import { deploymentRoutes, githubRoutes } from './deployment.js';
 import { registerPreviewRoutes } from './preview.js';
 import { enhancedCodegenRoutes } from './enhanced-codegen.js';
@@ -52,10 +51,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // Authentication routes (Supabase-based)
     await registerAuthRoutes(app);
 
-    // Note: Phase 19 secure-auth routes REMOVED
-    // Supabase handles JWT, password hashing, OAuth with PKCE
-    // Use the standard auth.ts routes which integrate with Supabase
-
     // Task management routes
     await registerTaskRoutes(app);
 
@@ -67,9 +62,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
     // Benchmarking routes
     await registerBenchmarkRoutes(app);
-
-    // CodeGen routes (Person 4's code generation pipeline)
-    await registerCodeGenRoutes(app);
 
     // Phase 15: Deployment routes
     await deploymentRoutes(app);
@@ -110,7 +102,6 @@ export {
     registerTemplateRoutes,
     registerSSERoutes,
     registerBenchmarkRoutes,
-    registerCodeGenRoutes,
     deploymentRoutes,
     githubRoutes,
     registerPreviewRoutes,

@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { checkSupabaseConnection, checkVectorStore } from '../services/database-client.js';
+import { checkSupabaseConnection, checkVectorStore } from '../services/index.js';
 import Redis from 'ioredis';
 import { getAgentRegistry } from '../services/index.js';
 

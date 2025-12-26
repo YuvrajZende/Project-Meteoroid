@@ -5,19 +5,15 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getDependencyRegistry } from '../services/dependency-registry.js';
-import { getImportRegistry } from '../services/import-registry.js';
-import { getProjectIntegrityValidator } from '../services/project-integrity-validator.js';
-import { getCompleteProjectGenerator } from '../services/complete-project-generator.js';
+import {
+    getDependencyRegistry,
+    getImportRegistry,
+    getProjectIntegrityValidator,
+} from '../services/index.js';
 
 // ============================================
 // TYPES
 // ============================================
-
-interface ValidateProjectBody {
-    projectName: string;
-    files: Array<{ path: string; content: string }>;
-}
 
 interface AnalyzeDependenciesBody {
     code: string;
@@ -38,13 +34,6 @@ interface ValidateReplacementBody {
     reason?: string;
 }
 
-interface GenerateProjectBody {
-    name: string;
-    description: string;
-    features: string[];
-    files?: Array<{ path: string; content: string }>;
-}
-
 // ============================================
 // ROUTES
 // ============================================
@@ -53,13 +42,11 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
     const dependencyRegistry = getDependencyRegistry();
     const importRegistry = getImportRegistry();
     const projectValidator = getProjectIntegrityValidator();
-    const projectGenerator = getCompleteProjectGenerator();
 
     // Initialize services
     await dependencyRegistry.initialize();
     await importRegistry.initialize();
     await projectValidator.initialize();
-    await projectGenerator.initialize();
 
     /**
      * GET /api/v1/project/status
@@ -72,66 +59,8 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
                 dependencyRegistry: dependencyRegistry.getStatus(),
                 importRegistry: importRegistry.getStatus(),
                 projectValidator: projectValidator.getStatus(),
-                projectGenerator: projectGenerator.getStatus(),
             },
         };
-    });
-
-    /**
-     * POST /api/v1/project/validate
-     * Validate a complete project for issues
-     */
-    app.post('/api/v1/project/validate', async (request: FastifyRequest<{ Body: ValidateProjectBody }>, reply: FastifyReply) => {
-        try {
-            const { projectName, files } = request.body;
-
-            if (!projectName || !files || !Array.isArray(files)) {
-                return reply.status(400).send({
-                    success: false,
-                    error: 'Missing required fields: projectName and files array',
-                });
-            }
-
-            // Convert to map for generator
-            const fileMap = new Map<string, string>();
-            for (const file of files) {
-                fileMap.set(file.path, file.content);
-            }
-
-            // Generate complete project structure for validation
-            const project = await projectGenerator.generateProject(
-                projectName,
-                'Project for validation',
-                [],
-                fileMap
-            );
-
-            // Validate the project
-            const report = await projectValidator.validateProject(project);
-
-            return {
-                success: true,
-                validation: {
-                    isValid: report.isValid,
-                    score: report.score,
-                    summary: report.summary,
-                    issues: report.issues,
-                    recommendations: report.recommendations,
-                },
-                completeness: {
-                    score: project.completenessScore,
-                    isComplete: project.isComplete,
-                    missingComponents: project.missingComponents,
-                },
-            };
-        } catch (error) {
-            console.error('[PHASE26-ROUTES] Validation error:', error);
-            return reply.status(500).send({
-                success: false,
-                error: 'Validation failed',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            });
-        }
     });
 
     /**
@@ -260,66 +189,6 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
             return reply.status(500).send({
                 success: false,
                 error: 'Replacement validation failed',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            });
-        }
-    });
-
-    /**
-     * POST /api/v1/project/generate
-     * Generate a complete project structure
-     */
-    app.post('/api/v1/project/generate', async (request: FastifyRequest<{ Body: GenerateProjectBody }>, reply: FastifyReply) => {
-        try {
-            const { name, description, features, files = [] } = request.body;
-
-            if (!name || !description) {
-                return reply.status(400).send({
-                    success: false,
-                    error: 'Missing required fields: name, description',
-                });
-            }
-
-            // Convert to map
-            const fileMap = new Map<string, string>();
-            for (const file of files) {
-                fileMap.set(file.path, file.content);
-            }
-
-            const project = await projectGenerator.generateProject(
-                name,
-                description,
-                features || [],
-                fileMap
-            );
-
-            // Convert project to files array
-            const projectFiles = projectGenerator.projectToFiles(project);
-
-            return {
-                success: true,
-                project: {
-                    name: project.name,
-                    framework: project.framework,
-                    language: project.language,
-                    features: project.features,
-                    completenessScore: project.completenessScore,
-                    isComplete: project.isComplete,
-                    missingComponents: project.missingComponents,
-                },
-                files: projectFiles.map(f => ({
-                    path: f.path,
-                    type: f.type,
-                    language: f.language,
-                    contentLength: f.content.length,
-                })),
-                packageJson: project.packageJson,
-            };
-        } catch (error) {
-            console.error('[PHASE26-ROUTES] Project generation error:', error);
-            return reply.status(500).send({
-                success: false,
-                error: 'Project generation failed',
                 details: error instanceof Error ? error.message : 'Unknown error',
             });
         }

@@ -11,7 +11,7 @@ import {
     type EnhancedCodeGenRequest,
     type SupportedLanguage,
     type SupportedFramework,
-} from '../services/index.js';
+} from '../services/generation/enhanced-code-generator.js';
 
 // Request body schema
 interface GenerateProjectBody {

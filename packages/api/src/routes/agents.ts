@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getAgentRegistry } from '../services/agent-registry.js';
+import { getAgentRegistry } from '../services/index.js';
 
 /**
  * Agent list response

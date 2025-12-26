@@ -11,7 +11,6 @@ import { registerHooks } from './hooks/index.js';
 import { registerErrorHandler } from './utils/index.js';
 import { registerSecurityMiddleware } from './middleware/index.js';
 import {
-    registerOrchestrator,
     createAgentLoader,
     getAgentRegistry,
 } from './services/index.js';
@@ -57,7 +56,7 @@ export async function createApp(): Promise<FastifyInstance> {
     registerHooks(app);
     await registerPlugins(app);
     await loadAgents(app);
-    await registerOrchestrator(app);
+    // Orchestrator is initialized via registerRoutes -> registerOrchestratorRoutes
     await registerRoutes(app);
 
     // Root endpoint
@@ -96,7 +95,7 @@ export async function createApp(): Promise<FastifyInstance> {
 /**
  * Load agents from the agents directory (silent mode)
  */
-async function loadAgents(app: FastifyInstance): Promise<void> {
+async function loadAgents(_app: FastifyInstance): Promise<void> {
     const agentsDir = path.resolve(process.cwd(), '..', '..', 'agents');
 
     try {

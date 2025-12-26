@@ -6,7 +6,7 @@
  * Credentials are encrypted using Supabase Vault.
  */
 
-import { getSupabaseClient } from '../database-client.js';
+import { getSupabaseClient } from '../infrastructure/database-client.js';
 import { getServiceRegistry } from '../service-registry/index.js';
 import {
     UserConnection,

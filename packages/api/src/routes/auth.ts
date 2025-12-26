@@ -5,7 +5,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { getSupabaseClient, getSupabaseAdmin } from '../services/database-client.js';
+import { getSupabaseClient, getSupabaseAdmin } from '../services/infrastructure/database-client.js';
 
 // Supported OAuth providers
 type OAuthProvider = 'github' | 'google' | 'gitlab';

@@ -9,9 +9,9 @@
  */
 
 
-import { getAIIntentAnalyzer } from '../services/ai-intent-analyzer.js';
-import { getVectorLearningSystem } from '../services/vector-learning-system.js';
-import { getSupabaseAdmin } from '../services/database-client.js';
+import { getAIIntentAnalyzer } from '../services/analysis/ai-intent-analyzer.js';
+import { getVectorLearningSystem } from '../services/learning/vector-learning-system.js';
+import { getSupabaseAdmin } from '../services/infrastructure/database-client.js';
 
 async function testAIIntentAnalyzer() {
     console.log('\n🧪 TEST 1: AI Intent Analyzer\n' + '='.repeat(50));

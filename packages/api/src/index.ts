@@ -17,7 +17,7 @@ import {
     getGenerationContext,
 } from './services/index.js';
 import { initializeAdapters } from './services/adapters/adapter-factory.js';
-import { checkSupabaseConnection, checkVectorStore } from './services/database-client.js';
+import { checkSupabaseConnection, checkVectorStore } from './services/infrastructure/database-client.js';
 import { flush } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
 import Redis from 'ioredis';

@@ -22,7 +22,7 @@ import {
     type PreviewRequest,
     type PreviewFile,
     type HMRUpdate,
-} from '../services/preview-service.js';
+} from '../services/index.js';
 
 // ============================================
 // TYPE DEFINITIONS FOR REQUEST BODIES

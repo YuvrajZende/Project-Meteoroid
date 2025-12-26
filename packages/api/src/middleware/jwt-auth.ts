@@ -6,7 +6,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply, HookHandlerDoneFunction } from 'fastify';
-import { getSupabaseAdmin } from '../services/database-client.js';
+import { getSupabaseAdmin } from '../services/infrastructure/database-client.js';
 
 // User payload extracted from JWT
 export interface JWTUser {

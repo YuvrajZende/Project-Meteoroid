@@ -54,7 +54,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
     const githubService = getGitHubService();
 
     // Dynamic import to avoid circular dependency
-    const { getAutoDeployManager } = await import('../services/auto-deploy-manager.js');
+    const { getAutoDeployManager } = await import('../services/index.js');
     const autoDeployManager = getAutoDeployManager();
 
     // Initialize services
@@ -96,7 +96,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
         })}\n\n`);
 
         // Subscribe to deployment events
-        const unsubscribe = autoDeployManager.subscribeToProject(projectId, (event) => {
+        const unsubscribe = autoDeployManager.subscribeToProject(projectId, (event: { type: string; timestamp: Date }) => {
             try {
                 reply.raw.write(`data: ${JSON.stringify({
                     ...event,
