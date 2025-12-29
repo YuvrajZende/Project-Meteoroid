@@ -44,6 +44,126 @@ export {
     getAvailableAuthTypes
 } from "./core/auth/index.js";
 
+// Database Agent - Schema, Migrations, Queries (Person 2's Implementation)
+export {
+    DatabaseAgentWrapper,
+    databaseAgentIAgent,
+    DatabaseAgent,
+    databaseAgent,
+} from "./core/database/index.js";
+
+// Database Agent Types
+export type {
+    DatabaseType,
+    ORMType,
+    ColumnDataType,
+    RelationType,
+    DatabaseAgentConfig,
+    DatabaseTaskContext,
+    ColumnDefinition,
+    IndexDefinition,
+    RelationshipDefinition,
+    TableDefinition,
+    SchemaDefinition,
+    EnumDefinition,
+    MigrationOperation,
+    MigrationDefinition,
+    QueryCondition,
+    QueryJoin,
+    QueryOrder,
+    QueryDefinition,
+    SeedRecord,
+    SeedConfig,
+    IndexRecommendation,
+    QueryAnalysis,
+    ConnectionPoolConfig,
+    RLSPolicy,
+    DatabaseGeneratedFile,
+    DatabaseGenerationResult,
+} from "./core/database/index.js";
+
+// Database Templates
+export {
+    PRISMA_SCHEMA_HEADER,
+    PRISMA_MODEL_TEMPLATE,
+    PRISMA_ENUM_TEMPLATE,
+    PRISMA_FIELD_TEMPLATES,
+    SUPABASE_MIGRATION_HEADER,
+    SUPABASE_CREATE_TABLE,
+    SUPABASE_RLS_TEMPLATE,
+    SUPABASE_INDEX_TEMPLATE,
+    SUPABASE_FOREIGN_KEY_TEMPLATE,
+    TYPESCRIPT_SEED_TEMPLATE,
+    SQL_SEED_TEMPLATE,
+    QUERY_BUILDER_SERVICE_TEMPLATE,
+    DATABASE_SERVICE_TEMPLATE,
+    CONNECTION_POOL_TEMPLATE,
+    getAvailableTemplates as getDatabaseTemplates,
+    getTemplate as getDatabaseTemplate,
+    DATABASE_TEMPLATE_SETS,
+} from "./core/database/index.js";
+
+// Queue Agent - Background Job Processing (Person 2's Implementation)
+export {
+    QueueAgentWrapper,
+    queueAgentIAgent,
+    QueueAgent,
+    queueAgent,
+} from "./core/queue/index.js";
+
+// Queue Agent Types
+export type {
+    QueueProvider,
+    JobState,
+    JobPriority,
+    BackoffStrategy,
+    RedisConfig,
+    QueueConfig,
+    QueueSettings,
+    RateLimiterConfig,
+    QueueAgentConfig,
+    QueueTaskContext,
+    JobOptions,
+    BackoffConfig,
+    RepeatOptions,
+    JobDefinition,
+    JobTypeDefinition,
+    FieldSchema,
+    WorkerConfig,
+    WorkerSettings,
+    ProcessorDefinition,
+    DeadLetterQueueConfig,
+    QueueMetrics,
+    WorkerMetrics,
+    ScheduledJob,
+    FlowDefinition,
+    FlowChild,
+    QueueEventType,
+    EventHandlerDefinition,
+    QueueGeneratedFile,
+    QueueGenerationResult,
+} from "./core/queue/index.js";
+
+// Queue Templates
+export {
+    BULLMQ_QUEUE_CONFIG_TEMPLATE,
+    BULLMQ_QUEUE_SETUP_TEMPLATE,
+    BULLMQ_WORKER_TEMPLATE,
+    WORKER_PROCESSOR_TEMPLATE,
+    JOB_TYPES_TEMPLATE,
+    RETRY_STRATEGY_TEMPLATE as QUEUE_RETRY_STRATEGY_TEMPLATE,
+    DEAD_LETTER_QUEUE_TEMPLATE,
+    JOB_SCHEDULER_TEMPLATE,
+    QUEUE_MONITORING_TEMPLATE,
+    JOB_FLOW_TEMPLATE,
+    RATE_LIMITER_TEMPLATE as QUEUE_RATE_LIMITER_TEMPLATE,
+    getAvailableTemplates as getQueueAvailableTemplates,
+    getTemplate as getQueueTemplate,
+    getQueueTemplates as getQueueTemplateSet,
+    getAvailableQueueTypes,
+    QUEUE_TEMPLATE_SETS,
+} from "./core/queue/index.js";
+
 // ============================================
 // SECURITY AGENT (Tier 2)
 // ============================================
@@ -291,6 +411,62 @@ export {
 } from "./support/codegen/language-configs.js";
 
 // ============================================
+// TEST AGENT (Tier 3 - Support) - Person 2's Implementation
+// ============================================
+
+// Test Agent - Automated Test Generation
+export {
+    TestAgent,
+    testAgent,
+    getTestAgent,
+    TestAgentWrapper,
+    testAgentIAgent,
+    getTestAgentWrapper,
+    TEST_AGENT_CAPABILITIES,
+} from "./support/test/index.js";
+
+// Test Agent Types
+export type {
+    TestFramework,
+    TestType,
+    CoverageFormat,
+    TestConfig,
+    CoverageThreshold,
+    UnitTestRequest,
+    UnitTestResult,
+    IntegrationTestRequest,
+    IntegrationTestResult,
+    E2ETestRequest,
+    E2ETestResult,
+    APITestRequest,
+    APITestResult,
+    ComponentTestRequest,
+    ComponentTestResult,
+    TestGenerationResult,
+    GeneratedTestFile,
+    CodeAnalysis,
+    FunctionInfo,
+    TestAgentStatus,
+} from "./support/test/index.js";
+
+// Test Templates
+export {
+    VITEST_CONFIG_TEMPLATE,
+    JEST_CONFIG_TEMPLATE,
+    PLAYWRIGHT_CONFIG_TEMPLATE,
+    UNIT_TEST_TEMPLATE,
+    INTEGRATION_TEST_TEMPLATE,
+    API_TEST_TEMPLATE,
+    E2E_TEST_TEMPLATE,
+    REACT_COMPONENT_TEST_TEMPLATE,
+    MOCK_FILE_TEMPLATE,
+    FIXTURE_FILE_TEMPLATE,
+    PAGE_OBJECT_TEMPLATE,
+    TEST_SETUP_TEMPLATE,
+    ALL_TEMPLATES as TEST_TEMPLATES,
+} from "./support/test/index.js";
+
+// ============================================
 // AGENT REGISTRY
 // ============================================
 
@@ -301,6 +477,7 @@ export function getAvailableAgents(): string[] {
     return [
         "auth_agent",
         "db_agent",
+        "database_agent",  // Person 2's Database Agent (IAgent ID: database-agent)
         "api_agent",
         "security_agent",
         "queue_agent",
@@ -335,8 +512,31 @@ export const AGENT_CAPABILITIES = {
         "cerbos-integration", "policy-based-access", "permissions-decorator"
     ],
     db_agent: [
-        "prisma", "drizzle", "postgresql", "mongodb",
-        "migrations", "seeding", "relationships"
+        // Schema Operations
+        "schema-generation", "schema-analysis", "schema-migration",
+        // ORM Support
+        "prisma", "prisma-schema", "prisma-models", "prisma-relations",
+        "drizzle", "typeorm",
+        // Database Types
+        "postgresql", "mysql", "sqlite", "mongodb", "supabase",
+        // Supabase Operations
+        "supabase-migration", "supabase-rls", "supabase-policies",
+        // Query Operations
+        "query-builder", "query-optimization", "query-parameterization",
+        // Data Operations
+        "migrations", "seeding", "seed-generation", "seed-typescript", "seed-sql",
+        // Performance
+        "index-advisor", "connection-pool", "performance-optimization",
+        // Services
+        "database-service", "crud-operations", "pagination", "relationships"
+    ],
+    // Alias for db_agent (Person 2's IAgent implementation uses 'database-agent')
+    database_agent: [
+        "schema-generation", "schema-analysis", "schema-migration",
+        "prisma", "prisma-schema", "prisma-models", "prisma-relations",
+        "supabase", "supabase-migration", "supabase-rls", "supabase-policies",
+        "query-builder", "query-optimization", "connection-pool",
+        "migrations", "seeding", "database-service", "crud-operations"
     ],
     api_agent: [
         "rest-api", "graphql", "trpc", "openapi",
@@ -365,8 +565,22 @@ export const AGENT_CAPABILITIES = {
         "security-audit"
     ],
     queue_agent: [
-        "bullmq", "redis-queues", "job-scheduling",
-        "background-tasks", "rate-limiting"
+        // BullMQ Operations
+        "bullmq", "bullmq-queues", "bullmq-workers", "bullmq-processors",
+        // Redis Operations
+        "redis-queues", "redis-connection",
+        // Job Management
+        "job-scheduling", "job-priority", "job-types", "job-flows",
+        // Background Processing
+        "background-tasks", "async-processing", "worker-generation",
+        // Retry & Error Handling
+        "retry-logic", "retry-strategies", "dead-letter-queue", "error-handling",
+        // Rate Limiting
+        "rate-limiting", "queue-rate-limiting", "job-rate-limiting",
+        // Scheduling
+        "cron-jobs", "scheduled-jobs", "repeatable-jobs",
+        // Monitoring
+        "queue-monitoring", "queue-metrics", "queue-health"
     ],
     cicd_agent: [
         "github-actions", "gitlab-ci", "docker",
@@ -399,8 +613,19 @@ export const AGENT_CAPABILITIES = {
         "data-change-logging", "permission-logging"
     ],
     test_agent: [
-        "vitest", "jest", "playwright",
-        "unit-tests", "integration-tests", "e2e-tests"
+        // Testing Frameworks
+        "vitest", "jest", "mocha", "playwright", "cypress",
+        // Test Types
+        "unit-tests", "integration-tests", "e2e-tests", "api-tests",
+        "component-tests", "snapshot-testing",
+        // Test Features
+        "mock-generation", "fixture-generation", "test-fixtures",
+        "coverage-analysis", "coverage-reports",
+        // UI Testing
+        "visual-regression", "accessibility-testing", "user-event-testing",
+        "page-object-model",
+        // Code Analysis
+        "code-analysis", "test-discovery", "test-scaffolding"
     ],
     infra_agent: [
         "terraform", "docker", "kubernetes",

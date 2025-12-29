@@ -26,3 +26,47 @@ export {
     type AuditEntry,
     type AuditLoggerConfig,
 } from './audit-logger.js';
+
+// Phase 14: Constraint Injection
+export {
+    injectConstraints,
+    getAgentPromptAddition,
+    createCodeGenPrompt,
+    validateGeneratedCode,
+    getConstraintConfig,
+    BASE_SYSTEM_PROMPT,
+    AGENT_SPECIFIC_PROMPTS,
+    DO_NOT_SUGGEST_BLOCK,
+    type PromptContext,
+    type EnhancedPrompt,
+} from './constraint-injection.js';
+
+// Phase 19: Security Hardening - Auth Middleware
+export {
+    authenticate,
+    requireAuth,
+    optionalAuth,
+    requireAdmin,
+    requireRole,
+    requireScope,
+    requireRefreshToken,
+    registerAuthMiddleware,
+    getAuthUser,
+    hasRole,
+    hasAnyRole,
+    type AuthenticatedUser,
+    type APIKeyValidation,
+    type AuthOptions,
+} from './auth-middleware.js';
+
+// Phase 19: Security Hardening - IP Blocking
+export {
+    registerIPBlocking,
+    ipBlockingMiddleware,
+    blockIP,
+    unblockIP,
+    isIPBlocked,
+    checkFailedAttempts,
+    clearIPBlockCache,
+    type IPBlockConfig,
+} from './ip-blocking.js';

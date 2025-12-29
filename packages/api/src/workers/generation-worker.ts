@@ -4,10 +4,10 @@
  */
 
 import { Job } from 'bullmq';
-import type { GenerationJobData, JobResult, JobProgress } from '../services/job-queue.js';
-import { getJobQueue } from '../services/job-queue.js';
-import { getKeyManager } from '../services/key-manager.js';
-import { getAgentRegistry } from '../services/agent-registry.js';
+import type { GenerationJobData, JobResult, JobProgress } from '../services/infrastructure/job-queue.js';
+import { getJobQueue } from '../services/infrastructure/job-queue.js';
+import { getKeyManager } from '../services/infrastructure/key-manager.js';
+import { getAgentRegistry } from '../services/registry/agent-registry.js';
 
 /**
  * Generation stages

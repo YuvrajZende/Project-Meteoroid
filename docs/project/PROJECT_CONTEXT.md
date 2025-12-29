@@ -1,26 +1,35 @@
 # 🚀 LOVEABLE BACKEND - COMPLETE PROJECT CONTEXT
 ## Person 1 Implementation Status & Team Onboarding Guide
 
-**Last Updated:** December 11, 2024  
-**Version:** 3.0.0  
-**Status:** Production Core Ready - Multi-Model Pipeline Active
+**Last Updated:** December 21, 2024  
+**Version:** 7.4.0  
+**Status:** Production-Ready - Phase 25.1 (Quality Oversight Bug Fix Applied)
 
 ---
 
 ## 📋 TABLE OF CONTENTS
 
 1. [What's Been Built (Person 1 Complete)](#whats-been-built)
-2. [Multi-Model Pipeline (Phase 13) - NEW](#multi-model-pipeline)
-3. [Cost Tracking & Benchmarking - NEW](#cost-tracking)
-4. [CodeGen Agent Integration (Person 4) - NEW](#codegen-integration)
-5. [System Architecture](#system-architecture)
-6. [Database Setup (Supabase)](#database-setup)
-7. [API Server Structure](#api-server-structure)
-8. [Agent System Integration](#agent-system)
-9. [Where to Add Your Agents](#where-to-add-agents)
-10. [Testing & Development](#testing)
-11. [Team Member Guides](#team-guides)
-12. [Quick Start Reference](#quick-start)
+2. [Quality Oversight Agents (Phase 25) - ★ NEW](#phase-25-quality-oversight-agents)
+3. [Context Management System (Phase 24)](#phase-24-context-management)
+4. [CLI Testing Interface (Phase 23)](#cli-testing-interface)
+5. [AI Intent Analyzer + Vector Learning (Phase 22)](#phase-22-ai-intent-vector-learning)
+6. [Multi-Model Pipeline (Phase 13)](#multi-model-pipeline)
+7. [Cost Tracking & Benchmarking](#cost-tracking)
+8. [CodeGen Agent Integration (Person 4)](#codegen-integration)
+9. [Opinionated Tech Stack Constraints (Phase 14)](#tech-stack-constraints)
+10. [Automated Deployment Pipeline (Phase 15)](#deployment-pipeline)
+11. [Enhanced Code Generation (Phase 17)](#enhanced-code-generation)
+12. [Vector Database & AI Learning (Phase 18)](#vector-ai-learning)
+13. [System Architecture](#system-architecture)
+14. [Database Setup (Supabase)](#database-setup)
+15. [API Server Structure](#api-server-structure)
+16. [Agent System Integration](#agent-system)
+17. [Where to Add Your Agents](#where-to-add-agents)
+18. [Testing & Development](#testing)
+19. [Team Member Guides](#team-guides)
+20. [Quick Start Reference](#quick-start)
+21. [Security Hardening (Phase 19)](#security-hardening)
 
 ---
 
@@ -81,12 +90,891 @@
 - Success/failure rates
 - Automatic persistence to database
 
-### 🆕 Phase 14: CodeGen Agent Integration (Person 4) ✓
-- **CodeGen Service** wrapping Person 4's agents
-- Multi-language support (TypeScript, Python, Go, Rust, Java)
-- Framework-specific generation (Express, FastAPI, Gin, etc.)
-- Full cost tracking integration
-- Dedicated API endpoints for code generation
+### 🆕 Phase 14: Opinionated Tech Stack Constraints ✓
+- **Stack Presets**: API, Web, Fullstack, Mobile, Microservices, Serverless
+- **Constraint Injection**: Auto-injects rules into AI prompts
+- **Forbidden Patterns**: Prevents Express, Mongoose, Joi (enforces Fastify, Prisma, Zod)
+- **Framework Templates**: Production-ready boilerplate for each stack type
+- **Agent-Specific Constraints**: Per-agent rules for auth, API, DevOps, etc.
+
+### 🆕 Phase 15: Automated Deployment Pipeline ✓
+- **GitHub Integration**: OAuth, repo creation, atomic commits with `[Lovable]` prefix
+- **Netlify Deployment**: Site creation, file upload, status polling, rollback
+- **Auto-Deploy**: Triggers deployment after code generation
+- **SSE Streaming**: Real-time deployment progress (0% → 30% → 100%)
+- **Database Persistence**: Deployment history stored in Supabase
+- **Preview URLs**: Instant preview links for generated projects
+
+### 🆕 Phase 16: Real-Time Preview & Collaboration ✓
+- **Live Preview Service**: Sandboxed iframe generation for instant code preview
+- **Framework Support**: React, Vue, Svelte, Preact, Vanilla JS
+- **esm.sh Integration**: Browser-native module imports without bundling
+- **Hot Module Reload (HMR)**: SSE-based live updates without full page refresh
+- **Collaboration Features**: Cursor presence, multi-user support, color-coded users
+- **Session Management**: Auto-cleanup, configurable timeouts
+
+### 🆕 Phase 17: Enhanced Code Generation ✓
+- **Multi-Language Support**: TypeScript, Python, Go, Rust, Java
+- **Framework Templates**: Express, Fastify, NestJS, FastAPI, Django, Gin, Actix, Spring
+- **Phase 17 Services Integration**: 
+  - Code Post-Processor (AI output parsing)
+  - Project Scaffold Generator (package.json, tsconfig, Docker)
+  - Test Generator (unit & integration tests)
+  - Code Validator (syntax, types, linting)
+  - Database Code Generator (Prisma, Supabase, Drizzle)
+  - Route Generator (auth, CRUD, middleware)
+- **EnhancedCodeGenerator**: Unified orchestration of all Phase 17 services
+- **API Endpoints**: `/api/v1/codegen/generate`, `/api/v1/codegen/languages`, `/api/v1/codegen/scaffold`
+
+### 🆕 Phase 18: Vector Database & AI Learning ✓
+- **Vector Store Service**: Code embeddings using pgvector
+- **Semantic Search**: Find relevant code without exact keywords
+- **Context Retrieval**: Get relevant code chunks for AI prompts
+- **AI Learning System**:
+  - Store generation iterations (success/failure)
+  - Extract patterns from outcomes
+  - Build pre-context from past experiences
+  - Process user feedback for improvement
+- **Testing Iterations**: Store test results for pre-context building
+- **Database Tables**: `code_embeddings`, `generation_iterations`, `testing_iterations`, `learned_patterns`
+- **API Endpoints**: `/api/v1/vector/*`, `/api/v1/learning/*`
+
+### 🆕 Phase 19: Security (Simplified with Supabase) ✓
+
+**Philosophy**: Use Supabase's built-in security features instead of custom implementations.
+
+#### ✅ What Supabase Handles (No Custom Code Needed):
+- **JWT Generation & Validation**: Supabase generates JWTs automatically
+- **Password Hashing**: Supabase uses Bcrypt (industry standard)
+- **OAuth with PKCE**: Built-in OAuth flow with CSRF protection
+- **Token Refresh**: Automatic token rotation
+- **Database Encryption**: AES-256 encryption at rest
+
+#### ✅ What We Keep (Essential Protection):
+- **Rate Limiting (@fastify/rate-limit)**: Prevents abuse
+- **IP Blocking Middleware**: Auto-block after failed attempts
+- **Security Event Logging**: Audit trail to `security_events` table
+- **MFA Service (Optional)**: TOTP for premium users
+  - QR code generation for authenticator apps
+  - 10 backup codes per user
+  - Database storage in `user_mfa` table
+
+#### ❌ Removed (Over-Engineered):
+- ~~Password Service~~ → Supabase handles
+- ~~JWT Service~~ → Supabase handles
+- ~~Encryption Service~~ → Supabase encrypts at rest
+- ~~OAuth State Service~~ → Supabase PKCE handles
+- ~~Request Signing Service~~ → Not needed for user-facing API
+- ~~Secret Rotation Service~~ → Over-engineered
+- ~~Vault Service~~ → Over-engineered
+
+#### Security Database Tables (Kept):
+- `user_mfa`: MFA secrets and backup codes
+- `security_events`: Audit log for all auth events
+- `ip_blocklist`: Blocked IP addresses
+- `api_keys`: Developer API key management
+
+#### Security Benefits:
+- **72% less security code** to maintain
+- **Same security level** (Supabase is SOC 2 certified)
+- **Fewer bugs** from custom crypto
+- **Faster development** - focus on core features
+
+### 🆕 Phase 20: Architecture Blueprint Generator ✓
+- **ASCII Art System Design**: Visual backend architecture diagrams
+  - Fast model generates complete architecture blueprints
+  - Power model follows blueprints for consistent code generation
+  - Similar format to `docs/project/Whole system.md`
+- **Blueprint Components**:
+  - Route definitions (method, path, handler, middleware)
+  - Service definitions (name, methods, dependencies)
+  - Database tables (columns, types, constraints)
+  - Agent ecosystem mapping
+  - Middleware chain configuration
+  - Complete file structure
+- **Key Features**:
+  - Automatic complexity detection (simple/moderate/complex)
+  - Feature extraction from prompts (auth, database, monitoring)
+  - Entity-based route generation
+  - Execution flow visualization
+- **Integration**:
+  - Stage 1.5 in Multi-Model Pipeline
+  - Blueprint passed to Stage 2 (Power Model)
+  - ASCII diagram included in generation result
+- **Key Files**:
+  - `services/architecture-blueprint.ts`: Blueprint generator
+  - `services/multi-model-orchestrator.ts`: Pipeline integration
+- **Benefits**:
+  - Clear visual representation before code generation
+  - Consistent file structure across projects
+  - Power model has concrete reference to follow
+  - Reduces ambiguity in code generation
+
+---
+
+## 🛡️ PHASE 25: QUALITY OVERSIGHT AGENTS {#phase-25-quality-oversight-agents}
+
+### Overview
+
+Phase 25 introduces a **self-healing code generation system** with two new agents that validate, fix, and learn from every generation. This ensures permanently higher quality output.
+
+### Code Quality Agent ✓
+
+**Location:** `packages/api/src/services/code-quality-agent.ts` (~830 lines)
+
+**Purpose:** Validate generated code and auto-fix common issues before writing to disk.
+
+#### 7 Quality Checks:
+
+| Check | Issue Detected | Auto-Fix |
+|-------|---------------|----------|
+| **1. File Deduplication** | Multiple files with same path | Keep most complete version |
+| **2. Truncation Detection** | Incomplete/cut-off files | Mark truncation, log issue |
+| **3. Import Resolution** | Missing imports | Log missing dependencies |
+| **4. Syntax Validation** | Language mixing (TS in Python) | Clean up mixed syntax |
+| **5. Architecture Consistency** | Multiple frameworks (Express+Nest) | Log inconsistency |
+| **6. Entity Completeness** | Missing required entities | Log missing entities |
+| **7. Single Entry Point** | Both index.ts AND main.ts | Remove duplicate entry |
+
+#### Output:
+
+```typescript
+interface QualityReport {
+  overallScore: number;      // 0-100
+  checks: QualityCheck[];    // Individual check results
+  issuesLogged: boolean;     // If issues were stored in DB
+  autoFixesApplied: number;  // Count of auto-fixes
+}
+```
+
+### Framework Oversight Agent ✓
+
+**Location:** `packages/api/src/services/framework-oversight-agent.ts` (~660 lines)
+
+**Purpose:** Control learning decisions and inject context from past generations.
+
+#### Pre-Generation (buildPreContext):
+- Query vector store for similar successful patterns
+- Retrieve anti-patterns to avoid
+- Build context injections for prompts
+- Add standard warnings (no multiple entry points, etc.)
+- Recommend framework based on history
+
+#### Post-Generation (postGenerationReview):
+- Analyze QualityReport from Code Quality Agent
+- Make learning decisions based on score:
+  - **Score 80+**: Store as SUCCESS pattern (index for future retrieval)
+  - **Score 40-79**: Store as ITERATION (for gradual improvement)
+  - **Score <40**: Store as ANTI-PATTERN (to avoid in future)
+- Execute learning decisions to Supabase database
+- Index successful code patterns in vector store
+
+### Database Schema (Migration 016)
+
+**Location:** `packages/database/src/migrations/016_agent_learning.sql` (~196 lines)
+
+**Tables Created:**
+- `generation_issues`: Track quality issues found during validation
+- `validated_code_patterns`: Store successful patterns for vector search
+- `anti_patterns`: Store patterns to avoid in future generations
+- `learning_decisions`: Log oversight agent decisions for audit
+
+### Pipeline Integration
+
+```
+INIT → ENTITY EXTRACTION → PRE-CONTEXT (★) → THINKING → GENERATION → QUALITY CHECK (★) → REVIEW (★) → OUTPUT
+```
+
+**New orchestrator phases added:**
+- Phase 1.6: Pre-context building (Oversight Agent)
+- Phase 4.3.5: Code Quality validation (Code Quality Agent)
+- Phase 4.6: Post-generation review (Oversight Agent)
+
+### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/api/src/services/code-quality-agent.ts` | 7 quality checks + auto-fix |
+| `packages/api/src/services/framework-oversight-agent.ts` | Learning decisions + context |
+| `packages/database/src/migrations/016_agent_learning.sql` | Database schema |
+| `packages/api/src/services/integrated-orchestrator.ts` | Pipeline integration |
+
+### Benefits:
+- **Self-healing**: Auto-fixes common issues before writing
+- **Learning**: Stores patterns from every generation
+- **Context-aware**: Pre-context warns about past failures
+- **Quality-gated**: Only high-quality code gets stored as success patterns
+- **Debugging**: Full audit trail of learning decisions
+
+### Required Action:
+Run migration `016_agent_learning.sql` in Supabase SQL Editor!
+
+### 🔧 Phase 25.1: Critical Bug Fix (December 21, 2024)
+
+**Issue Discovered:** Phase 25 Code Quality Agent was causing **72% code loss** during replacement.
+
+**Root Cause:** 
+- The orchestrator generates multi-file combined code blocks per agent (e.g., ~22,000 chars)
+- Phase 25 was replacing these with individual file paths that didn't match
+- The replacement logic (`return fixedCode ? { ...gen, code: fixedCode } :`) accepted corrupted/empty content
+
+**The Fix (integrated-orchestrator.ts lines 845-862):**
+```typescript
+// Safety checks before replacement:
+// 1. fixedCode must exist and not be empty
+// 2. fixedCode must be at least 50% the size of original (prevent data loss)
+if (fixedCode && fixedCode.length > 0) {
+    const minAcceptableSize = Math.max(100, originalLen * 0.5);
+    if (fixedLen >= minAcceptableSize) {
+        console.log(`[CODE-QUALITY] Replaced ${path}: ${originalLen} -> ${fixedLen} chars`);
+        return { ...gen, code: fixedCode };
+    } else {
+        console.warn(`[CODE-QUALITY] Rejected replacement for ${path}: ${fixedLen} chars is less than 50% of original ${originalLen} chars`);
+        return gen; // Keep original
+    }
+}
+```
+
+**Result:** 
+| Metric | Before Fix | After Fix |
+|--------|------------|-----------|
+| Code to post-processor | 8,637 chars | **41,880 chars** |
+| Files written | 9 files | **25 files** ✅ |
+| Data loss | ~72% | **0%** ✅ |
+
+---
+
+## 📊 CURRENT SYSTEM STATUS {#system-status}
+
+**As of December 21, 2024 - All systems operational:**
+
+### ✅ Working Services
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| **Fastify API Server** | ✅ Running | Port 3000, ~5s startup |
+| **Supabase Database** | ✅ Connected | 188-326ms latency |
+| **Redis Cache** | ✅ Connected | 44-52ms latency |
+| **Vector Store** | ✅ Ready | 360+ embeddings indexed |
+| **AI Intent Analyzer** | ✅ Working | 98-100% confidence |
+| **Vector Learning System** | ✅ Working | 50 iterations loaded |
+| **Entity Extraction** | ✅ Working | ~20-45s per extraction |
+| **Multi-Model Pipeline** | ✅ Working | Groq (Fast) + Z.AI (Power) |
+| **Code Post-Processor** | ✅ Working | 22-35 files processed |
+| **File Writer** | ✅ Working | 25+ files per generation |
+| **Code Quality Agent** | ✅ Working | 86/100 avg score |
+| **Oversight Agent** | ✅ Working | 3 patterns stored per run |
+| **Learning Storage** | ✅ Working | 49+ chunks per generation |
+| **Cost Tracker** | ✅ Working | ~$0.005 per generation |
+| **Benchmarking** | ✅ Working | Metrics persisted to Supabase |
+
+### 🤖 Active Agents (5 Total)
+
+| Agent | Capabilities | Status |
+|-------|-------------|--------|
+| **Authentication Agent** | JWT, OAuth, MFA | ✅ Ready |
+| **Database Agent** | Prisma, Migrations, Schema | ✅ Ready |
+| **Monitoring Agent** | Logs, Metrics, Health | ✅ Ready |
+| **Security Agent** | Rate Limit, IP Block, Events | ✅ Ready |
+| **Code Generation Agent** | Multi-Model, Templates | ✅ Ready |
+
+### 🔌 AI Providers
+
+| Provider | Model | Purpose | Status |
+|----------|-------|---------|--------|
+| **Z.AI** | glm-4.6 | Power Model (Code Gen) | ✅ 1 key |
+| **Groq** | llama-3.3-70b-versatile | Fast Model (Analysis) | ✅ 1 key |
+| **OpenAI** | Not configured | Embeddings (optional) | ⏸️ 0 keys |
+| **Anthropic** | Not configured | Optional | ⏸️ 0 keys |
+
+### 📁 Output Generation Stats
+
+| Metric | Latest Run |
+|--------|------------|
+| Duration | ~7-8 minutes |
+| Agents Used | 3 (api-agent, database-agent, security-agent) |
+| Files Generated | 22-25 files |
+| Total Code | 40,000-60,000 chars |
+| Cost | $0.0045-0.0050 |
+| Vector Chunks | 49-72 chunks indexed |
+
+---
+
+## 🎯 PHASE 24: CONTEXT MANAGEMENT SYSTEM {#phase-24-context-management}
+
+### Overview
+
+Phase 24 introduces **entity extraction and context tracking** to ensure generated code matches exactly what the user requested.
+
+### Entity Extractor Service ✓
+
+**Location:** `packages/api/src/services/entity-extractor.ts`
+
+**Purpose:** Parse user prompts to extract structured entities before code generation.
+
+#### Extracted Data:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **Entities** | Models, tables, services | User, Product, Order |
+| **Fields** | Entity attributes with types | name: string, price: number |
+| **Relations** | hasOne, hasMany, manyToMany | User hasMany Orders |
+| **Features** | auth, payments, realTime | { authentication: true } |
+| **Project Type** | api, webapp, microservices | "realtime" |
+
+#### Example:
+
+```
+Input: "Build a chat app with users and messages"
+
+Output:
+- Entities: [User, Message]
+- Relations: User hasMany Messages
+- Features: { realTime: true }
+- ProjectType: "realtime"
+```
+
+### Generation Context Service ✓
+
+**Location:** `packages/api/src/services/generation-context.ts`
+
+**Purpose:** Track context throughout the entire generation lifecycle.
+
+#### Context Contains:
+- Original prompt and extracted entities
+- Current subtask being processed
+- Completed files with paths
+- Language/framework configuration
+
+### Prompt Templates ✓
+
+**Location:** `packages/api/src/services/prompt-templates.ts`
+
+**Purpose:** Inject entity constraints into AI prompts for focused code generation.
+
+#### Functions:
+- `buildSubtaskPrompt(subtask, context)`: Enhanced prompt with entities
+- `getEntityConstraints(context)`: Entity definitions for injection
+
+### Integration:
+- Entity extraction runs in Phase 1.5 of orchestrator
+- Context tracked through all generation phases
+- Entity constraints injected into AI prompts
+
+### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/api/src/services/entity-extractor.ts` | Parse prompts → entities |
+| `packages/api/src/services/generation-context.ts` | Track context lifecycle |
+| `packages/api/src/services/prompt-templates.ts` | Build enhanced prompts |
+
+---
+
+## 🖥️ PHASE 23: CLI TESTING INTERFACE + LEARNING SYSTEM FIXES {#cli-testing-interface}
+
+### Overview
+
+Phase 23 introduces a **production-ready CLI** for testing code generation and fixes critical issues in the learning system to properly utilize 200+ stored data chunks.
+
+### CLI Testing Interface ✓
+
+**Location:** `packages/cli/`
+
+#### Features:
+
+| Feature | Description |
+|---------|-------------|
+| **Real-Time Progress Animation** | Animated spinner with phase indicators during generation |
+| **Extended Timeout** | 11-minute timeout for complex generation tasks |
+| **Quick Generate Mode** | Bypass interactive menus with `--generate "prompt"` flag |
+| **Phase-Based Feedback** | Visual progress through analysis, blueprint, generation phases |
+
+#### CLI Commands:
+
+```bash
+# Install CLI globally
+npm install -g @loveable/cli
+
+# Interactive mode
+loveable
+
+# Quick generate (bypasses menu)
+loveable --generate "Build a REST API for user management"
+```
+
+#### Progress Animation Phases:
+
+```
+🚀 Initializing orchestrator... [0:02]
+🔍 Analyzing intent... [0:15]
+📐 Building architecture blueprint... [0:32]
+🧠 Processing with AI models... [1:05]
+💡 Preparing response... [1:45]
+⚡ Generating code files... [2:30]
+📁 Writing files to disk... [3:15]
+✅ Finalizing... [4:00]
+```
+
+#### Key Files:
+
+| File | Purpose |
+|------|---------|
+| `packages/cli/src/index.ts` | Main CLI with progress animation |
+| `packages/cli/src/utils/api.ts` | API client with 11-minute timeout |
+
+### Learning System Fixes ✓
+
+**Problem:** Vector search RPC functions had incorrect signatures and the learning service wasn't using stored data.
+
+#### Issues Fixed:
+
+1. **RPC Function Signature Mismatch**
+   - `match_code_embeddings` was using `UUID` instead of `TEXT` for project_id
+   - `match_knowledge_embeddings` was searching wrong table (`backend_knowledge_base` vs `knowledge_embeddings`)
+   - Added missing `filter_project_id` parameter
+
+2. **Learning Service Not Finding Data**
+   - `findSimilarIterations()` was only doing vector search, now uses 4-tier strategy
+   - Added fallback methods when RPC functions fail
+
+3. **No Fallback When RPC Fails**
+   - Added `fallbackCodeSearch()` - queries code_embeddings directly
+   - Added `fallbackKnowledgeSearch()` - queries generation_iterations and learned_patterns
+
+#### New Migration: `014_fix_vector_search_functions.sql`
+
+**Run this in Supabase SQL Editor!**
+
+```sql
+-- Creates/fixes these functions:
+-- 1. match_code_embeddings (fixed project_id type)
+-- 2. match_knowledge_embeddings (fixed table reference)
+-- 3. search_generation_iterations (NEW - text similarity search)
+-- 4. get_successful_iterations (NEW - learning from past successes)
+-- 5. get_learned_patterns (NEW - pattern retrieval)
+-- 6. get_learning_stats (NEW - statistics)
+```
+
+#### New Search Strategy (4-Tier):
+
+```
+findSimilarIterations(prompt):
+  1. Try RPC search (search_generation_iterations)
+     ↓ If fails
+  2. Direct DB query with keyword matching
+     ↓ If no results
+  3. Vector similarity search
+     ↓ If no results
+  4. Memory fallback with text similarity
+```
+
+#### Expected Results After Fix:
+
+**Before:**
+```
+[LEARNING] Pre-context built: 0 experiences, 0 warnings, 1 patterns
+```
+
+**After:**
+```
+[LEARNING] Found 5 similar iterations via RPC
+[LEARNING] Pre-context built: 5 experiences, 2 warnings, 3 patterns
+```
+
+### Configuration
+
+```env
+# CLI Timeout (built-in)
+API_TIMEOUT=660000  # 11 minutes
+
+# Learning System
+VECTOR_SIMILARITY_THRESHOLD=0.5  # Lowered from 0.7 for better matches
+ENABLE_LEARNING_FALLBACKS=true   # Enable keyword search fallback
+```
+
+### Key Changes Summary
+
+| Component | Change |
+|-----------|--------|
+| `cli/src/index.ts` | Added animated progress indicator with phases |
+| `cli/src/utils/api.ts` | Increased timeout to 11 minutes |
+| `vector-learning-system.ts` | Added fallback code and knowledge search |
+| `learning-service.ts` | Rewrote `findSimilarIterations` with 4-tier strategy |
+| `014_fix_vector_search_functions.sql` | Fixed RPC functions and added new ones |
+
+---
+
+## 🧠 PHASE 22: AI INTENT ANALYZER + VECTOR LEARNING SYSTEM {#phase-22-ai-intent-vector-learning}
+
+### Overview
+
+Phase 22 replaces regex-based intent classification with **AI-powered analysis** and implements **semantic code search** using vector embeddings generated by the Fast AI Model (no OpenAI dependency!).
+
+### AI Intent Analyzer ✓
+
+**Replaces:** `intent-classifier.ts` (regex-based)  
+**New Service:** `ai-intent-analyzer.ts` (AI-powered)
+
+#### What It Does:
+- **Analyzes user prompts using Fast AI Model** (Groq/llama-3.3-70b-versatile)
+- **Detects intent:** QUESTION | SIMPLE_SCRIPT | FULL_BACKEND | EDIT_REQUEST
+- **Selects language:** Python for scripts, TypeScript for APIs, Go for performance
+- **Chooses framework:** NestJS for microservices, Fastify for REST, FastAPI for ML
+- **Returns confidence:** 90-100% with detailed reasoning
+
+####  Examples:
+
+| User Prompt | Intent | Language/Framework | Confidence |
+|-------------|--------|-------------------|------------|
+| "script to reverse string" | SIMPLE_SCRIPT | python/none | 98% |
+| "Build e-commerce microservices" | FULL_BACKEND | typescript/nestjs | 95% |
+| "What is JWT?" | QUESTION | none/none | 98% |
+
+#### Key Benefits:
+- ✅ **Smarter than regex:** Understands context and nuance
+- ✅ **Multi-language aware:** Chooses best language for each task
+- ✅ **Framework intelligence:** Selects appropriate framework (NestJS vs Fastify vs FastAPI)
+- ✅ **High confidence:** 90-100% accuracy with reasoning
+
+### Vector Learning System ✓
+
+**Service:** `vector-learning-system.ts`  
+**Database:** Uses pgvector extension in Supabase
+
+#### Embedding Generation (No OpenAI Required!):
+
+Instead of relying on OpenAI's embedding API, we use the **Fast AI Model** (Groq):
+
+1. **AI Feature Extraction:** Fast model extracts 30 semantic features (0-1 scale):
+   - `subject_complexity`, `technical_depth`, `backend_focus`, `api_refs`, `auth_refs`
+   - `microservice_refs`, `scalability_refs`, `security_refs`, `performance_refs`
+   - And 21 more semantic dimensions
+
+2. **Expansion to 1536 Dimensions:** 
+   - Takes 30 AI-extracted features
+   - Expands deterministically to 1536 dimensions (OpenAI compatible)
+   - Adds text-based variations for uniqueness
+   - Normalizes to unit vector for cosine similarity
+
+3. **Fallback:** Hash-based embeddings if AI fails (still searchable!)
+
+#### Semantic Search Flow:
+
+```
+User: "Build REST API for task management"
+  ↓
+Generate embedding [0.8, 0.3, ..., 0.2] (1536 dims)
+  ↓
+Search code_embeddings table (1,157+ chunks)
+  ↓
+FOUND:
+  - /api/auth.ts (87% match) - JWT authentication
+  - /routes/tasks.ts (85% match) - CRUD operations
+  - /db/connection.ts (78% match) - PostgreSQL setup
+  ↓
+Inject into AI prompt as learning context
+  ↓
+AI generates BETTER code using proven patterns! 🚀
+```
+
+### Supabase RPC Functions
+
+**Migration:** `012_vector_search_functions.sql`
+
+#### `match_code_embeddings()`
+- **Purpose:** Find similar code from past projects
+- **Parameters:** `embedding` (vector), `threshold` (float), `limit` (int), `language` (text)
+- **Returns:** Similar code chunks with similarity scores
+- **Language:** Pure SQL (LANGUAGE sql) for better Supabase compatibility
+
+#### `match_knowledge_embeddings()`
+- **Purpose:** Find best practices from knowledge base
+- **Parameters:** `embedding` (vector), `threshold` (float), `limit` (int)
+- **Returns:** Best practices with similarity scores
+
+### Database Current State
+
+| Table | Current Count | Purpose |
+|-------|--------------|---------|
+| `code_embeddings` | 1,157+ chunks | Indexed code for semantic search |
+| `generation_iterations` | 36+ generations | Past code generation history |
+| `learned_patterns` | 1+ patterns | Extracted successful patterns |
+| `backend_knowledge_base` | Ready | Best practices repository |
+
+### Question Handling ✓
+
+When AI Intent Analyzer detects `QUESTION`:
+
+1. **Skip code generation** (no wasted resources)
+2. **Use Fast AI Model to answer** directly
+3. **Save answer** to `output/last-question-answer.txt`
+4. **Return answer** in API response (viewable in file if curl truncates)
+
+Example:
+```bash
+curl -X POST http://localhost:3000/api/v1/orchestrator/execute \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is JWT authentication?"}'
+```
+
+Server log:
+```
+[AI-INTENT] Detected: QUESTION | typescript/none | 98%
+[ORCHESTRATOR] Answering question instead of generating code
+[ORCHESTRATOR] ✅ Answer saved to output/last-question-answer.txt
+```
+
+### Integration in Orchestrator
+
+Phase 22 integrates into the existing orchestration flow:
+
+```
+1. Request arrives: "Build REST API"
+   ↓
+2. AI Intent Analyzer:
+   → Detects: FULL_BACKEND | typescript/fastify | 90%
+   ↓
+3. Vector Learning System:
+   → Generates embedding
+   → Searches past code (finds 5 similar projects)
+   ↓
+4. Context Injection:
+   → Adds similar code to AI prompt
+   ↓
+5. Multi-Model Pipeline:
+   → Fast model analyzes with learning context
+   → Power model generates using proven patterns
+   ↓
+6. Post-Generation:
+   → New code indexed as embeddings
+   → Stored for future learning
+```
+
+### Key Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `services/ai-intent-analyzer.ts` | ~280 | AI-powered intent detection |
+| `services/vector-learning-system.ts` | ~400 | Semantic search + embeddings |
+| `migrations/012_vector_search_functions.sql` | ~75 | Vector search RPC functions |
+| `routes/orchestrator.ts` | Updated | Integration of both systems |
+
+### Performance Metrics (E-commerce Test Run)
+
+| Metric | Time/Cost |
+|--------|-----------|
+| AI Intent Analysis | ~12 seconds |
+| Vector Context Building | <1 second |
+| Code Generation | 70-120s per subtask |
+| Vector Indexing | <5s for 117 chunks |
+| **Total E2E** | ~6.5 minutes |
+| **Total Cost** | $0.023 (23 cents!) |
+
+### Configuration (.env)
+
+```env
+# No OpenAI key needed!
+# Phase 22 uses existing Fast AI Model (Groq)
+
+# Vector search thresholds
+VECTOR_SIMILARITY_THRESHOLD=0.7
+VECTOR_MAX_RESULTS=5
+
+# Learning system
+ENABLE_VECTOR_LEARNING=true
+```
+
+### Key Benefits
+
+✅ **No OpenAI dependency** - Uses existing Fast AI Model (Groq)  
+✅ **Intelligent language selection** - Python vs TypeScript vs Go  
+✅ **Learns from past code** - Semantic search finds proven patterns  
+✅ **Self-improving** - Each generation adds to knowledge base  
+✅ **Better code quality** - Reuses successful implementations  
+✅ **Cost-effective** - <1 cent per embedding generation  
+✅ **Question handling** - Answers questions without code gen  
+
+### Next Steps
+
+- **Run migration 012** in Supabase SQL Editor
+- **Test with questions:** See answers in `output/last-question-answer.txt`
+- **Generate code:** Watch vector learning find similar projects
+- **Seed knowledge base:** Add best practices to `backend_knowledge_base`
+
+---
+
+
+
+## 🔒 TECH STACK CONSTRAINTS (Phase 14)
+
+### How It Works
+
+The system enforces **opinionated technology choices** to ensure consistent, production-ready code:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TECH STACK ENFORCEMENT                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  USER REQUEST: "Create a REST API"                              │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 1. DETECT STACK TYPE                    │                   │
+│  │    Keywords: "REST API" → api preset    │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 2. INJECT CONSTRAINTS                   │                   │
+│  │    ✅ USE: Fastify, Prisma, Zod, Pino   │                   │
+│  │    ⛔ DON'T: Express, Mongoose, Joi     │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 3. GENERATE CONSTRAINED CODE            │                   │
+│  │    AI follows rules → consistent output │                   │
+│  └─────────────────────────────────────────┘                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Stack Presets
+
+| Preset | Backend | Database | Auth | Use Case |
+|--------|---------|----------|------|----------|
+| **api** | Fastify + TypeScript | Prisma + PostgreSQL | JWT | REST/GraphQL APIs |
+| **web** | Next.js | Prisma | NextAuth | Full-stack websites |
+| **fullstack** | Next.js + tRPC | Prisma | NextAuth | Type-safe full-stack |
+| **mobile** | Fastify | Prisma | JWT + Refresh | Mobile app backends |
+| **microservices** | Fastify + BullMQ | Prisma | JWT | Distributed systems |
+| **serverless** | Hono | D1/KV | JWT | Edge functions |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `config/stack-constraints.ts` | Stack presets and constraint rules |
+| `middleware/constraint-injection.ts` | Injects constraints into AI prompts |
+| `services/framework-templates.ts` | Production-ready boilerplate |
+| `services/agent-stack-constraints.ts` | Per-agent constraint rules |
+
+### Configuration (.env)
+
+```env
+# Default stack preset
+DEFAULT_STACK_PRESET=api
+
+# Enforce strict constraints
+STRICT_STACK_CONSTRAINTS=true
+
+# Auto-detect stack from prompt
+AUTO_DETECT_STACK=true
+```
+
+---
+
+## 🚢 AUTOMATED DEPLOYMENT PIPELINE (Phase 15)
+
+### How It Works
+
+The deployment pipeline provides **instant preview URLs** for generated code:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DEPLOYMENT PIPELINE                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  CODE GENERATED                                                 │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ AUTO-DEPLOY MANAGER                     │                   │
+│  │ - Queues deployment (2s debounce)       │                   │
+│  │ - Emits SSE events for progress         │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ NETLIFY DEPLOYMENT                      │                   │
+│  │ - Creates site (if needed)              │                   │
+│  │ - Uploads files                         │                   │
+│  │ - Polls status until ready              │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ DATABASE PERSISTENCE                    │                   │
+│  │ - Stores deployment record              │                   │
+│  │ - Tracks history for rollback           │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  PREVIEW URL: https://loveable-xxx.netlify.app                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### New API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/deployments/status` | Check configured providers |
+| `POST` | `/api/v1/projects/:id/deploy` | Deploy files to Netlify |
+| `GET` | `/api/v1/projects/:id/deployments` | List deployments |
+| `GET` | `/api/v1/projects/:id/preview` | Get preview URL |
+| `POST` | `/api/v1/projects/:id/deployments/:deployId/rollback` | Rollback |
+| `POST` | `/api/v1/projects/:id/auto-deploy` | Trigger auto-deploy |
+| `GET` | `/api/v1/deployments/stream/:id` | **SSE stream** for progress |
+| `GET` | `/api/v1/projects/:id/deployment-history` | Get DB history |
+| `GET` | `/api/v1/github/auth` | Start GitHub OAuth |
+| `POST` | `/api/v1/github/repos` | Create GitHub repo |
+| `POST` | `/api/v1/github/repos/:owner/:repo/commit` | Commit files |
+
+### Key Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `services/github-service.ts` | ~380 | GitHub OAuth, repo creation, commits |
+| `services/deployment-service.ts` | ~530 | Netlify API integration |
+| `services/auto-deploy-manager.ts` | ~610 | Auto-deploy, SSE, DB persistence |
+| `routes/deployment.ts` | ~700 | All deployment & GitHub endpoints |
+| `migrations/005_deployment_pipeline.sql` | ~250 | Deployment database schema |
+
+### Database Tables (NEW)
+
+| Table | Purpose |
+|-------|---------|
+| `deployment_sites` | Netlify/Vercel site connections |
+| `deployments` | Deployment records with URLs |
+| `github_connections` | GitHub OAuth tokens |
+| `github_repositories` | Linked GitHub repos |
+| `deployment_logs` | Build logs and events |
+
+### Configuration (.env)
+
+```env
+# GitHub OAuth
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+GITHUB_REDIRECT_URI=http://localhost:3000/api/v1/github/callback
+
+# Netlify
+NETLIFY_AUTH_TOKEN=your-netlify-token
+
+# Auto-deploy
+AUTO_DEPLOY_ENABLED=true
+DEFAULT_DEPLOY_PROVIDER=netlify
+```
+
+### SSE Stream Example
+
+Connect to `/api/v1/deployments/stream/:projectId` to receive real-time events:
+
+```
+data: {"type":"connected","projectId":"my-project","message":"Connected to deployment stream"}
+
+data: {"type":"started","projectId":"my-project","message":"Deployment queued","progress":0}
+
+data: {"type":"progress","projectId":"my-project","message":"Uploading files...","progress":30}
+
+data: {"type":"success","projectId":"my-project","progress":100,"data":{"url":"https://loveable-my-project.netlify.app"}}
+```
 
 ---
 
@@ -358,6 +1246,214 @@ GROQ_API_KEY=gsk_...
   Languages:    typescript, python, go, rust, java
   Endpoints:    /codegen/project, /codegen/module, /codegen/languages
 ```
+
+---
+
+## 🧬 ENHANCED CODE GENERATION (Phase 17)
+
+### Overview
+
+Phase 17 provides a unified **EnhancedCodeGenerator** that orchestrates all code generation services:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 ENHANCED CODE GENERATOR                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  USER REQUEST: "Create a FastAPI backend with auth"             │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 1. DETECT LANGUAGE & FRAMEWORK          │                   │
+│  │    "FastAPI" → Python, FastAPI          │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 2. GENERATE SCAFFOLD                    │                   │
+│  │    ✓ requirements.txt                   │                   │
+│  │    ✓ Dockerfile                         │                   │
+│  │    ✓ .env.example                        │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 3. GENERATE ROUTES & MIDDLEWARE        │                   │
+│  │    ✓ Auth routes (login/register)       │                   │
+│  │    ✓ CRUD endpoints                     │                   │
+│  │    ✓ Security middleware                │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 4. GENERATE TESTS (optional)           │                   │
+│  │    ✓ Unit tests                         │                   │
+│  │    ✓ Integration tests                  │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  COMPLETE PROJECT FILES                                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Supported Languages & Frameworks
+
+| Language | Frameworks | Database Support |
+|----------|------------|------------------|
+| **TypeScript** | Express, Fastify, NestJS, Next.js | Prisma, Drizzle |
+| **Python** | FastAPI, Django, Flask | SQLAlchemy, Prisma |
+| **Go** | Gin, Echo, Fiber | GORM, sqlc |
+| **Rust** | Actix, Rocket, Axum | Diesel, SQLx |
+| **Java** | Spring, Quarkus, Micronaut | JPA, MyBatis |
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/codegen/generate` | Generate complete multi-language project |
+| `GET` | `/api/v1/codegen/languages` | Get supported languages & frameworks |
+| `POST` | `/api/v1/codegen/scaffold` | Generate only project scaffolding |
+
+### Usage Example
+
+```bash
+curl -X POST http://localhost:3000/api/v1/codegen/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectName": "my-python-api",
+    "description": "A FastAPI backend with user authentication",
+    "language": "python",
+    "framework": "fastapi",
+    "includeTests": true,
+    "includeDocker": true,
+    "includeAuth": true
+  }'
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/enhanced-code-generator.ts` | Main orchestration class |
+| `services/code-postprocessor.ts` | Parse AI output, extract files |
+| `services/project-scaffold.ts` | Generate config files |
+| `services/test-generator.ts` | Generate tests |
+| `services/code-validator.ts` | Validate syntax & types |
+| `services/database-generator.ts` | Generate DB schemas |
+| `services/route-generator.ts` | Generate routes & middleware |
+| `routes/enhanced-codegen.ts` | API routes |
+
+---
+
+## 🧠 VECTOR DATABASE & AI LEARNING (Phase 18)
+
+### Overview
+
+Phase 18 enables **semantic search** and **AI learning over time**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 VECTOR STORE & AI LEARNING                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  VECTOR STORE (Semantic Search)                                  │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 1. INDEX CODE                           │                   │
+│  │    File → Chunks → Embeddings → pgvector│                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 2. SEMANTIC SEARCH                      │                   │
+│  │    "database connection" → similar code │                   │
+│  └─────────────────────────────────────────┘                   │
+│                                                                 │
+│  AI LEARNING SYSTEM                                              │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 3. STORE ITERATIONS                     │                   │
+│  │    Success/Failure → Learn patterns     │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │ 4. BUILD PRE-CONTEXT                    │                   │
+│  │    Similar past tasks → Better prompts  │                   │
+│  └─────────────────────────────────────────┘                   │
+│       ↓                                                         │
+│  IMPROVED CODE GENERATION OVER TIME                              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Vector Store Features
+
+- **Code Embeddings**: Split files into chunks, generate embeddings via OpenAI
+- **Semantic Search**: Find relevant code without exact keyword match
+- **Context Retrieval**: Get relevant code chunks for AI prompts
+- **Token Optimization**: Reduce context tokens by 60%+
+
+### AI Learning Features
+
+- **Generation Iterations**: Store each code generation attempt with outcome
+- **Pattern Extraction**: Learn from successful vs failed generations
+- **Testing Iterations**: Store test results for pre-context building
+- **Pre-Context Building**: Use past experiences to improve new generations
+- **User Feedback**: Process ratings to improve confidence scores
+
+### API Endpoints - Vector Store
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/vector/index/file` | Index a single file |
+| `POST` | `/api/v1/vector/index/project` | Index multiple files |
+| `POST` | `/api/v1/vector/search` | Semantic similarity search |
+| `POST` | `/api/v1/vector/context` | Get relevant context for prompt |
+| `DELETE` | `/api/v1/vector/project/:id` | Delete project embeddings |
+
+### API Endpoints - Learning
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/learning/iteration` | Store generation iteration |
+| `POST` | `/api/v1/learning/test-iteration` | Store testing iteration |
+| `POST` | `/api/v1/learning/feedback` | Submit user feedback |
+| `POST` | `/api/v1/learning/pre-context` | Build pre-context for task |
+| `GET` | `/api/v1/learning/statistics` | Get learning stats |
+| `GET` | `/api/v1/learning/patterns` | Get learned patterns |
+
+### Database Tables (NEW)
+
+| Table | Purpose |
+|-------|---------|
+| `code_embeddings` | Vector embeddings for code chunks (pgvector) |
+| `generation_iterations` | AI generation attempts for learning |
+| `testing_iterations` | Testing experiences for pre-context |
+| `learned_patterns` | Extracted success/failure patterns |
+
+### Usage Examples
+
+```bash
+# Index a file
+curl -X POST http://localhost:3000/api/v1/vector/index/file \
+  -H "Content-Type: application/json" \
+  -d '{"projectId": "my-project", "filePath": "src/auth.ts", "content": "export function login()..."}'
+
+# Semantic search
+curl -X POST http://localhost:3000/api/v1/vector/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "JWT authentication", "limit": 5}'
+
+# Build pre-context for new task
+curl -X POST http://localhost:3000/api/v1/learning/pre-context \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Create user authentication system"}'
+
+# Get learning statistics
+curl http://localhost:3000/api/v1/learning/statistics
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/vector-store.ts` | Vector embeddings & similarity search |
+| `services/learning-service.ts` | AI learning from iterations |
+| `routes/vector-learning.ts` | API routes for vector & learning |
+| `migrations/006_vector_learning.sql` | Database migration for pgvector |
 
 ---
 
@@ -1073,14 +2169,39 @@ Always test your agent in isolation first, then via orchestrator.
 - [x] Retry with exponential backoff
 - [x] Full Supabase persistence
 
-**Phase 14: CodeGen Agent Integration (Person 4)**
-- [x] CodeGenService wrapper for Person 4's agents
-- [x] API routes for code generation (/codegen/*)
-- [x] Multi-language support (TS, Python, Go, Rust, Java)
-- [x] Framework-specific generation
-- [x] Cost tracking integration
-- [x] Startup logging for CodeGen status
-- [x] Dynamic ESM import fix for Windows
+**Phase 14: Opinionated Tech Stack Constraints** 🆕
+- [x] Stack presets (api, web, fullstack, mobile, microservices, serverless)
+- [x] Constraint injection middleware
+- [x] Forbidden pattern detection (Express → Fastify)
+- [x] Framework-specific templates
+- [x] Agent-specific constraint rules
+- [x] Auto-detection from prompt keywords
+
+**Phase 15: Automated Deployment Pipeline** 🆕
+- [x] GitHub OAuth integration
+- [x] GitHub repository creation & atomic commits
+- [x] `[Lovable]` commit prefix enforcement
+- [x] Netlify site creation & file deployment
+- [x] Deployment status polling & rollback
+- [x] Auto-deploy manager with debouncing
+- [x] SSE streaming for real-time progress
+- [x] Database persistence (5 new tables)
+- [x] Full API routes (14+ endpoints)
+
+### 📊 SYSTEM RATING: 8.5/10
+
+| Category | Score | Notes |
+|----------|-------|-------|
+| Architecture | 9/10 | Clean 7-layer integration, modular services |
+| AI Integration | 9/10 | Multi-model, cost tracking, retry logic |
+| Agent System | 8/10 | Dynamic loading, needs more implementations |
+| API Design | 8.5/10 | RESTful, Zod validation, SSE streaming |
+| Database | 8/10 | Supabase, 15+ tables, RLS policies |
+| Security | 7.5/10 | JWT, rate limiting, OAuth ready |
+| Deployment | 8.5/10 | Netlify/GitHub, auto-deploy, SSE |
+| Code Quality | 8.5/10 | TypeScript strict, consistent patterns |
+| Documentation | 8/10 | Comprehensive guides, feature guide |
+| Testing | 6.5/10 | Basic setup, needs more coverage |
 
 ### 📋 TO BE IMPLEMENTED
 
@@ -1100,17 +2221,125 @@ Always test your agent in isolation first, then via orchestrator.
 - [ ] Email Agent (notifications)
 
 **Future Enhancements:**
+- [ ] Vercel deployment integration (placeholder ready)
 - [ ] LangGraph integration (`packages/orchestrator/`)
 - [ ] WebSocket real-time updates
 - [ ] Advanced caching layer
 - [ ] Frontend dashboard
 - [ ] Code quality scoring for benchmarks
-- [ ] Full IntegratedOrchestrator integration for CodeGen
+- [ ] Full IntegratedOrchestrator integration for auto-deploy
+
+---
+
+## 📈 PROGRESS OVERVIEW
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ | Server Foundation |
+| Phase 2 | ✅ | Plug-and-Play Agent Architecture |
+| Phase 3 | ✅ | Supabase Database Integration |
+| Phase 4 | ✅ | API Routes & Controllers |
+| Phase 5 | ✅ | API Key Rotation System |
+| Phase 6 | ✅ | Async Job Queue |
+| Phase 7 | ✅ | Security Hardening (Basic) |
+| Phase 8 | ✅ | Monitoring & Observability |
+| Phase 9 | ✅ | Orchestrator-Agent Integration |
+| Phase 10 | 🔄 | Testing & Stress Testing |
+| Phase 11 | ✅ | Agent Benchmarking System |
+| Phase 12 | ⏳ | Deployment Preparation |
+| Phase 13 | ✅ | Multi-Model Hydration Pattern |
+| Phase 14 | ✅ | Opinionated Tech Stack Constraints |
+| Phase 15 | ✅ | Automated Deployment Pipeline |
+| Phase 16 | ✅ | Real-Time Preview & Collaboration |
+| Phase 17 | ✅ | Enhanced Code Generation |
+| Phase 18 | ✅ | Vector Database & AI Learning |
+| Phase 19 | ✅ | **Security Hardening (Advanced)** |
+
+---
+
+## 🔐 SECURITY HARDENING (Phase 19)
+
+### Overview
+
+Phase 19 implements a comprehensive security layer for production-ready authentication and data protection:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SECURITY LAYER (Phase 19)                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
+│  │Password Service│  │Encryption Svc │  │  JWT Service  │       │
+│  │   Argon2id    │  │  AES-256-GCM  │  │   HS256/RS256 │       │
+│  └───────────────┘  └───────────────┘  └───────────────┘       │
+│         │                  │                   │                │
+│         v                  v                   v                │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
+│  │OAuth State Svc│  │  CSRF Plugin  │  │Auth Middleware│       │
+│  │  CSRF for OAuth│ │ Header-based  │  │Role-Based Auth│       │
+│  └───────────────┘  └───────────────┘  └───────────────┘       │
+│                                                                 │
+│  NEW API ENDPOINTS:                                              │
+│  • POST /api/v1/auth/validate-password (strength check)         │
+│  • POST /api/v1/auth/secure-signup (Argon2id + validation)      │
+│  • POST /api/v1/auth/secure-login (JWT + security logging)      │
+│  • POST /api/v1/auth/secure-refresh (blacklist check)           │
+│  • POST /api/v1/auth/secure-logout (token revocation)           │
+│  • POST /api/v1/auth/secure-api-key (encrypted API keys)        │
+│  • GET  /api/v1/auth/secure-oauth/:provider (CSRF state)        │
+│  • POST /api/v1/auth/change-password (strength validation)      │
+│  • GET  /api/v1/auth/security-status (health check)             │
+│  • GET  /api/v1/csrf-token (CSRF token endpoint)                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/password-service.ts` | Argon2id hashing, strength validation |
+| `services/encryption-service.ts` | AES-256-GCM encryption for secrets |
+| `services/jwt-service.ts` | Token generation, verification, blacklist |
+| `services/oauth-state-service.ts` | CSRF protection for OAuth flows |
+| `plugins/csrf.ts` | General CSRF protection |
+| `middleware/auth-middleware.ts` | JWT/API key authentication |
+| `routes/secure-auth.ts` | Secure authentication endpoints |
+
+### Database Tables (Migration 007)
+
+| Table | Purpose |
+|-------|---------|
+| `refresh_tokens` | Hashed refresh tokens with family tracking |
+| `api_keys` | API keys with scopes and rate limits |
+| `encrypted_secrets` | AES-256-GCM encrypted sensitive data |
+| `user_mfa` | MFA settings and backup codes |
+| `security_events` | Audit logging for security events |
+| `ip_blocklist` | Blocked IP addresses |
+
+### Configuration (.env)
+
+```env
+# JWT Configuration
+JWT_SECRET=your-32-char-minimum-secret
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
+JWT_ISSUER=loveable-backend
+JWT_AUDIENCE=loveable-app
+
+# Encryption (CRITICAL - Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+ENCRYPTION_KEY=your-64-char-hex-key
+ENCRYPTION_SALT=your-random-salt
+
+# CSRF Protection
+CSRF_SECRET=defaults-to-jwt-secret
+```
 
 ---
 
 *This document contains everything you need to integrate your agents and build on top of the existing infrastructure.*
 
-**Person 1 (Team Lead) has completed the production-ready foundation with Multi-Model Pipeline, full cost tracking, and Person 4's CodeGen integration!**
+**Person 1 (Team Lead) has completed the production-ready foundation with Multi-Model Pipeline, Tech Stack Constraints, Deployment Pipeline, Vector/Learning System, and Security Hardening!**
 
 🚀 **Let's build something amazing!**
+

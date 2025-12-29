@@ -30,6 +30,12 @@
             ],
             "@loveable/shared/*": [
                 "../shared/src/*"
+            ],
+            "@loveable/agents": [
+                "../../agents/index.ts"
+            ],
+            "@loveable/agents/*": [
+                "../../agents/*"
             ]
         },
         "baseUrl": "."

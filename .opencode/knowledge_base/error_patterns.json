@@ -1,0 +1,67 @@
+{
+  "error_patterns": {
+    "agent_stuck": {
+      "description": "Agent unable to proceed with current task",
+      "symptoms": ["timeout", "missing_dependencies", "ambiguity", "resource_unavailable"],
+      "recovery_protocol": {
+        "level": "critical",
+        "orchestrator_intervention": "immediate",
+        "steps": [
+          "Agent reports stuck status with context",
+          "Orchestrator analyzes situation",
+          "Orchestrator provides specific guidance or reassigns task",
+          "Agent resumes with new instructions"
+        ]
+      }
+    },
+    "dependency_conflict": {
+      "description": "Conflicting requirements between agents",
+      "symptoms": ["contradictory_requirements", "resource_conflicts", "timeline_conflicts"],
+      "recovery_protocol": {
+        "level": "major",
+        "orchestrator_intervention": "required",
+        "steps": [
+          "Both agents report conflict to Orchestrator",
+          "Orchestrator reviews project priorities",
+          "Orchestrator makes binding decision",
+          "Agents implement coordinated solution"
+        ]
+      }
+    },
+    "memory_inconsistency": {
+      "description": "Agent memory conflicts with knowledge base",
+      "symptoms": ["data_mismatch", "forgotten_decisions", "context_loss"],
+      "recovery_protocol": {
+        "level": "minor",
+        "orchestrator_intervention": "notification_only",
+        "steps": [
+          "Agent detects inconsistency",
+          "Agent queries knowledge base for correct state",
+          "Agent updates memory accordingly",
+          "Agent reports incident to Orchestrator for logging"
+        ]
+      }
+    },
+    "knowledge_base_conflict": {
+      "description": "Multiple agents attempting to update knowledge base",
+      "symptoms": ["concurrent_updates", "data_corruption", "access_violations"],
+      "recovery_protocol": {
+        "level": "critical",
+        "orchestrator_intervention": "immediate",
+        "steps": [
+          "Agents submit update requests to Orchestrator",
+          "Orchestrator validates and prioritizes requests",
+          "Orchestrator applies updates sequentially",
+          "Agents notified of final knowledge base state"
+        ]
+      }
+    }
+  },
+  "recovery_strategies": {
+    "agent_restart": "Restart agent with clean memory state",
+    "task_reassignment": "Reassign task to different agent",
+    "rollback": "Rollback to last known good state",
+    "escalation": "Escalate to human operator"
+  },
+  "last_updated": "2025-12-01T00:00:00Z"
+}

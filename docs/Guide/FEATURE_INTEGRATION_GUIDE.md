@@ -3,6 +3,20 @@
 A step-by-step guide for properly connecting new features to the Loveable Backend system.
 
 ---
+📁 packages/api/src/services/
+├── integrated-orchestrator.ts  ✅ THE PRODUCTION ONE (1261 lines)
+│   └── Uses: ThinkingEngine, ContextManager, AgentMonitor, MCPHub,
+│             FileWriter, VectorStore, LearningService, QualityAssessment,
+│             MultiModelOrchestrator, ServiceRegistry, ConnectionManager
+│
+├── multi-model-orchestrator.ts ✅ USED BY INTEGRATED (1095 lines)
+│   └── Two-stage pipeline: Fast Model → Power Model
+│
+├── orchestrator.ts             ⚠️ LEGACY/REDUNDANT (368 lines)
+│   └── Simple placeholder with hardcoded delays
+│
+└── index.ts exports BOTH (but routes use only Integrated)
+---
 
 ## 📋 Overview
 
@@ -666,6 +680,28 @@ Here's how cost tracking was integrated with the database:
 
 ---
 
+## 📝 Example: Architecture Blueprint Generator (Phase 20)
+
+Here's how the Architecture Blueprint was integrated:
+
+| Layer | File | What was added |
+|-------|------|----------------|
+| 1 | `architecture-blueprint.ts` | Created ArchitectureBlueprintGenerator with ASCII templates |
+| 2 | `services/index.ts` | Exported getArchitectureBlueprintGenerator and types |
+| 3 | `multi-model-orchestrator.ts` | Added Stage 1.5 blueprint generation, passed to Stage 2 |
+| 4 | (Not needed) | Uses existing /orchestrator/execute endpoint - blueprint in response |
+| 5 | `index.ts` | No startup changes needed (stateless generator) |
+| 6 | `PROJECT_CONTEXT.md` | Documented Phase 20 features |
+| 7 | (Not needed) | No database persistence - in-memory generation |
+
+### Key Design Decisions:
+- **In-memory only**: Blueprints are generated on-demand, not stored
+- **Integration point**: Stage 1.5 between analysis and code generation
+- **Graceful fallback**: If blueprint fails, continue with normal generation
+- **ASCII format**: Matches existing `Whole system.md` for consistency
+
+---
+
 ## 🎯 Best Practices
 
 1. **Always use singletons** - Use `getXXXService()` pattern for consistency
@@ -673,8 +709,90 @@ Here's how cost tracking was integrated with the database:
 3. **Config via .env** - All settings should be configurable
 4. **Enable by default** - New features should work out of the box
 5. **Graceful fallback** - If feature fails, don't crash the main flow
-6. **Document immediately** - Update PERSON1_TASK_LIST.md as you go
+6. **Document immediately** - Update PROJECT_CONTEXT.md as you go
 7. **Validate UUIDs** - Always use `isValidUUID()` before database insert
 8. **Batch inserts** - Queue records and flush periodically for performance
 9. **Add shutdown hooks** - Flush pending records before server shutdown
 10. **Run migrations first** - Always apply SQL before deploying code changes
+11. **Use ASCII diagrams** - Generate architecture blueprints for complex features
+
+---
+
+## 📝 Example: Context Management System (Phase 24)
+
+Here's how the Context Management System was integrated:
+
+| Layer | File | What was added |
+|-------|------|----------------|
+| 1 | `entity-extractor.ts` | EntityExtractorService - AI-powered entity extraction |
+| 1 | `generation-context.ts` | GenerationContextService - Pipeline context tracking |
+| 1 | `prompt-templates.ts` | Standardized prompt builders with context injection |
+| 2 | `services/index.ts` | Exported all new services and types |
+| 3 | `integrated-orchestrator.ts` | Added Phase 1.5 entity extraction, prompt template usage |
+| 4 | `routes/context.ts` | Created 7 API endpoints for context management |
+| 5 | `routes/index.ts` | Registered context routes |
+| 5 | `index.ts` | Added shutdown hook for GenerationContextService |
+| 6 | (Uses existing AI env vars) | No new configuration needed |
+| 7 | `015_generation_contexts.sql` | Created 3 tables for context persistence |
+
+### Key Design Decisions:
+- **Entity-first approach**: Extract entities BEFORE code generation
+- **Context persistence**: Store all contexts for learning
+- **Graceful fallback**: If extraction fails, use Phase 23 prompt injection
+- **Validation**: Check if expected entities were implemented
+- **Template system**: Standardized prompts ensure context is never lost
+
+### Integration Flow:
+```
+User Prompt → Entity Extraction → Context Created → Thinking → 
+Code Generation (with entity constraints) → Validation → 
+Context Finalized → Saved to Database for Learning
+```
+
+---
+
+## 📝 Example: Production-Ready Code Generation (Phase 26)
+
+Here's how the Production-Ready Code Generation System was integrated:
+
+| Layer | File | What was added |
+|-------|------|----------------|
+| 1 | `dependency-registry.ts` | DependencyRegistry - Auto-maps imports to package.json |
+| 1 | `import-registry.ts` | ImportRegistry - Prevents duplicate imports |
+| 1 | `complete-project-generator.ts` | CompleteProjectGenerator - Full project structures |
+| 1 | `project-integrity-validator.ts` | ProjectIntegrityValidator - Prevents code loss |
+| 2 | `services/index.ts` | Exported all new services and types |
+| 3 | `integrated-orchestrator.ts` | Added all 4 services to constructor and getServices() |
+| 4 | `routes/phase26.ts` | Created 6 API endpoints for validation/dependencies |
+| 5 | `routes/index.ts` | Registered phase26Routes |
+| 6 | `code-postprocessor.ts` | Integrated DependencyRegistry and ImportRegistry |
+| 7 | (Not needed) | These services don't persist data |
+
+### Key Design Decisions:
+- **Code-first approach**: Analyze ALL generated code for dependencies before package.json
+- **Import deduplication**: Every file passes through ImportRegistry before writing
+- **Validation before write**: ProjectIntegrityValidator.validateReplacement() prevents code loss
+- **Package.json generation**: Auto-generated based on detected imports
+
+### API Endpoints Created:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/project/status` | GET | Phase 26 services status |
+| `/api/v1/project/validate` | POST | Validate complete project |
+| `/api/v1/project/dependencies` | POST | Analyze code dependencies |
+| `/api/v1/project/imports/deduplicate` | POST | Deduplicate imports |
+| `/api/v1/project/validate-replacement` | POST | Validate code replacement |
+| `/api/v1/project/generate` | POST | Generate complete project |
+
+### Integration Flow:
+```
+AI Code Output → CodePostProcessor → DependencyRegistry (analyze) → 
+ImportRegistry (deduplicate) → ProjectIntegrityValidator (validate) → 
+Files Written + Auto-generated package.json
+```
+
+### Critical Issues Addressed:
+- **100% project failure rate** due to missing dependencies → FIXED with DependencyRegistry
+- **50% project failure rate** due to duplicate imports → FIXED with ImportRegistry  
+- **72% code loss** during replacements → FIXED with ProjectIntegrityValidator
+- **Incomplete projects** (only routes generated) → FIXED with CompleteProjectGenerator

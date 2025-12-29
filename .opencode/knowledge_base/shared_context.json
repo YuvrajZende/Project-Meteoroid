@@ -1,0 +1,125 @@
+{
+  "project_context": {
+    "project_name": "Multi-Agent System Implementation",
+    "project_type": "Agent-based Development System",
+    "technology_stack": {
+      "frontend": "Next.js",
+      "backend": "Supabase",
+      "authentication": "Clerk",
+      "deployment": "Vercel/Netlify"
+    },
+    "project_goals": [
+      "Create role-based agent system",
+      "Implement agent coordination and communication",
+      "Set up shared knowledge base",
+      "Create error handling and recovery protocols",
+      "Implement agent memory systems"
+    ],
+    "current_requirements": {
+      "functional": [
+        "Agents must understand their roles",
+        "Agents must coordinate through Orchestrator",
+        "Agents must maintain memory",
+        "Agents must handle errors appropriately",
+        "Knowledge base must be synchronized"
+      ],
+      "non_functional": [
+        "Agent responses must be consistent",
+        "Error handling must be comprehensive",
+        "Memory synchronization must be reliable",
+        "Agent autonomy levels must be enforced"
+      ]
+    }
+  },
+  "agent_roles": {
+    "orchestrator": "Master controller and coordinator",
+    "planning": "Project strategy and roadmap creation",
+    "requirements": "Functional requirements extraction and validation",
+    "clerk": "Authentication integration specialist",
+    "authentication": "Session and authorization management",
+    "security_audit": "Security compliance and vulnerability scanning"
+  },
+  "communication_protocols": {
+    "agent_to_orchestrator": "Direct reporting and help requests",
+    "orchestrator_to_agent": "Task distribution and decisions",
+    "agent_to_agent": "Coordination through orchestrator"
+  },
+  "knowledge_base_domains": {
+    "requirements_section": {
+      "description": "Functional requirements, validation criteria, acceptance criteria",
+      "editable_by": ["requirements", "orchestrator", "planning"],
+      "content": {
+        "functional_requirements": [],
+        "validation_criteria": {},
+        "acceptance_criteria": {},
+        "api_contracts": {},
+        "data_models": {}
+      },
+      "last_updated": null
+    },
+    "planning_section": {
+      "description": "Project roadmaps, milestones, dependency management",
+      "editable_by": ["planning", "Orchestrator"],
+      "content": {
+        "project_roadmap": {},
+        "milestones": [],
+        "dependency_graph": {},
+        "resource_allocation": {}
+      },
+      "last_updated": null
+    },
+    "authentication_section": {
+      "description": "Authentication flows, session management, RBAC configuration",
+      "editable_by": ["clerk", "authentication", "security_audit", "Orchestrator"],
+      "content": {
+        "auth_flows": {},
+        "session_config": {},
+        "rbac_roles": {},
+        "security_policies": {}
+      },
+      "last_updated": null
+    },
+    "security_section": {
+      "description": "Security policies, vulnerability findings, compliance requirements",
+      "editable_by": ["security_audit", "authentication", "clerk", "Orchestrator"],
+      "content": {
+        "security_policies": {},
+        "vulnerability_findings": [],
+        "compliance_requirements": {},
+        "security_monitoring": {}
+      },
+      "last_updated": null
+    },
+    "database_section": {
+      "description": "Database schema, migrations, performance optimization",
+      "editable_by": ["supabase", "database_foundation", "api", "Orchestrator"],
+      "content": {
+        "database_schema": {},
+        "migrations": [],
+        "performance_configs": {},
+        "backup_strategies": {}
+      },
+      "last_updated": null
+    },
+    "frontend_section": {
+      "description": "Frontend architecture, components, UI/UX patterns",
+      "editable_by": ["nextjs", "ui_ux", "analytics_dashboard", "Orchestrator"],
+      "content": {
+        "app_structure": {},
+        "component_library": {},
+        "design_system": {},
+        "performance_optimization": {}
+      },
+      "last_updated": null
+    }
+  },
+  "knowledge_base_access": {
+    "version": "2.0.0",
+    "access_model": "domain_specific_edit",
+    "validation_process": "post_update_validation",
+    "conflict_resolution": "orchestrator_mediated",
+    "audit_trail": true,
+    "sync_frequency": "real_time"
+  },
+  "last_updated": "2025-12-01T00:00:00Z"
+}

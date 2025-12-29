@@ -3,7 +3,7 @@
  * Comprehensive audit logging for security and compliance
  */
 
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 
 /**
  * Audit event types

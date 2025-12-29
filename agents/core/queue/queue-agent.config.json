@@ -1,0 +1,177 @@
+{
+    "id": "queue-agent",
+    "name": "Queue Agent",
+    "version": "1.0.0",
+    "tier": 1,
+    "description": "Advanced background job processing agent for queue management, worker generation, job scheduling, and monitoring with BullMQ and Redis",
+    "capabilities": [
+        {
+            "id": "bullmq",
+            "name": "BullMQ Integration",
+            "description": "Generate BullMQ queue configurations and connections",
+            "category": "queue"
+        },
+        {
+            "id": "redis-queues",
+            "name": "Redis Queue Management",
+            "description": "Redis-based queue management and connection pooling",
+            "category": "queue"
+        },
+        {
+            "id": "job-scheduling",
+            "name": "Job Scheduling",
+            "description": "Cron-based job scheduling with repeatable jobs",
+            "category": "scheduling"
+        },
+        {
+            "id": "background-tasks",
+            "name": "Background Tasks",
+            "description": "Asynchronous background task processing",
+            "category": "processing"
+        },
+        {
+            "id": "rate-limiting",
+            "name": "Rate Limiting",
+            "description": "Queue and job-level rate limiting configuration",
+            "category": "performance"
+        },
+        {
+            "id": "worker-generation",
+            "name": "Worker Generation",
+            "description": "Generate worker classes with concurrency management",
+            "category": "worker"
+        },
+        {
+            "id": "job-types",
+            "name": "Job Type Definitions",
+            "description": "Type-safe job data and result definitions",
+            "category": "types"
+        },
+        {
+            "id": "retry-logic",
+            "name": "Retry Logic",
+            "description": "Configurable retry strategies with exponential backoff",
+            "category": "reliability"
+        },
+        {
+            "id": "dead-letter-queue",
+            "name": "Dead Letter Queue",
+            "description": "Failed job capture and analysis",
+            "category": "reliability"
+        },
+        {
+            "id": "job-priority",
+            "name": "Job Priority",
+            "description": "Priority-based job processing",
+            "category": "processing"
+        },
+        {
+            "id": "cron-jobs",
+            "name": "Cron Jobs",
+            "description": "Time-based job scheduling with timezone support",
+            "category": "scheduling"
+        },
+        {
+            "id": "queue-monitoring",
+            "name": "Queue Monitoring",
+            "description": "Health checks, metrics, and Prometheus export",
+            "category": "monitoring"
+        }
+    ],
+    "supportedProviders": [
+        "bullmq",
+        "redis"
+    ],
+    "supportedFeatures": [
+        "queues",
+        "workers",
+        "processors",
+        "schedulers",
+        "flows",
+        "rate-limiting",
+        "dead-letter-queue",
+        "monitoring"
+    ],
+    "defaultConfig": {
+        "provider": "bullmq",
+        "redis": {
+            "host": "localhost",
+            "port": 6379
+        },
+        "enableMetrics": true,
+        "enableDeadLetterQueue": true,
+        "enableJobEvents": true,
+        "enableScheduling": true
+    },
+    "dependencies": [
+        "bullmq",
+        "ioredis"
+    ],
+    "devDependencies": [
+        "@types/ioredis"
+    ],
+    "envVariables": [
+        "REDIS_HOST",
+        "REDIS_PORT",
+        "REDIS_PASSWORD",
+        "REDIS_TLS"
+    ],
+    "aiConfig": {
+        "fastModel": {
+            "provider": "groq",
+            "model": "llama-3.3-70b-versatile",
+            "purpose": "Queue analysis and job type inference"
+        },
+        "powerModel": {
+            "provider": "zai",
+            "model": "glm-4.6",
+            "purpose": "Complex workflow and processor generation"
+        }
+    },
+    "integrations": {
+        "orchestrator": true,
+        "benchmarking": true,
+        "costTracking": true,
+        "multiModel": true
+    },
+    "templates": {
+        "basic": [
+            "queue-config",
+            "worker",
+            "job-types"
+        ],
+        "standard": [
+            "queue-config",
+            "queue-setup",
+            "worker",
+            "processor",
+            "job-types",
+            "retry-strategy"
+        ],
+        "advanced": [
+            "queue-config",
+            "queue-setup",
+            "worker",
+            "processor",
+            "job-types",
+            "retry-strategy",
+            "dead-letter-queue",
+            "monitoring"
+        ],
+        "enterprise": [
+            "queue-config",
+            "queue-setup",
+            "worker",
+            "processor",
+            "job-types",
+            "retry-strategy",
+            "dead-letter-queue",
+            "scheduler",
+            "monitoring",
+            "flow",
+            "rate-limiter"
+        ]
+    },
+    "author": "Person 2",
+    "lastUpdated": "2024-12-26"
+}

@@ -22,7 +22,7 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
         },
 
         // Rate limit exceeded handler
-        errorResponseBuilder: (request, context) => {
+        errorResponseBuilder: (_request, context) => {
             return {
                 statusCode: 429,
                 error: 'Too Many Requests',

@@ -1,0 +1,180 @@
+{
+  "memory_system": {
+    "version": "1.0.0",
+    "last_updated": "2025-12-01T00:00:00Z",
+    "sync_interval": 300,
+    "consistency_check_interval": 600
+  },
+  "agents": {
+    "orchestrator": {
+      "agent_id": "orchestrator",
+      "session_memory": {
+        "current_tasks": [],
+        "active_decisions": [],
+        "agent_interactions": [],
+        "error_history": [],
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "learned_patterns": [],
+        "successful_strategies": [],
+        "agent_relationships": {},
+        "decision_rationale": {},
+        "conflict_resolutions": []
+      },
+      "memory_sync_status": "pending"
+    },
+    "planning": {
+      "agent_id": "planning",
+      "session_memory": {
+        "current_tasks": [],
+        "active_plans": [],
+        "dependency_status": {},
+        "recent_decisions": [],
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "planning_patterns": [],
+        "successful_roadmaps": [],
+        "dependency_insights": {},
+        "resource_strategies": [],
+        "risk_mitigation_patterns": []
+      },
+      "memory_sync_status": "pending"
+    },
+    "requirements": {
+      "agent_id": "requirements",
+      "session_memory": {
+        "current_tasks": [],
+        "active_requirements": [],
+        "validation_status": {},
+        "conflict_history": [],
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "requirement_patterns": [],
+        "validation_criteria": {},
+        "stakeholder_insights": {},
+        "conflict_resolutions": [],
+        "acceptance_criteria_templates": []
+      },
+      "memory_sync_status": "pending"
+    },
+    "clerk": {
+      "agent_id": "clerk",
+      "session_memory": {
+        "current_tasks": [],
+        "active_configurations": [],
+        "integration_status": {},
+        "implementation_progress": {},
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "clerk_patterns": [],
+        "authentication_solutions": {},
+        "integration_strategies": [],
+        "troubleshooting_guides": {},
+        "security_configurations": []
+      },
+      "memory_sync_status": "pending"
+    },
+    "authentication": {
+      "agent_id": "authentication",
+      "session_memory": {
+        "current_tasks": [],
+        "security_configurations": [],
+        "rbac_status": {},
+        "token_management": {},
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "security_patterns": [],
+        "rbac_designs": {},
+        "token_strategies": [],
+        "session_solutions": {},
+        "security_incident_responses": []
+      },
+      "memory_sync_status": "pending"
+    },
+    "security_audit": {
+      "agent_id": "security_audit",
+      "session_memory": {
+        "current_tasks": [],
+        "active_audits": [],
+        "vulnerability_findings": [],
+        "compliance_status": {},
+        "last_sync": null
+      },
+      "persistent_memory": {
+        "security_patterns": [],
+        "vulnerability_signatures": {},
+        "compliance_requirements": {},
+        "remediation_strategies": [],
+        "security_best_practices": []
+      },
+      "memory_sync_status": "pending"
+    }
+  },
+  "sync_protocols": {
+    "session_sync": {
+      "frequency": "every_5_minutes",
+      "trigger_events": ["task_complete", "decision_made", "error_occurred"],
+      "conflict_resolution": "orchestrator_override"
+    },
+    "persistent_sync": {
+      "frequency": "every_30_minutes",
+      "trigger_events": ["session_end", "critical_learning", "pattern_discovered"],
+      "conflict_resolution": "merge_with_validation"
+    },
+    "consistency_check": {
+      "frequency": "every_10_minutes",
+      "validation_rules": [
+        "no_duplicate_decisions",
+        "consistent_agent_status",
+        "valid_dependency_chains",
+        "coherent_memory_states"
+      ]
+    }
+  },
+  "memory_templates": {
+    "task_memory": {
+      "task_id": "string",
+      "task_description": "string",
+      "status": "pending|in_progress|completed|failed",
+      "start_time": "ISO8601",
+      "end_time": "ISO8601",
+      "dependencies": ["string"],
+      "output": "object",
+      "issues": ["string"]
+    },
+    "decision_memory": {
+      "decision_id": "string",
+      "decision_type": "string",
+      "context": "object",
+      "options_considered": ["string"],
+      "final_decision": "string",
+      "rationale": "string",
+      "timestamp": "ISO8601",
+      "impact": "object"
+    },
+    "interaction_memory": {
+      "interaction_id": "string",
+      "interacting_agents": ["string"],
+      "interaction_type": "string",
+      "context": "object",
+      "outcome": "string",
+      "timestamp": "ISO8601",
+      "follow_up_required": "boolean"
+    },
+    "error_memory": {
+      "error_id": "string",
+      "error_type": "string",
+      "error_description": "string",
+      "context": "object",
+      "resolution": "string",
+      "prevention_measures": ["string"],
+      "timestamp": "ISO8601",
+      "severity": "critical|high|medium|low"
+    }
+  }
+}

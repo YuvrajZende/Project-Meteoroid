@@ -206,7 +206,7 @@ export async function registerSecurityMiddleware(app: FastifyInstance): Promise<
     });
 
     // Add security headers
-    app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.addHook('onSend', async (_request: FastifyRequest, reply: FastifyReply) => {
         // Only add security headers in production
         if (process.env.NODE_ENV === 'production') {
             for (const [header, value] of Object.entries(SECURITY_HEADERS)) {

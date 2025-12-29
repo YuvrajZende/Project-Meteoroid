@@ -37,7 +37,7 @@ import {
     MIDDLEWARE_TEMPLATE,
 } from './templates/index';
 
-dotenv.config();
+dotenv.config({ quiet: true } as any);
 
 // ============================================
 // TYPES AND INTERFACES
@@ -144,7 +144,6 @@ export class CodegenAgent implements IAgent {
                 model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
                 temperature: 0.3,
             });
-            console.log(`🤖 CodegenAgent using Groq (${process.env.GROQ_MODEL || "llama-3.3-70b-versatile"})`);
         } else if (openaiApiKey) {
             // Use OpenAI or OpenAI-compatible API (Z.AI, etc.)
             this.model = new ChatOpenAI({
@@ -155,7 +154,6 @@ export class CodegenAgent implements IAgent {
                 },
                 temperature: 0.3,
             });
-            console.log(`🤖 CodegenAgent using OpenAI (${process.env.MODEL_NAME || "gpt-4"})`);
         } else {
             // Default to Groq without key (will fail at runtime if not set)
             this.model = new ChatGroq({
@@ -163,7 +161,6 @@ export class CodegenAgent implements IAgent {
                 model: "llama-3.3-70b-versatile",
                 temperature: 0.3,
             });
-            console.warn(`⚠️ CodegenAgent: No API key found. Set GROQ_API_KEY or OPENAI_API_KEY.`);
         }
     }
 
@@ -172,9 +169,7 @@ export class CodegenAgent implements IAgent {
     // ============================================
 
     async initialize(_config: AgentConfig): Promise<void> {
-        console.log(`🔧 [${this.name}] Initializing...`);
         this.isInitialized = true;
-        console.log(`✅ [${this.name}] Initialized`);
     }
 
     async execute(input: AgentInput): Promise<AgentOutput> {

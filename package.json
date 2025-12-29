@@ -17,6 +17,7 @@
     "dev": "nodemon",
     "orchestrator": "npx ts-node packages/orchestrator/src/index.ts",
     "orchestrator:dev": "nodemon --watch packages/orchestrator/src --exec 'npx ts-node packages/orchestrator/src/index.ts'",
+    "switch-models": "npx ts-node scripts/switch-models.ts",
     "type-check": "tsc --noEmit",
     "prepare": "husky install",
     "pre-commit": "lint-staged"
@@ -54,6 +55,7 @@
     "@langchain/groq": "^1.0.2",
     "@langchain/langgraph": "^1.0.4",
     "@langchain/openai": "^1.1.3",
+    "argon2": "^0.44.0",
     "dotenv": "^17.2.3",
     "redis": "^5.10.0"
   },

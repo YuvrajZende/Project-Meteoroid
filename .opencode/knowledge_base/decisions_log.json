@@ -1,0 +1,18 @@
+{
+  "decisions": [],
+  "decision_log": {
+    "format": {
+      "decision_id": "string",
+      "timestamp": "ISO8601",
+      "orchestrator": "agent_name",
+      "requesting_agent": "agent_name",
+      "decision_type": "conflict_resolution|task_allocation|error_recovery|knowledge_update",
+      "context": "object",
+      "decision": "string",
+      "rationale": "string",
+      "impact": "object",
+      "agents_notified": ["agent_names"]
+    }
+  },
+  "last_updated": "2025-12-01T00:00:00Z"
+}

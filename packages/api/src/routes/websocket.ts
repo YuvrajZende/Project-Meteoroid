@@ -5,8 +5,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { getAgentMonitor } from '../services/core-services.js';
-import { getAgentRegistry } from '../services/agent-registry.js';
+import { getAgentMonitor, getAgentRegistry } from '../services/index.js';
 
 // ============================================
 // TYPES

@@ -34,26 +34,26 @@ export function initSentry(config: SentryConfig = {}): void {
     const dsn = config.dsn || process.env.SENTRY_DSN;
 
     if (!dsn) {
-        console.log('[SENTRY] DSN not configured, error tracking disabled');
         return;
     }
 
-    const environment = config.environment || process.env.NODE_ENV || 'development';
-    const release = config.release || `loveable-api@${process.env.npm_package_version || '1.0.0'}`;
+    // Placeholder for Sentry initialization - variables would be used here
+    // when the actual Sentry SDK is integrated
+    const _environment = config.environment || process.env.NODE_ENV || 'development';
+    const _release = config.release || `loveable-api@${process.env.npm_package_version || '1.0.0'}`;
+    void _environment; // Suppress unused variable warning
+    void _release; // Suppress unused variable warning
 
-    // Placeholder for Sentry initialization
     // Sentry.init({
     //   dsn,
-    //   environment,
-    //   release,
+    //   environment: _environment,
+    //   release: _release,
     //   tracesSampleRate: config.tracesSampleRate ?? 0.1,
     //   profilesSampleRate: config.profilesSampleRate ?? 0.1,
     //   integrations: [
     //     new Sentry.Integrations.Http({ tracing: true }),
     //   ],
     // });
-
-    console.log(`[SENTRY] Initialized: ${environment} (${release})`);
 }
 
 /**
