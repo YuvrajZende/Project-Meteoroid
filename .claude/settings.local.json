@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(solution-architect:brainstorm)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(wc:*)",
+      "Bash(npm audit:*)"
+    ]
+  }
+}

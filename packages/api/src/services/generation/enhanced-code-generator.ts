@@ -425,7 +425,14 @@ export class EnhancedCodeGenerator {
         switch (request.language) {
             case 'python':
                 files.push(...this.generatePythonScaffold(request, framework));
-                dependencies.push('fastapi', 'uvicorn', 'pydantic', 'python-dotenv');
+                // Framework-aware dependencies
+                if (framework === 'django') {
+                    dependencies.push('Django', 'djangorestframework', 'django-cors-headers', 'python-dotenv');
+                } else if (framework === 'flask') {
+                    dependencies.push('Flask', 'Flask-CORS', 'Flask-SQLAlchemy', 'python-dotenv');
+                } else {
+                    dependencies.push('fastapi', 'uvicorn', 'pydantic', 'python-dotenv');
+                }
                 break;
             case 'go':
                 files.push(...this.generateGoScaffold(request, framework));
@@ -448,7 +455,23 @@ export class EnhancedCodeGenerator {
     // PYTHON SCAFFOLD
     // ============================================
 
-    private generatePythonScaffold(request: EnhancedCodeGenRequest, _framework: SupportedFramework): GeneratedFile[] {
+    private generatePythonScaffold(request: EnhancedCodeGenRequest, framework: SupportedFramework): GeneratedFile[] {
+        // Route to the appropriate framework-specific scaffold
+        switch (framework) {
+            case 'django':
+                return this.generateDjangoScaffold(request);
+            case 'flask':
+                return this.generateFlaskScaffold(request);
+            case 'fastapi':
+            default:
+                return this.generateFastAPIScaffold(request);
+        }
+    }
+
+    /**
+     * Generate FastAPI scaffold
+     */
+    private generateFastAPIScaffold(request: EnhancedCodeGenRequest): GeneratedFile[] {
         const files: GeneratedFile[] = [];
 
         // requirements.txt
@@ -531,6 +554,345 @@ if __name__ == "__main__":
             content: `DATABASE_URL=postgresql://user:password@localhost:5432/db
 SECRET_KEY=your-secret-key-here
 CORS_ORIGINS=http://localhost:3000
+`,
+            type: 'config',
+            language: 'text',
+        });
+
+        return files;
+    }
+
+    /**
+     * Generate Django scaffold
+     */
+    private generateDjangoScaffold(request: EnhancedCodeGenRequest): GeneratedFile[] {
+        const files: GeneratedFile[] = [];
+        const projectSlug = request.projectName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+        // requirements.txt
+        files.push({
+            path: 'requirements.txt',
+            content: `Django>=4.2.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+python-dotenv>=1.0.0
+psycopg2-binary>=2.9.0
+dj-database-url>=2.1.0
+gunicorn>=21.0.0
+pydantic>=2.5.0
+redis>=5.0.0
+`,
+            type: 'config',
+            language: 'text',
+        });
+
+        // manage.py
+        files.push({
+            path: 'manage.py',
+            content: `#!/usr/bin/env python
+"""Django's command-line utility for administrative tasks."""
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
+`,
+            type: 'code',
+            language: 'python',
+        });
+
+        // config/settings.py
+        files.push({
+            path: 'config/settings.py',
+            content: `"""
+Django settings for ${request.projectName}
+"""
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+import dj_database_url
+
+load_dotenv()
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# Application definition
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',
+    '${projectSlug}',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'config.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'config.wsgi.application'
+
+# Database
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3')
+    )
+}
+
+# Password validation
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
+`,
+            type: 'config',
+            language: 'python',
+        });
+
+        // config/urls.py
+        files.push({
+            path: 'config/urls.py',
+            content: `"""
+URL configuration for ${request.projectName}
+"""
+
+from django.contrib import admin
+from django.urls import path, include
+from django.http import JsonResponse
+
+
+def health_check(request):
+    return JsonResponse({"status": "ok", "message": "Server is running"})
+
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('health/', health_check, name='health'),
+    # Add your app URLs here
+    # path('api/v1/', include('${projectSlug}.urls')),
+]
+`,
+            type: 'code',
+            language: 'python',
+        });
+
+        // config/wsgi.py
+        files.push({
+            path: 'config/wsgi.py',
+            content: `"""
+WSGI config for ${request.projectName}
+"""
+
+import os
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+application = get_wsgi_application()
+`,
+            type: 'code',
+            language: 'python',
+        });
+
+        // config/__init__.py
+        files.push({
+            path: 'config/__init__.py',
+            content: '# Config package',
+            type: 'code',
+            language: 'python',
+        });
+
+        // App __init__.py
+        files.push({
+            path: `${projectSlug}/__init__.py`,
+            content: '# App package',
+            type: 'code',
+            language: 'python',
+        });
+
+        // App apps.py
+        files.push({
+            path: `${projectSlug}/apps.py`,
+            content: `from django.apps import AppConfig
+
+
+class ${request.projectName.replace(/[^a-zA-Z0-9]/g, '')}Config(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = '${projectSlug}'
+`,
+            type: 'code',
+            language: 'python',
+        });
+
+        // .env.example
+        files.push({
+            path: '.env.example',
+            content: `DEBUG=True
+SECRET_KEY=your-secret-key-here
+DATABASE_URL=postgresql://user:password@localhost:5432/db
+ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ORIGINS=http://localhost:3000
+`,
+            type: 'config',
+            language: 'text',
+        });
+
+        return files;
+    }
+
+    /**
+     * Generate Flask scaffold
+     */
+    private generateFlaskScaffold(request: EnhancedCodeGenRequest): GeneratedFile[] {
+        const files: GeneratedFile[] = [];
+
+        // requirements.txt
+        files.push({
+            path: 'requirements.txt',
+            content: `Flask>=3.0.0
+Flask-CORS>=4.0.0
+Flask-SQLAlchemy>=3.1.0
+Flask-Migrate>=4.0.0
+python-dotenv>=1.0.0
+gunicorn>=21.0.0
+psycopg2-binary>=2.9.0
+`,
+            type: 'config',
+            language: 'text',
+        });
+
+        // app.py
+        files.push({
+            path: 'app.py',
+            content: `"""
+${request.projectName} - Flask Application
+${request.description}
+"""
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
+# Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "ok", "message": "Server is running"})
+
+
+@app.route('/')
+def index():
+    return jsonify({"message": "Welcome to ${request.projectName}"})
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+`,
+            type: 'code',
+            language: 'python',
+        });
+
+        // .env.example
+        files.push({
+            path: '.env.example',
+            content: `SECRET_KEY=your-secret-key-here
+DATABASE_URL=postgresql://user:password@localhost:5432/db
+PORT=5000
 `,
             type: 'config',
             language: 'text',

@@ -33,5 +33,12 @@ export {
     type ModelConfig,
 } from './model-registry.js';
 
+// Service File Generator (auto-generates missing service files)
+export {
+    ServiceFileGenerator,
+    getServiceFileGenerator,
+    createServiceFileGenerator,
+} from './service-file-generator.js';
+
 // Service Registry (third-party integrations)
 export * from '../service-registry/index.js';

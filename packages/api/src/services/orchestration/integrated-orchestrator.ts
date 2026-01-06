@@ -945,9 +945,19 @@ IMPORTANT: You are generating code for a specific system described above.
                     return type as 'code' | 'config' | 'doc' | undefined;
                 };
 
+                // Detect project language for path handling
+                const projectLanguage = input.context?.language?.toLowerCase() || 'typescript';
+                const isPythonProject = projectLanguage === 'python';
+                const isGoProject = projectLanguage === 'go';
+                const isRustProject = projectLanguage === 'rust';
+                const isJavaProject = projectLanguage === 'java';
+
+                // For Python/Go/Rust projects, don't add src/ prefix as they have different conventions
+                const shouldAddSrcPrefix = !isPythonProject && !isGoProject;
+
                 let filesToWrite = [
                     ...processedOutput.files.map(f => ({
-                        path: f.path.startsWith('src/') ? f.path : `src/${f.path}`,
+                        path: shouldAddSrcPrefix && !f.path.startsWith('src/') ? `src/${f.path}` : f.path,
                         content: f.content,
                         type: mapFileType(f.type),
                     })),
@@ -1038,13 +1048,17 @@ IMPORTANT: You are generating code for a specific system described above.
                 // Analyze the project for dependencies
                 const dependencyAnalysis = this.dependencyRegistry.analyzeProject(fileMap);
 
-                // Find any existing AI-generated package.json
-                const existingPkgIndex = filesToWrite.findIndex(f =>
-                    f.path === 'package.json' || f.path === 'src/package.json'
-                );
-                const existingPkgJson = existingPkgIndex >= 0 ? filesToWrite[existingPkgIndex].content : null;
+                // Only generate package.json for TypeScript/JavaScript projects
+                // Python uses requirements.txt, Go uses go.mod, Rust uses Cargo.toml, Java uses pom.xml/build.gradle
+                const isNodeProject = !isPythonProject && !isGoProject && !isRustProject && !isJavaProject;
 
-                if (dependencyAnalysis.detected.length > 0 || existingPkgJson) {
+                if (isNodeProject && (dependencyAnalysis.detected.length > 0 || filesToWrite.some(f => f.path.includes('package.json')))) {
+                    // Find any existing AI-generated package.json
+                    const existingPkgIndex = filesToWrite.findIndex(f =>
+                        f.path === 'package.json' || f.path === 'src/package.json'
+                    );
+                    const existingPkgJson = existingPkgIndex >= 0 ? filesToWrite[existingPkgIndex].content : null;
+
                     addStep('finalize', `📦 Detected ${dependencyAnalysis.detected.length} dependencies`, {
                         dependencies: dependencyAnalysis.detected,
                         missing: dependencyAnalysis.missing,
@@ -1091,6 +1105,11 @@ IMPORTANT: You are generating code for a specific system described above.
                     } catch {
                         console.log(`[DEPENDENCY-REGISTRY] package.json updated`);
                     }
+                } else if (!isNodeProject) {
+                    console.log(`[DEPENDENCY-REGISTRY] Skipping package.json for ${projectLanguage} project`);
+                    addStep('finalize', `📦 Skipped package.json (${projectLanguage} uses different dependency system)`, {
+                        language: projectLanguage,
+                    });
                 }
 
                 // ============================================

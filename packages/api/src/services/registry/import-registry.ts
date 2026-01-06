@@ -253,7 +253,7 @@ export class ImportRegistry {
      * e.g., import { router } from './auth' and import { router } from './tasks'
      * becomes: import { router as authRouter } from './auth'
      */
-    fixDuplicateNamedImports(code: string, filePath: string): { code: string; fixed: number } {
+    fixDuplicateNamedImports(code: string, _filePath: string): { code: string; fixed: number } {
         const lines = code.split('\n');
         const importLines: { index: number; line: string; items: string[]; module: string }[] = [];
         const namedImportPattern = /^import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/;
@@ -312,15 +312,8 @@ export class ImportRegistry {
                     fixedLines[imp.index] = newLine;
                     fixedCount++;
 
-                    // Also replace usages in the rest of the code
-                    // This is a simple replacement - may need more sophisticated AST parsing
-                    for (let i = 0; i < fixedLines.length; i++) {
-                        if (i === imp.index) continue; // Skip the import line itself
-                        // Only replace whole word usages
-                        const regex = new RegExp(`\\b${name}\\b`, 'g');
-                        // Check if this line uses the import from this specific module
-                        // This is a heuristic - in a real implementation we'd use AST
-                    }
+                    // Note: Replacing usages in code would require AST parsing
+                    // For now, we just fix the import statements
                 }
             }
         }

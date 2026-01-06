@@ -17,6 +17,7 @@
 
 import { getDependencyRegistry, type DependencyRegistry } from '../registry/dependency-registry.js';
 import { getImportRegistry, type ImportRegistry } from '../registry/import-registry.js';
+import { getServiceFileGenerator, type ServiceFileGenerator } from '../registry/service-file-generator.js';
 
 export interface GeneratedFile {
     path: string;
@@ -56,10 +57,12 @@ export class CodePostProcessor {
     // Phase 26: Service instances
     private dependencyRegistry: DependencyRegistry;
     private importRegistry: ImportRegistry;
+    private serviceFileGenerator: ServiceFileGenerator;
 
     constructor() {
         this.dependencyRegistry = getDependencyRegistry();
         this.importRegistry = getImportRegistry();
+        this.serviceFileGenerator = getServiceFileGenerator();
     }
 
     /**
@@ -138,10 +141,12 @@ export class CodePostProcessor {
             detectedDependencies += deps.length;
         }
 
-        // TypeScript-specific processing (skip for other languages)
+        // Language-aware processing
         let entryPoint: GeneratedFile | undefined;
+        let packageJson: object | undefined;
 
         if (isTypeScriptProject) {
+            // TypeScript/JavaScript processing
             // Phase 26: Deduplicate imports in each file using ImportRegistry
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -176,21 +181,93 @@ export class CodePostProcessor {
                     warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
                 }
             }
+
+            // Generate package.json for TypeScript/JavaScript projects
+            packageJson = this.dependencyRegistry.generatePackageJson(projectName);
+
+        } else if (projectLanguage === 'python') {
+            // Python-specific processing
+            console.log(`[CODE-POSTPROCESSOR] Processing Python project`);
+
+            // Validate Python syntax for all .py files
+            for (const file of files) {
+                if (file.path.endsWith('.py')) {
+                    const syntaxErrors = this.validatePythonSyntax(file.content);
+                    if (syntaxErrors.length > 0) {
+                        warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                    }
+                }
+            }
+
+            // ORM Consistency Check - detect mixed Django ORM and SQLAlchemy
+            const ormCheck = this.validateORMConsistency(files);
+            if (ormCheck.hasMixedORM) {
+                warnings.push(`⚠️ Mixed ORM detected: ${ormCheck.message}`);
+                console.log(`[CODE-POSTPROCESSOR] WARNING: ${ormCheck.message}`);
+            }
+
+            // Fix Python imports across files
+            const pythonImportResult = this.fixPythonImportsAcrossFiles(files);
+            files = pythonImportResult.files;
+            fixedImports = pythonImportResult.fixedCount;
+            warnings.push(...pythonImportResult.warnings);
+
+            // Ensure __init__.py files exist in Python packages
+            files = this.ensurePythonInitFiles(files);
+
+            // Generate Python entry point
+            entryPoint = this.generatePythonEntryPoint(files, projectName);
+
+            // Don't generate package.json for Python - leave it undefined
+            packageJson = undefined;
+
+        } else if (projectLanguage === 'go') {
+            // Go processing
+            console.log(`[CODE-POSTPROCESSOR] Processing Go project`);
+            entryPoint = this.generateGoEntryPoint(files, projectName);
+            packageJson = undefined;
+
+        } else if (projectLanguage === 'rust') {
+            // Rust processing
+            console.log(`[CODE-POSTPROCESSOR] Processing Rust project`);
+            entryPoint = this.generateRustEntryPoint(files, projectName);
+            packageJson = undefined;
+
+        } else if (projectLanguage === 'java') {
+            // Java processing
+            console.log(`[CODE-POSTPROCESSOR] Processing Java project`);
+            entryPoint = this.generateJavaEntryPoint(files, projectName);
+            packageJson = undefined;
+
         } else {
-            console.log(`[CODE-POSTPROCESSOR] Skipping TypeScript-specific processing for ${projectLanguage} project`);
-            // Provide a dummy entry point for non-TS projects if the interface requires it
-            // Or, if generateEntryPoint can handle non-TS, call it here.
-            // For now, creating a minimal dummy entry point.
+            // Other languages - basic processing
+            console.log(`[CODE-POSTPROCESSOR] Processing ${projectLanguage} project (basic mode)`);
             entryPoint = {
                 path: 'README.md',
-                content: `# ${projectName}\n\nThis project was generated in ${projectLanguage}.`,
+                content: `# ${projectName}\n\nThis project was generated in ${projectLanguage}.\n\n## Getting Started\n\nPlease refer to the generated files for setup instructions.`,
                 language: 'markdown',
                 type: 'config',
             };
+            packageJson = undefined;
         }
 
-        // Phase 26: Generate package.json based on detected dependencies
-        const packageJson = this.dependencyRegistry.generatePackageJson(projectName);
+        // ============================================
+        // STEP: Generate missing service files
+        // ============================================
+        // This ensures that all imported services are actually created
+        console.log('[CODE-POSTPROCESSOR] Checking for missing service files...');
+
+        const serviceAnalysis = this.serviceFileGenerator.analyzeAndGenerate(files);
+
+        if (serviceAnalysis.generated.length > 0) {
+            console.log(`[CODE-POSTPROCESSOR] Generated ${serviceAnalysis.generated.length} missing service files`);
+            files.push(...serviceAnalysis.generated);
+
+            // Add warnings for generated services
+            for (const imp of serviceAnalysis.missing) {
+                warnings.push(`Generated stub for ${imp.serviceName} (imported in ${imp.sourceFile})`);
+            }
+        }
 
         console.log('[CODE-POSTPROCESSOR] Processing complete');
         console.log(`  Project Language: ${projectLanguage}`);
@@ -200,6 +277,7 @@ export class CodePostProcessor {
         console.log(`  Added exports: ${addedExports}`);
         console.log(`  Deduplicated imports: ${deduplicatedImports}`);
         console.log(`  Detected dependencies: ${detectedDependencies}`);
+        console.log(`  Generated services: ${serviceAnalysis.generated.length}`);
 
         return {
             success: errors.length === 0,
@@ -379,11 +457,24 @@ export class CodePostProcessor {
         if (foundFiles.length > 0) {
             for (let i = 0; i < foundFiles.length; i++) {
                 const startIndex = foundFiles[i].startIndex;
-                const endIndex = i < foundFiles.length - 1
-                    ? codeBlock.lastIndexOf('\n', foundFiles[i + 1].startIndex - 50) // Go back a bit to not include the next marker
-                    : codeBlock.length;
+                let endIndex: number;
 
-                const content = codeBlock.substring(startIndex, endIndex).trim();
+                if (i < foundFiles.length - 1) {
+                    // Find the actual start of the next file marker, not just go back 50 chars
+                    const nextMarkerStart = foundFiles[i + 1].startIndex - foundFiles[i + 1].path.length - 20;
+                    // Find the last newline before the next marker
+                    const lastNewline = codeBlock.lastIndexOf('\n', nextMarkerStart);
+                    endIndex = lastNewline > startIndex ? lastNewline : nextMarkerStart;
+                } else {
+                    endIndex = codeBlock.length;
+                }
+
+                let content = codeBlock.substring(startIndex, endIndex).trim();
+
+                // Ensure balanced braces for code files
+                if (this.isCodeFile(foundFiles[i].path)) {
+                    content = this.ensureBalancedBraces(content);
+                }
 
                 if (content.length > 10) { // Only add if there's meaningful content
                     files.push({
@@ -681,7 +772,6 @@ export class CodePostProcessor {
         }
 
         // Import routes - GENERATE UNIQUE ALIASES to avoid conflicts
-        const routeNameCounts = new Map<string, number>();
         const routeAliases: string[] = []; // Track actual alias names for registration
 
         for (const route of routes) {
@@ -1025,6 +1115,613 @@ export { app${usesPrisma ? ', prisma' : ''} };
         }
 
         return true;
+    }
+
+    // ============================================
+    // MULTI-LANGUAGE HELPER METHODS
+    // ============================================
+
+    /**
+     * Check if a file is a code file that needs brace balancing
+     */
+    private isCodeFile(path: string): boolean {
+        const codeExtensions = ['.ts', '.tsx', '.js', '.jsx', '.java', '.cs', '.go', '.rs', '.py', '.rb', '.php'];
+        return codeExtensions.some(ext => path.endsWith(ext));
+    }
+
+    /**
+     * Ensure balanced braces in code content
+     */
+    private ensureBalancedBraces(content: string): string {
+        const openBraces = (content.match(/{/g) || []).length;
+        const closeBraces = (content.match(/}/g) || []).length;
+
+        let result = content;
+
+        // Add missing closing braces
+        if (openBraces > closeBraces) {
+            const diff = openBraces - closeBraces;
+            result = result.trimEnd() + '\n' + '}'.repeat(diff);
+        }
+
+        return result;
+    }
+
+    /**
+     * Validate Python syntax (basic checks)
+     */
+    private validatePythonSyntax(content: string): string[] {
+        const errors: string[] = [];
+
+        // Check for JavaScript-style comments
+        if (content.match(/^\s*\/\//m)) {
+            errors.push('Contains JavaScript-style comments (//)');
+        }
+
+        // Check for unbalanced parentheses
+        const openParens = (content.match(/\(/g) || []).length;
+        const closeParens = (content.match(/\)/g) || []).length;
+        if (openParens !== closeParens) {
+            errors.push(`Unbalanced parentheses: ${openParens} open, ${closeParens} close`);
+        }
+
+        // Check for unbalanced brackets
+        const openBrackets = (content.match(/\[/g) || []).length;
+        const closeBrackets = (content.match(/\]/g) || []).length;
+        if (openBrackets !== closeBrackets) {
+            errors.push(`Unbalanced brackets: ${openBrackets} open, ${closeBrackets} close`);
+        }
+
+        // Check for markdown code block markers
+        if (content.includes('```')) {
+            errors.push('Contains markdown code block markers');
+        }
+
+        // Check for var/let/const (JavaScript keywords in Python)
+        if (content.match(/\b(var|let|const)\s+\w+\s*=/)) {
+            errors.push('Contains JavaScript variable declarations');
+        }
+
+        return errors;
+    }
+
+    /**
+     * Fix Python imports across files
+     */
+    private fixPythonImportsAcrossFiles(files: GeneratedFile[]): {
+        files: GeneratedFile[];
+        fixedCount: number;
+        warnings: string[];
+    } {
+        const warnings: string[] = [];
+        let fixedCount = 0;
+
+        // Build module map
+        const moduleMap = new Map<string, string>();
+        for (const file of files) {
+            if (file.path.endsWith('.py')) {
+                // Convert file path to module path
+                // e.g., 'src/services/auth_service.py' -> 'services.auth_service'
+                const modulePath = file.path
+                    .replace(/^src\//, '')
+                    .replace(/\.py$/, '')
+                    .replace(/\//g, '.');
+                moduleMap.set(modulePath, file.path);
+            }
+        }
+
+        // Check each file's imports
+        for (const file of files) {
+            if (!file.path.endsWith('.py')) continue;
+
+            const importPattern = /^(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))/gm;
+            let match;
+
+            while ((match = importPattern.exec(file.content)) !== null) {
+                const importedModule = match[1] || match[2];
+
+                // Skip standard library and third-party imports
+                if (this.isPythonStandardOrThirdParty(importedModule)) {
+                    continue;
+                }
+
+                // Check if module exists
+                if (!moduleMap.has(importedModule) && !moduleMap.has(importedModule.split('.')[0])) {
+                    warnings.push(`${file.path}: Import '${importedModule}' may not exist in generated files`);
+                }
+            }
+        }
+
+        return { files, fixedCount, warnings };
+    }
+
+    /**
+     * Check if a Python import is from standard library or known third-party
+     */
+    private isPythonStandardOrThirdParty(moduleName: string): boolean {
+        const standardModules = [
+            'os', 'sys', 'json', 'typing', 'datetime', 'pathlib', 'logging', 'asyncio',
+            're', 'math', 'random', 'collections', 'itertools', 'functools', 'uuid',
+            'hashlib', 'base64', 'time', 'enum', 'abc', 'dataclasses', 'contextlib',
+        ];
+
+        const thirdPartyPrefixes = [
+            'django', 'flask', 'fastapi', 'sqlalchemy', 'pydantic', 'starlette',
+            'rest_framework', 'celery', 'redis', 'pymongo', 'boto3', 'requests',
+            'aiohttp', 'uvicorn', 'gunicorn', 'pytest', 'numpy', 'pandas',
+        ];
+
+        const firstPart = moduleName.split('.')[0];
+        return standardModules.includes(firstPart) ||
+            thirdPartyPrefixes.some(prefix => firstPart.startsWith(prefix));
+    }
+
+    /**
+     * Validate ORM consistency - detect mixed Django ORM and SQLAlchemy
+     */
+    private validateORMConsistency(files: GeneratedFile[]): { hasMixedORM: boolean; message: string } {
+        let hasDjangoORM = false;
+        let hasSQLAlchemy = false;
+        const djangoFiles: string[] = [];
+        const sqlalchemyFiles: string[] = [];
+
+        for (const file of files) {
+            if (!file.path.endsWith('.py')) continue;
+
+            // Detect Django ORM
+            const djangoPatterns = [
+                /from django\.db import/,
+                /from django\.db\.models import/,
+                /models\.Model/,
+                /models\.CharField/,
+                /models\.IntegerField/,
+                /models\.ForeignKey/,
+                /AbstractBaseUser/,
+                /PermissionsMixin/,
+            ];
+
+            // Detect SQLAlchemy
+            const sqlalchemyPatterns = [
+                /from sqlalchemy/,
+                /import sqlalchemy/,
+                /declarative_base/,
+                /Column\(/,
+                /relationship\(/,
+                /ForeignKey\(/,
+                /create_engine/,
+                /Session\(/,
+            ];
+
+            const hasDjango = djangoPatterns.some(p => p.test(file.content));
+            const hasSQLAlch = sqlalchemyPatterns.some(p => p.test(file.content));
+
+            if (hasDjango) {
+                hasDjangoORM = true;
+                djangoFiles.push(file.path);
+            }
+            if (hasSQLAlch) {
+                hasSQLAlchemy = true;
+                sqlalchemyFiles.push(file.path);
+            }
+        }
+
+        if (hasDjangoORM && hasSQLAlchemy) {
+            return {
+                hasMixedORM: true,
+                message: `Project uses both Django ORM (${djangoFiles.slice(0, 2).join(', ')}) and SQLAlchemy (${sqlalchemyFiles.slice(0, 2).join(', ')}). Consider using one ORM consistently.`,
+            };
+        }
+
+        return { hasMixedORM: false, message: '' };
+    }
+
+    /**
+     * Ensure Python packages have __init__.py files
+     */
+    private ensurePythonInitFiles(files: GeneratedFile[]): GeneratedFile[] {
+        const directories = new Set<string>();
+
+        // Collect all directories that contain .py files
+        for (const file of files) {
+            if (file.path.endsWith('.py')) {
+                const parts = file.path.split('/');
+                parts.pop(); // Remove the filename
+
+                // Add all parent directories
+                for (let i = 1; i <= parts.length; i++) {
+                    directories.add(parts.slice(0, i).join('/'));
+                }
+            }
+        }
+
+        // Add __init__.py for each directory if missing
+        for (const dir of directories) {
+            const initPath = `${dir}/__init__.py`;
+            const exists = files.some(f => f.path === initPath);
+
+            if (!exists && dir !== '' && !dir.startsWith('.')) {
+                files.push({
+                    path: initPath,
+                    content: `# ${dir.split('/').pop()} package\n`,
+                    language: 'python',
+                    type: 'code',
+                });
+            }
+        }
+
+        return files;
+    }
+
+    /**
+     * Generate Python entry point
+     */
+    private generatePythonEntryPoint(files: GeneratedFile[], projectName: string): GeneratedFile {
+        // Detect framework
+        const isDjango = files.some(f =>
+            f.content.includes('django') ||
+            f.content.includes('DJANGO_SETTINGS_MODULE')
+        );
+        const isFastAPI = files.some(f =>
+            f.content.includes('from fastapi') ||
+            f.content.includes('FastAPI(')
+        );
+        const isFlask = files.some(f =>
+            f.content.includes('from flask') ||
+            f.content.includes('Flask(')
+        );
+
+        if (isDjango) {
+            return this.generateDjangoEntryPoint(files, projectName);
+        } else if (isFastAPI) {
+            return this.generateFastAPIEntryPoint(files, projectName);
+        } else if (isFlask) {
+            return this.generateFlaskEntryPoint(files, projectName);
+        }
+
+        // Default to FastAPI style
+        return this.generateFastAPIEntryPoint(files, projectName);
+    }
+
+    /**
+     * Generate Django entry point (manage.py)
+     */
+    private generateDjangoEntryPoint(files: GeneratedFile[], projectName: string): GeneratedFile {
+        const settingsModule = this.findDjangoSettingsModule(files) || 'config.settings';
+
+        const content = `#!/usr/bin/env python
+"""
+${projectName} - Django Management Script
+Generated by Loveable Backend Orchestrator
+"""
+
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', '${settingsModule}')
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
+`;
+
+        return {
+            path: 'manage.py',
+            content,
+            language: 'python',
+            type: 'code',
+        };
+    }
+
+    /**
+     * Find Django settings module from generated files
+     */
+    private findDjangoSettingsModule(files: GeneratedFile[]): string | null {
+        for (const file of files) {
+            if (file.path.endsWith('settings.py')) {
+                // Convert path to module
+                return file.path
+                    .replace(/^src\//, '')
+                    .replace(/\.py$/, '')
+                    .replace(/\//g, '.');
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Generate FastAPI entry point
+     */
+    private generateFastAPIEntryPoint(files: GeneratedFile[], projectName: string): GeneratedFile {
+        const routerImports: string[] = [];
+        const routerRegistrations: string[] = [];
+
+        // Find router files
+        for (const file of files) {
+            if (file.path.includes('/routes/') || file.path.includes('/routers/') || file.path.includes('_routes.py')) {
+                const modulePath = file.path
+                    .replace(/^src\//, '')
+                    .replace(/\.py$/, '')
+                    .replace(/\//g, '.');
+                const routerName = file.path.split('/').pop()?.replace('.py', '') || 'router';
+
+                routerImports.push(`from ${modulePath} import router as ${routerName}_router`);
+                routerRegistrations.push(`app.include_router(${routerName}_router, prefix="/api/v1")`);
+            }
+        }
+
+        const content = `"""
+${projectName} - FastAPI Application
+Generated by Loveable Backend Orchestrator
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
+# Create FastAPI app
+app = FastAPI(
+    title="${projectName}",
+    description="Generated API",
+    version="1.0.0",
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Import and register routers
+${routerImports.length > 0 ? routerImports.join('\n') : '# Add your router imports here'}
+
+${routerRegistrations.length > 0 ? routerRegistrations.join('\n') : '# Add your router registrations here'}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "ok", "message": "Server is running"}
+
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "Welcome to ${projectName}"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+`;
+
+        return {
+            path: 'main.py',
+            content,
+            language: 'python',
+            type: 'code',
+        };
+    }
+
+    /**
+     * Generate Flask entry point
+     */
+    private generateFlaskEntryPoint(_files: GeneratedFile[], projectName: string): GeneratedFile {
+        const content = `"""
+${projectName} - Flask Application
+Generated by Loveable Backend Orchestrator
+"""
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
+# Create Flask app
+app = Flask(__name__)
+CORS(app)
+
+# Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "ok", "message": "Server is running"})
+
+
+@app.route('/')
+def index():
+    """Root endpoint"""
+    return jsonify({"message": "Welcome to ${projectName}"})
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True)
+`;
+
+        return {
+            path: 'app.py',
+            content,
+            language: 'python',
+            type: 'code',
+        };
+    }
+
+    /**
+     * Generate Go entry point
+     */
+    private generateGoEntryPoint(_files: GeneratedFile[], projectName: string): GeneratedFile {
+        const content = `// ${projectName} - Go Application
+// Generated by Loveable Backend Orchestrator
+
+package main
+
+import (
+    "log"
+    "os"
+
+    "github.com/gin-gonic/gin"
+    "github.com/joho/godotenv"
+)
+
+func main() {
+    // Load .env file
+    if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found")
+    }
+
+    // Set Gin mode
+    if os.Getenv("GIN_MODE") == "release" {
+        gin.SetMode(gin.ReleaseMode)
+    }
+
+    r := gin.Default()
+
+    // Health check
+    r.GET("/health", func(c *gin.Context) {
+        c.JSON(200, gin.H{"status": "ok"})
+    })
+
+    // Welcome endpoint
+    r.GET("/", func(c *gin.Context) {
+        c.JSON(200, gin.H{"message": "Welcome to ${projectName}"})
+    })
+
+    // Start server
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+    log.Printf("Server starting on port %s", port)
+    if err := r.Run(":" + port); err != nil {
+        log.Fatal(err)
+    }
+}
+`;
+
+        return {
+            path: 'cmd/main.go',
+            content,
+            language: 'go',
+            type: 'code',
+        };
+    }
+
+    /**
+     * Generate Rust entry point
+     */
+    private generateRustEntryPoint(_files: GeneratedFile[], projectName: string): GeneratedFile {
+        const content = `//! ${projectName} - Rust Application
+//! Generated by Loveable Backend Orchestrator
+
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct HealthResponse {
+    status: String,
+}
+
+#[derive(Serialize)]
+struct MessageResponse {
+    message: String,
+}
+
+async fn health() -> impl Responder {
+    HttpResponse::Ok().json(HealthResponse {
+        status: "ok".to_string(),
+    })
+}
+
+async fn index() -> impl Responder {
+    HttpResponse::Ok().json(MessageResponse {
+        message: format!("Welcome to ${projectName}"),
+    })
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    dotenv::dotenv().ok();
+    env_logger::init();
+
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+
+    println!("Starting server at http://{}", addr);
+
+    HttpServer::new(|| {
+        App::new()
+            .route("/health", web::get().to(health))
+            .route("/", web::get().to(index))
+    })
+    .bind(&addr)?
+    .run()
+    .await
+}
+`;
+
+        return {
+            path: 'src/main.rs',
+            content,
+            language: 'rust',
+            type: 'code',
+        };
+    }
+
+    /**
+     * Generate Java entry point
+     */
+    private generateJavaEntryPoint(_files: GeneratedFile[], projectName: string): GeneratedFile {
+        const packageName = projectName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const content = `package com.${packageName};
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+/**
+ * ${projectName} - Spring Boot Application
+ * Generated by Loveable Backend Orchestrator
+ */
+@SpringBootApplication
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+`;
+
+        return {
+            path: `src/main/java/com/${packageName}/Application.java`,
+            content,
+            language: 'java',
+            type: 'code',
+        };
     }
 }
 
