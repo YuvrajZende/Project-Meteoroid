@@ -4,7 +4,7 @@
  * Note: WebSocket support requires @fastify/websocket plugin
  */
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getAgentMonitor, getAgentRegistry } from '../services/index.js';
 
 // ============================================
@@ -13,7 +13,7 @@ import { getAgentMonitor, getAgentRegistry } from '../services/index.js';
 
 interface SSEClient {
     id: string;
-    reply: any;
+    reply: FastifyReply;
     channels: Set<string>;
     keepAlive: NodeJS.Timeout;
 }
@@ -36,7 +36,7 @@ class SSEManager {
     /**
      * Add a new SSE client
      */
-    addClient(id: string, reply: any, channel: string): void {
+    addClient(id: string, reply: FastifyReply, channel: string): void {
         const keepAlive = setInterval(() => {
             try {
                 reply.raw.write(`: keepalive\n\n`);

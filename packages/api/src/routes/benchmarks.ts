@@ -4,8 +4,8 @@
  */
 
 import type { FastifyInstance } from 'fastify';
-import { getBenchmarkingService } from '../services/infrastructure/benchmarking.js';
-import type { BenchmarkScenario } from '../services/infrastructure/benchmarking.js';
+import { getBenchmarkingService } from '../infrastructure/benchmarking.js';
+import type { BenchmarkScenario } from '../infrastructure/benchmarking.js';
 
 /**
  * Register benchmark routes

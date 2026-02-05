@@ -9,9 +9,9 @@
  */
 
 
-import { getAIIntentAnalyzer } from '../services/analysis/ai-intent-analyzer.js';
-import { getVectorLearningSystem } from '../services/learning/vector-learning-system.js';
-import { getSupabaseAdmin } from '../services/infrastructure/database-client.js';
+import { getAIIntentAnalyzer } from '../domain/services/analysis/ai-intent-analyzer.js';
+import { getVectorLearningSystem } from '../domain/services/learning/vector-learning-system.js';
+import { getSupabaseAdmin } from '../infrastructure/database/database-client.js';
 
 async function testAIIntentAnalyzer() {
     console.log('\n🧪 TEST 1: AI Intent Analyzer\n' + '='.repeat(50));
@@ -122,8 +122,8 @@ async function testSupabaseRPCFunctions() {
             console.log(`   ✅ match_knowledge_embeddings works! (returned ${knowledgeData?.length || 0} results)`);
         }
 
-    } catch (error: any) {
-        console.log(`   ❌ RPC test failed: ${error.message}`);
+    } catch (error: unknown) {
+        console.log(`   ❌ RPC test failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -157,8 +157,8 @@ async function testDatabaseTables() {
             } else {
                 console.log(`   ✅ ${table.name}: ${count || 0} rows (${table.description})`);
             }
-        } catch (error: any) {
-            console.log(`   ❌ ${table.name}: ${error.message}`);
+        } catch (error: unknown) {
+            console.log(`   ❌ ${table.name}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 }
@@ -178,9 +178,11 @@ async function runAllTests() {
         console.log('  ✅ ALL TESTS COMPLETE');
         console.log('='.repeat(70) + '\n');
 
-    } catch (error: any) {
-        console.error('\n❌ Test suite failed:', error.message);
-        console.error(error.stack);
+    } catch (error: unknown) {
+        console.error('\n❌ Test suite failed:', error instanceof Error ? error.message : String(error));
+        if (error instanceof Error) {
+            console.error(error.stack);
+        }
         process.exit(1);
     }
 }

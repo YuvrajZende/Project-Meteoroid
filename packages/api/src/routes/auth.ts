@@ -5,7 +5,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { getSupabaseClient, getSupabaseAdmin } from '../services/infrastructure/database-client.js';
+import { getSupabaseClient, getSupabaseAdmin } from '../infrastructure/database/database-client.js';
 
 // Supported OAuth providers
 type OAuthProvider = 'github' | 'google' | 'gitlab';
@@ -464,9 +464,18 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         // TODO: Get user from JWT and generate API key
         // const { key, record } = await apiKeysService.generate(userId, name, { scopes, expiresInDays });
 
-        return reply.status(401).send({
+        // Placeholder implementation that logs the operation
+        app.log.info({ name: validation.data.name }, 'API key generation requested (database integration pending)');
+
+        // Generate a placeholder API key for demonstration
+        const apiKeyPrefix = `lo_${Math.random().toString(36).substring(2, 8)}`;
+        const placeholderKey = `${apiKeyPrefix}${'_'.repeat(32)}`; // Placeholder format
+
+        return reply.status(501).send({
             success: false,
-            error: 'Authentication required',
+            error: 'API key management requires database integration',
+            message: 'API key generation will be available after database migration is complete',
+            note: 'Operation logged for development tracking',
         });
     });
 
@@ -511,8 +520,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         }
 
         // TODO: Get user's API keys
+        // Placeholder implementation that logs the operation
+        app.log.info('API key list requested (database integration pending)');
+
         return reply.send({
             keys: [],
+            note: 'API key listing will be available after database migration is complete',
         });
     });
 
@@ -553,11 +566,13 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         const { id } = request.params;
 
         // TODO: Revoke API key
-        // await apiKeysService.revoke(id, userId);
+        // Placeholder implementation that logs the operation
+        app.log.info({ apiKeyId: id }, 'API key revocation requested (database integration pending)');
 
         return reply.send({
             success: true,
-            message: `API key ${id} revoked successfully`,
+            message: `API key ${id} revoke request logged`,
+            note: 'API key revocation will be available after database migration is complete',
         });
     });
 

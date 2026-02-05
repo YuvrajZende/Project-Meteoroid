@@ -4,6 +4,7 @@
  */
 
 import type { FastifyRequest } from 'fastify';
+import { getSupabaseAdmin } from '../infrastructure/database/database-client.js';
 
 /**
  * Audit event types
@@ -231,6 +232,7 @@ export class AuditLogger {
 
     /**
      * Flush buffer to database
+     * Implements batch insert for audit logs to Supabase
      */
     async flush(): Promise<void> {
         if (this.buffer.length === 0) return;
@@ -238,11 +240,41 @@ export class AuditLogger {
         const entries = [...this.buffer];
         this.buffer = [];
 
-        // TODO: Batch insert to Supabase audit_logs table
-        // const { error } = await supabase.from('audit_logs').insert(entries);
+        try {
+            const supabase = getSupabaseAdmin();
 
-        if (process.env.NODE_ENV !== 'production') {
-            console.log(`📝 Flushed ${entries.length} audit logs`);
+            // Transform entries to match database schema
+            const dbEntries = entries.map(entry => ({
+                timestamp: entry.timestamp,
+                event_type: entry.eventType,
+                user_id: entry.userId || null,
+                resource_type: entry.resourceType || null,
+                resource_id: entry.resourceId || null,
+                action: entry.action,
+                ip_address: entry.ipAddress,
+                user_agent: entry.userAgent,
+                request_id: entry.requestId,
+                metadata: entry.metadata || null,
+                success: entry.success,
+                error_message: entry.errorMessage || null,
+            }));
+
+            // Batch insert to Supabase audit_logs table
+            const { error } = await supabase
+                .from('audit_logs')
+                .insert(dbEntries);
+
+            if (error) {
+                console.error('[AUDIT-LOGGER] Failed to insert audit logs:', error);
+                // Re-add failed entries to buffer for retry
+                this.buffer.unshift(...entries);
+            } else if (process.env.NODE_ENV !== 'production') {
+                console.log(`📝 Flushed ${entries.length} audit logs to database`);
+            }
+        } catch (error) {
+            console.error('[AUDIT-LOGGER] Failed to flush audit logs:', error);
+            // Re-add failed entries to buffer for retry
+            this.buffer.unshift(...entries);
         }
     }
 

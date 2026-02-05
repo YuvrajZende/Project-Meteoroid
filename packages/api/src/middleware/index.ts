@@ -70,3 +70,12 @@ export {
     clearIPBlockCache,
     type IPBlockConfig,
 } from './ip-blocking.js';
+
+// Phase 1: Dependency Injection
+export {
+    registerDIMiddleware,
+    getServiceFromRequest,
+    getRequestServices,
+    type RequestWithDI,
+    type DIMiddlewareOptions,
+} from './di-middleware.js';

@@ -7,7 +7,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
- * Verify webhook signature
+ * Verify webhook signature (HMAC-SHA256)
  */
 function verifyWebhookSignature(
     payload: string,
@@ -22,6 +22,46 @@ function verifyWebhookSignature(
         return timingSafeEqual(
             Buffer.from(signature),
             Buffer.from(expectedSignature)
+        );
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Verify Stripe webhook signature
+ * Stripe uses a different signature format: timestamp + signature
+ */
+function verifyStripeSignature(
+    payload: string,
+    signature: string,
+    secret: string
+): boolean {
+    try {
+        // Stripe signature format: t={timestamp},v1={signature}
+        const [t, v1] = signature.split(',');
+        if (!t || !v1) {
+            return false;
+        }
+
+        const timestamp = Number(t.replace('t=', ''));
+        const now = Math.floor(Date.now() / 1000);
+
+        // Reject timestamps older than 5 minutes
+        if (now - timestamp > 300) {
+            return false;
+        }
+
+        // Recreate signature
+        const payloadForSigning = `${t}.${payload}`;
+        const expectedSignature = createHmac('sha256', secret)
+            .update(payloadForSigning)
+            .digest('hex');
+
+        const providedSignature = v1.replace('v1=', '');
+        return timingSafeEqual(
+            Buffer.from(expectedSignature),
+            Buffer.from(providedSignature)
         );
     } catch {
         return false;
@@ -124,8 +164,16 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
             });
         }
 
-        // TODO: Verify Stripe signature using stripe library
-        // const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+        // Get raw body for signature verification
+        const rawBody = request.rawBody || JSON.stringify(request.body);
+
+        // Verify Stripe signature
+        if (!verifyStripeSignature(rawBody, signature, webhookSecret)) {
+            app.log.warn('Invalid Stripe webhook signature');
+            return reply.status(401).send({
+                error: 'Invalid signature',
+            });
+        }
 
         const payload = request.body as {
             type: string;

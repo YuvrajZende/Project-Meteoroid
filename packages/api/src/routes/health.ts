@@ -4,7 +4,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { checkSupabaseConnection, checkVectorStore } from '../services/index.js';
+import { checkVectorStore, checkDatabaseHealth } from '../infrastructure/database/database-client.js';
 import Redis from 'ioredis';
 import { getAgentRegistry } from '../services/index.js';
 
@@ -23,7 +23,12 @@ interface HealthResponse {
  */
 interface DeepHealthResponse extends HealthResponse {
     checks: {
-        database: {
+        convex: {
+            status: 'healthy' | 'unhealthy';
+            latency?: number;
+            error?: string;
+        };
+        supabase: {
             status: 'healthy' | 'unhealthy';
             latency?: number;
             error?: string;
@@ -122,7 +127,15 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
                         checks: {
                             type: 'object',
                             properties: {
-                                database: {
+                                convex: {
+                                    type: 'object',
+                                    properties: {
+                                        status: { type: 'string' },
+                                        latency: { type: 'number' },
+                                        error: { type: 'string' },
+                                    },
+                                },
+                                supabase: {
                                     type: 'object',
                                     properties: {
                                         status: { type: 'string' },
@@ -165,8 +178,8 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
         },
     }, async (_request: FastifyRequest, _reply: FastifyReply): Promise<DeepHealthResponse> => {
         // Run all health checks in parallel
-        const [databaseCheck, vectorStoreCheck, redisCheck, agentsCheck] = await Promise.all([
-            checkDatabase(),
+        const [dbHealth, vectorStoreCheck, redisCheck, agentsCheck] = await Promise.all([
+            checkDatabaseHealth(),
             checkVectorStoreHealth(),
             checkRedis(),
             checkAgents(),
@@ -174,13 +187,15 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
 
         // Determine overall status
         const allHealthy =
-            databaseCheck.status === 'healthy' &&
+            dbHealth.convex.connected &&
+            dbHealth.supabase.connected &&
             vectorStoreCheck.status === 'healthy' &&
             redisCheck.status === 'healthy' &&
             agentsCheck.status === 'healthy';
 
         const anyUnhealthy =
-            databaseCheck.status === 'unhealthy' ||
+            !dbHealth.convex.connected ||
+            !dbHealth.supabase.connected ||
             vectorStoreCheck.status === 'unhealthy' ||
             redisCheck.status === 'unhealthy' ||
             agentsCheck.status === 'unhealthy';
@@ -198,7 +213,16 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
             uptime: process.uptime(),
             version: '1.0.0',
             checks: {
-                database: databaseCheck,
+                convex: {
+                    status: dbHealth.convex.connected ? 'healthy' : 'unhealthy',
+                    latency: dbHealth.convex.latency,
+                    error: dbHealth.convex.error,
+                },
+                supabase: {
+                    status: dbHealth.supabase.connected ? 'healthy' : 'unhealthy',
+                    latency: dbHealth.supabase.latency,
+                    error: dbHealth.supabase.error,
+                },
                 vectorStore: vectorStoreCheck,
                 redis: redisCheck,
                 agents: agentsCheck,
@@ -268,18 +292,6 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
     });
 
     app.log.info('[ROUTES] Health routes registered: /health, /health/deep, /status');
-}
-
-/**
- * Check database connectivity
- */
-async function checkDatabase(): Promise<{ status: 'healthy' | 'unhealthy'; latency?: number; error?: string }> {
-    const result = await checkSupabaseConnection();
-    return {
-        status: result.connected ? 'healthy' : 'unhealthy',
-        latency: result.latency,
-        error: result.error,
-    };
 }
 
 /**

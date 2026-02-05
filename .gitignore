@@ -17,6 +17,27 @@ build/
 .next/
 out/
 
+# Compiled TypeScript files
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+!**/node_modules/**/*.js
+
+# Compiled files in src directories
+# CRITICAL: These should NEVER be in source directories - only in dist/
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
+# Windows null device file (accidentally created)
+nul
+
 # Environment files (NEVER commit these!)
 .env
 .env.local

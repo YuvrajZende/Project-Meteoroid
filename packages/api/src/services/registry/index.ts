@@ -40,5 +40,8 @@ export {
     createServiceFileGenerator,
 } from './service-file-generator.js';
 
-// Service Registry (third-party integrations)
-export * from '../service-registry/index.js';
+// Service Registry (third-party integrations - moved to infrastructure/api)
+export * from '../../infrastructure/api/service-registry/index.js';
+
+// Connection Manager (moved to infrastructure/api)
+export { ConnectionManager, getConnectionManager } from '../../infrastructure/api/connection-manager/index.js';

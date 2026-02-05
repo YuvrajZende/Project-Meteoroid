@@ -696,8 +696,8 @@ ${importCode}
 ${envVarsCode}
 
 export class ${className} {
-    private client: any;
-    private stripe: any;
+    private client: unknown;
+    private stripe: unknown;
     
     constructor() {
         ${initCode}

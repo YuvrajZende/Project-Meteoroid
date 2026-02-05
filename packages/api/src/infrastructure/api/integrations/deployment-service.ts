@@ -477,15 +477,164 @@ export class DeploymentService {
     // ============================================
 
     /**
-     * Deploy to Vercel (placeholder - to be implemented)
+     * Deploy to Vercel using the Vercel API
+     * Implements deployment to Vercel similar to Netlify integration
      */
     async deployToVercel(
-        _projectName: string,
-        _files: Array<{ path: string; content: string }>,
-        _options: { production?: boolean } = {}
+        projectName: string,
+        files: Array<{ path: string; content: string }>,
+        options: { production?: boolean } = {}
     ): Promise<DeploymentResult> {
-        // TODO: Implement Vercel deployment
-        throw new Error('Vercel deployment not yet implemented');
+        if (!this.config.vercelToken) {
+            throw new Error('Vercel token not configured');
+        }
+
+        console.log(`[DEPLOY] Deploying ${files.length} files to Vercel: ${projectName}`);
+
+        try {
+            // Step 1: Create or get project
+            const vercelProjectId = await this.getOrCreateVercelProject(projectName);
+
+            // Step 2: Create a deployment
+            const deployment = await this.createVercelDeployment(
+                vercelProjectId,
+                files,
+                options.production || false
+            );
+
+            return {
+                id: deployment.id,
+                siteId: vercelProjectId,
+                status: this.mapVercelStatus(deployment.status),
+                url: deployment.url || null,
+                previewUrl: deployment.url || null,
+                deployUrl: deployment.deployUrl || null,
+                adminUrl: `https://vercel.com/${this.config.vercelTeamId ? `${this.config.vercelTeamId}/` : ''}${projectName}`,
+                provider: 'vercel',
+                buildTime: deployment.buildTime,
+                createdAt: new Date(deployment.createdAt),
+                updatedAt: new Date(),
+            };
+        } catch (error) {
+            console.error('[DEPLOY] Vercel deployment failed:', error);
+            throw new Error(`Vercel deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Get or create a Vercel project
+     */
+    private async getOrCreateVercelProject(projectName: string): Promise<string> {
+        // Try to get existing project
+        const listResponse = await fetch('https://api.vercel.com/v8/projects', {
+            headers: {
+                'Authorization': `Bearer ${this.config.vercelToken}`,
+            },
+        });
+
+        if (listResponse.ok) {
+            const projects = await listResponse.json() as { projects: Array<{ id: string; name: string }> };
+            const existing = projects.projects.find(p => p.name === projectName);
+            if (existing) {
+                console.log(`[DEPLOY] Using existing Vercel project: ${existing.id}`);
+                return existing.id;
+            }
+        }
+
+        // Create new project
+        const createResponse = await fetch('https://api.vercel.com/v9/projects', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.config.vercelToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: projectName,
+                framework: 'other',
+            }),
+        });
+
+        if (!createResponse.ok) {
+            const error = await createResponse.text();
+            throw new Error(`Failed to create Vercel project: ${error}`);
+        }
+
+        const project = await createResponse.json() as { id: string };
+        console.log(`[DEPLOY] Created Vercel project: ${project.id}`);
+        return project.id;
+    }
+
+    /**
+     * Create a Vercel deployment
+     */
+    private async createVercelDeployment(
+        projectId: string,
+        files: Array<{ path: string; content: string }>,
+        production: boolean
+    ): Promise<{
+        id: string;
+        status: string;
+        url: string | null;
+        deployUrl: string | null;
+        createdAt: string;
+        buildTime?: number;
+    }> {
+        // Prepare files for Vercel deployment
+        const deploymentFiles = files.map(file => ({
+            file: file.path.replace(/^\//, ''),
+            data: file.content,
+        }));
+
+        const deployResponse = await fetch(
+            `https://api.vercel.com/v13/deployments?teamId=${this.config.vercelTeamId || ''}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.config.vercelToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: projectId,
+                    project: projectId,
+                    files: deploymentFiles,
+                    target: production ? 'production' : 'preview',
+                }),
+            }
+        );
+
+        if (!deployResponse.ok) {
+            const error = await deployResponse.text();
+            throw new Error(`Failed to create Vercel deployment: ${error}`);
+        }
+
+        const deployment = await deployResponse.json() as {
+            id: string;
+            status: string;
+            url: string | null;
+            deployUrl?: string;
+            createdAt: string;
+        };
+
+        console.log(`[DEPLOY] Vercel deployment created: ${deployment.id}`);
+        return {
+            ...deployment,
+            deployUrl: deployment.deployUrl || deployment.url,
+        };
+    }
+
+    /**
+     * Map Vercel status to our deployment status
+     */
+    private mapVercelStatus(vercelStatus: string): DeploymentStatus {
+        const statusMap: Record<string, DeploymentStatus> = {
+            'queued': 'pending',
+            'building': 'building',
+            'ready': 'ready',
+            'error': 'error',
+            'canceled': 'cancelled',
+            'failed': 'error',
+        };
+        return statusMap[vercelStatus] || 'pending';
     }
 
     // ============================================

@@ -6,8 +6,8 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getServiceRegistry } from '../../services/service-registry/index.js';
-import { ServiceCategory } from '../../services/service-registry/types.js';
+import { getServiceRegistry } from '../../infrastructure/api/service-registry/index.js';
+import { ServiceCategory } from '../../infrastructure/api/service-registry/types.js';
 
 interface SearchQuery {
     q?: string;

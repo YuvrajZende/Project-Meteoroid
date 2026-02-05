@@ -18,6 +18,149 @@ import {
 } from '../services/index.js';
 
 // ============================================
+// OAUTH STATE STORE (In-memory with expiration)
+// ============================================
+
+interface OAuthState {
+    state: string;
+    createdAt: number;
+    expiresAt: number;
+}
+
+const oauthStateStore = new Map<string, OAuthState>();
+const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// ============================================
+// IN-MEMORY SESSION STORE (Development Only)
+// ============================================
+
+interface UserSession {
+    userId: string;
+    accessToken: string;
+    tokenPreview: string;
+    provider: string;
+    createdAt: number;
+    expiresAt: number;
+    userInfo: {
+        id: string;
+        login: string;
+        avatarUrl?: string;
+    };
+}
+
+const sessionStore = new Map<string, UserSession>();
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Cleanup expired sessions every hour
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of sessionStore.entries()) {
+        if (now > value.expiresAt) {
+            sessionStore.delete(key);
+        }
+    }
+}, 60 * 60 * 1000);
+
+function storeUserSession(sessionId: string, session: UserSession): void {
+    sessionStore.set(sessionId, session);
+}
+
+function getUserSession(sessionId: string): UserSession | undefined {
+    const session = sessionStore.get(sessionId);
+    if (session && Date.now() > session.expiresAt) {
+        sessionStore.delete(sessionId);
+        return undefined;
+    }
+    return session;
+}
+
+function deleteUserSession(sessionId: string): void {
+    sessionStore.delete(sessionId);
+}
+
+/**
+ * Get all sessions for a user (by user ID)
+ */
+function getUserSessionsByUserId(userId: string): UserSession[] {
+    const sessions: UserSession[] = [];
+    const now = Date.now();
+
+    for (const session of sessionStore.values()) {
+        if (session.userId === userId && session.expiresAt > now) {
+            sessions.push(session);
+        }
+    }
+
+    return sessions;
+}
+
+/**
+ * Delete all sessions for a user
+ */
+function deleteUserSessionsByUserId(userId: string): number {
+    let count = 0;
+    const now = Date.now();
+
+    for (const [sessionId, session] of sessionStore.entries()) {
+        if (session.userId === userId) {
+            sessionStore.delete(sessionId);
+            count++;
+        }
+    }
+
+    return count;
+}
+
+/**
+ * Get session by user ID and provider
+ */
+function getUserSessionByProvider(userId: string, provider: string): UserSession | undefined {
+    const now = Date.now();
+
+    for (const session of sessionStore.values()) {
+        if (session.userId === userId && session.provider === provider && session.expiresAt > now) {
+            return session;
+        }
+    }
+
+    return undefined;
+}
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of oauthStateStore.entries()) {
+        if (now > value.expiresAt) {
+            oauthStateStore.delete(key);
+        }
+    }
+}, 5 * 60 * 1000);
+
+function storeOAuthState(state: string): void {
+    const now = Date.now();
+    oauthStateStore.set(state, {
+        state,
+        createdAt: now,
+        expiresAt: now + STATE_TTL_MS,
+    });
+}
+
+function verifyOAuthState(state: string): boolean {
+    const stored = oauthStateStore.get(state);
+    if (!stored) {
+        return false;
+    }
+
+    // Check if expired
+    if (Date.now() > stored.expiresAt) {
+        oauthStateStore.delete(state);
+        return false;
+    }
+
+    // Remove after successful verification
+    oauthStateStore.delete(state);
+    return true;
+}
+
+// ============================================
 // SCHEMAS
 // ============================================
 
@@ -172,14 +315,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Auto-deploy trigger failed');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'AUTO_DEPLOY_FAILED',
-                    message: error.message || 'Failed to trigger auto-deploy',
+                    message: error instanceof Error ? error.message : 'Failed to trigger auto-deploy',
                 },
             });
         }
@@ -212,14 +355,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to get deployment history');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'HISTORY_FAILED',
-                    message: error.message || 'Failed to get deployment history',
+                    message: error instanceof Error ? error.message : 'Failed to get deployment history',
                 },
             });
         }
@@ -324,7 +467,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Deployment failed');
 
             if (error.name === 'ZodError') {
@@ -342,7 +485,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 success: false,
                 error: {
                     code: 'DEPLOYMENT_FAILED',
-                    message: error.message || 'Deployment failed',
+                    message: error instanceof Error ? error.message : 'Deployment failed',
                 },
             });
         }
@@ -377,14 +520,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to list deployments');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'LIST_FAILED',
-                    message: error.message || 'Failed to list deployments',
+                    message: error instanceof Error ? error.message : 'Failed to list deployments',
                 },
             });
         }
@@ -433,14 +576,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to get preview');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'PREVIEW_FAILED',
-                    message: error.message || 'Failed to get preview URL',
+                    message: error instanceof Error ? error.message : 'Failed to get preview URL',
                 },
             });
         }
@@ -470,14 +613,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Rollback failed');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'ROLLBACK_FAILED',
-                    message: error.message || 'Rollback failed',
+                    message: error instanceof Error ? error.message : 'Rollback failed',
                 },
             });
         }
@@ -502,14 +645,14 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
                 message: 'Deployment site deleted',
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to delete site');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'DELETE_FAILED',
-                    message: error.message || 'Failed to delete site',
+                    message: error instanceof Error ? error.message : 'Failed to delete site',
                 },
             });
         }
@@ -543,8 +686,7 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
 
         // Generate state for CSRF protection
         const state = crypto.randomUUID();
-
-        // TODO: Store state in session/Redis for verification
+        storeOAuthState(state);
 
         const authUrl = githubService.getAuthorizationUrl(state);
 
@@ -579,7 +721,15 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                 });
             }
 
-            // TODO: Verify state matches stored state
+            if (!query.state || !verifyOAuthState(query.state)) {
+                return reply.status(400).send({
+                    success: false,
+                    error: {
+                        code: 'INVALID_STATE',
+                        message: 'Invalid or expired OAuth state',
+                    },
+                });
+            }
 
             // Exchange code for token
             const accessToken = await githubService.exchangeCodeForToken(query.code);
@@ -590,25 +740,54 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
             app.log.info({ userId: user.id, login: user.login }, 'GitHub OAuth successful');
 
             // TODO: Store token securely (encrypted in database)
-            // TODO: Create/update user session
+
+            // Create/update user session (in-memory for development)
+            const sessionId = crypto.randomUUID();
+            const now = Date.now();
+            const tokenPreview = `${accessToken.substring(0, 8)}...`;
+
+            storeUserSession(sessionId, {
+                userId: user.id,
+                accessToken,
+                tokenPreview,
+                provider: 'github',
+                createdAt: now,
+                expiresAt: now + SESSION_TTL_MS,
+                userInfo: {
+                    id: user.id,
+                    login: user.login,
+                    avatarUrl: user.avatarUrl,
+                },
+            });
+
+            // Set session cookie
+            reply.setCookie('session_id', sessionId, {
+                path: '/',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: SESSION_TTL_MS / 1000,
+            });
 
             return reply.send({
                 success: true,
                 data: {
                     user,
+                    sessionId,
                     // Don't expose the full token in response
-                    tokenPreview: `${accessToken.substring(0, 8)}...`,
+                    tokenPreview,
+                    note: 'Session stored in-memory (development mode). Database integration pending.',
                 },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'GitHub OAuth callback failed');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'OAUTH_FAILED',
-                    message: error.message || 'OAuth authentication failed',
+                    message: error instanceof Error ? error.message : 'OAuth authentication failed',
                 },
             });
         }
@@ -620,14 +799,40 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
      */
     app.post('/api/v1/github/repos', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
+            // Try to get session ID from cookie
+            const sessionId = request.cookies.session_id;
+
+            if (!sessionId) {
+                return reply.status(401).send({
+                    success: false,
+                    error: {
+                        code: 'NO_SESSION',
+                        message: 'No active GitHub session. Please authenticate first.',
+                    },
+                });
+            }
+
+            // Get user session from session store
+            const session = getUserSession(sessionId);
+
+            if (!session || session.provider !== 'github') {
+                return reply.status(401).send({
+                    success: false,
+                    error: {
+                        code: 'INVALID_SESSION',
+                        message: 'Invalid or expired GitHub session. Please authenticate again.',
+                    },
+                });
+            }
+
             const body = z.object({
                 name: z.string().min(1),
                 description: z.string().optional(),
                 private: z.boolean().optional(),
-                accessToken: z.string(), // TODO: Get from session instead
             }).parse(request.body);
 
-            const repo = await githubService.createRepository(body.accessToken, {
+            // Use access token from session instead of request body
+            const repo = await githubService.createRepository(session.accessToken, {
                 name: body.name,
                 description: body.description,
                 private: body.private,
@@ -640,14 +845,14 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                 data: { repo },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to create GitHub repository');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'REPO_CREATION_FAILED',
-                    message: error.message || 'Failed to create repository',
+                    message: error instanceof Error ? error.message : 'Failed to create repository',
                 },
             });
         }
@@ -659,6 +864,32 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
      */
     app.post('/api/v1/github/repos/:owner/:repo/commit', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
+            // Try to get session ID from cookie
+            const sessionId = request.cookies.session_id;
+
+            if (!sessionId) {
+                return reply.status(401).send({
+                    success: false,
+                    error: {
+                        code: 'NO_SESSION',
+                        message: 'No active GitHub session. Please authenticate first.',
+                    },
+                });
+            }
+
+            // Get user session from session store
+            const session = getUserSession(sessionId);
+
+            if (!session || session.provider !== 'github') {
+                return reply.status(401).send({
+                    success: false,
+                    error: {
+                        code: 'INVALID_SESSION',
+                        message: 'Invalid or expired GitHub session. Please authenticate again.',
+                    },
+                });
+            }
+
             const params = z.object({
                 owner: z.string(),
                 repo: z.string(),
@@ -671,10 +902,10 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                     content: z.string(),
                 })),
                 branch: z.string().optional(),
-                accessToken: z.string(), // TODO: Get from session instead
             }).parse(request.body);
 
-            const result = await githubService.commitFiles(body.accessToken, {
+            // Use access token from session instead of request body
+            const result = await githubService.commitFiles(session.accessToken, {
                 owner: params.owner,
                 repo: params.repo,
                 message: body.message,
@@ -693,19 +924,109 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                 data: { commit: result },
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             app.log.error(error, 'Failed to commit to GitHub');
 
             return reply.status(500).send({
                 success: false,
                 error: {
                     code: 'COMMIT_FAILED',
-                    message: error.message || 'Failed to commit files',
+                    message: error instanceof Error ? error.message : 'Failed to commit files',
                 },
             });
         }
     });
-    app.log.info('[ROUTES] GitHub routes registered: /api/v1/github/auth, callback, repos, commit');
+
+    /**
+     * DELETE /api/v1/github/session
+     * Delete current GitHub session
+     */
+    app.delete('/api/v1/github/session', async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const sessionId = request.cookies.session_id;
+
+            if (sessionId) {
+                deleteUserSession(sessionId);
+
+                // Clear session cookie
+                reply.clearCookie('session_id', {
+                    path: '/',
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                });
+            }
+
+            return reply.send({
+                success: true,
+                message: 'Session deleted successfully',
+            });
+        } catch (error: unknown) {
+            app.log.error(error, 'Failed to delete session');
+
+            return reply.status(500).send({
+                success: false,
+                error: {
+                    code: 'SESSION_DELETE_FAILED',
+                    message: error instanceof Error ? error.message : 'Failed to delete session',
+                },
+            });
+        }
+    });
+
+    /**
+     * GET /api/v1/github/session
+     * Get current GitHub session info
+     */
+    app.get('/api/v1/github/session', async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const sessionId = request.cookies.session_id;
+
+            if (!sessionId) {
+                return reply.status(404).send({
+                    success: false,
+                    error: {
+                        code: 'NO_SESSION',
+                        message: 'No active GitHub session',
+                    },
+                });
+            }
+
+            const session = getUserSession(sessionId);
+
+            if (!session || session.provider !== 'github') {
+                return reply.status(404).send({
+                    success: false,
+                    error: {
+                        code: 'INVALID_SESSION',
+                        message: 'Invalid or expired GitHub session',
+                    },
+                });
+            }
+
+            return reply.send({
+                success: true,
+                data: {
+                    userInfo: session.userInfo,
+                    tokenPreview: session.tokenPreview,
+                    createdAt: new Date(session.createdAt).toISOString(),
+                    expiresAt: new Date(session.expiresAt).toISOString(),
+                },
+            });
+        } catch (error: unknown) {
+            app.log.error(error, 'Failed to get session');
+
+            return reply.status(500).send({
+                success: false,
+                error: {
+                    code: 'SESSION_GET_FAILED',
+                    message: error instanceof Error ? error.message : 'Failed to get session',
+                },
+            });
+        }
+    });
+
+    app.log.info('[ROUTES] GitHub routes registered: /api/v1/github/auth, callback, repos, commit, session');
 }
 
 export default {

@@ -16,8 +16,8 @@ import {
     getConnectionManager,
     getGenerationContext,
 } from './services/index.js';
-import { initializeAdapters } from './services/adapters/adapter-factory.js';
-import { checkSupabaseConnection, checkVectorStore } from './services/infrastructure/database-client.js';
+import { initializeAdapters } from './infrastructure/api/adapters/adapter-factory.js';
+import { checkSupabaseConnection, checkVectorStore, checkConvexConnection, closeConvexClient } from './infrastructure/database/database-client.js';
 import { flush } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
 import Redis from 'ioredis';
@@ -77,6 +77,9 @@ async function bootstrap(): Promise<void> {
                 // Phase 24: Flush generation contexts
                 const generationContext = getGenerationContext();
                 await generationContext.shutdown();
+
+                // Phase 5: Close Convex client
+                await closeConvexClient();
 
                 await flush(5000);
                 await app.close();
@@ -160,9 +163,13 @@ async function bootstrap(): Promise<void> {
         // Infrastructure Section
         logger.section('Infrastructure');
 
-        // Check Database
+        // Check Convex (Phase 5 - New Database)
+        const convexStatus = await checkConvexConnection();
+        logger.status('Convex (New)', convexStatus.connected ? `Connected (${convexStatus.latency}ms)` : 'Not configured', convexStatus.connected);
+
+        // Check Supabase (Legacy)
         const dbStatus = await checkSupabaseConnection();
-        logger.status('Database', dbStatus.connected ? `Connected (${dbStatus.latency}ms)` : 'Not connected', dbStatus.connected);
+        logger.status('Supabase (Legacy)', dbStatus.connected ? `Connected (${dbStatus.latency}ms)` : 'Not connected', dbStatus.connected);
 
         // Check Vector Store
         const vectorStatus = await checkVectorStore();

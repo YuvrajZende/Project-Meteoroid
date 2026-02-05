@@ -24,6 +24,8 @@
         "noFallthroughCasesInSwitch": true,
         "composite": true,
         "incremental": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         "paths": {
             "@loveable/shared": [
                 "../shared/src/index.ts"

@@ -11,7 +11,7 @@
 // ============================================
 // ORCHESTRATION - Main orchestration pipeline
 // ============================================
-export * from './orchestration/index.js';
+export * from '../application/services/orchestration/index.js';
 
 // ============================================
 // INFRASTRUCTURE - Core system services
@@ -35,7 +35,7 @@ export {
     getKeyManager,
     BenchmarkingService,
     getBenchmarkingService,
-} from './infrastructure/index.js';
+} from '../infrastructure/index.js';
 
 // ============================================
 // GENERATION - Code generation services
@@ -53,7 +53,7 @@ export {
     getDatabaseCodeGenerator,
     RouteGenerator,
     getRouteGenerator,
-} from './generation/index.js';
+} from '../application/services/generation/index.js';
 
 // ============================================
 // VALIDATION - Code validation & post-processing
@@ -69,7 +69,7 @@ export {
     getProjectIntegrityValidator,
     type ValidationReport,
     type ValidationIssue,
-} from './validation/index.js';
+} from '../application/services/validation/index.js';
 
 // ============================================
 // REGISTRY - All registries (deps, imports, agents, models, services)
@@ -104,15 +104,18 @@ export {
     type CreateConnectionInput,
     type UpdateConnectionInput,
     type ConnectionTestResult,
+    // Connection Manager
+    ConnectionManager,
+    getConnectionManager,
 } from './registry/index.js';
 
 // ============================================
-// CONTEXT - Context management services
+// CONTEXT - Context management services (Moved to domain/services)
 // ============================================
-export * from './context/index.js';
+export * from '../domain/services/context/index.js';
 
 // ============================================
-// LEARNING - AI learning & vector storage
+// LEARNING - AI learning & vector storage (Moved to domain/services)
 // Explicit exports to avoid LearningContext conflict with orchestration/types
 // ============================================
 export {
@@ -138,10 +141,10 @@ export {
     EnhancedLearningContextBuilder,
     getEnhancedLearningContextBuilder,
     type LearningContext as EnhancedLearningContext,
-} from './learning/index.js';
+} from '../domain/services/learning/index.js';
 
 // ============================================
-// ANALYSIS - AI analysis services
+// ANALYSIS - AI analysis services (Moved to domain/services)
 // Explicit exports to avoid ExtractedEntity conflict
 // ============================================
 export {
@@ -159,10 +162,10 @@ export {
     getQualityAssessment,
     RobustJSONParser,
     getRobustJSONParser,
-} from './analysis/index.js';
+} from '../domain/services/analysis/index.js';
 
 // ============================================
-// ARCHITECTURE - Project architecture services
+// ARCHITECTURE - Project architecture services (Moved to domain/services)
 // Explicit exports to avoid ArchitectureBlueprint conflict with orchestration/types
 // ============================================
 export {
@@ -174,22 +177,22 @@ export {
     createProjectScaffold,
     type ScaffoldConfig,
     type ScaffoldResult,
-} from './architecture/index.js';
+} from '../domain/services/architecture/index.js';
 
 // ============================================
-// INTEGRATIONS - Third-party integrations
+// INTEGRATIONS - Third-party integrations (Moved to infrastructure/api)
 // ============================================
-export * from './integrations/index.js';
+export * from '../infrastructure/api/integrations/index.js';
 
 // ============================================
-// AGENTS - Agent coordination & management
+// AGENTS - Agent coordination & management (Moved to domain/services)
 // ============================================
-export * from './agents/index.js';
+export * from '../domain/services/agents/index.js';
 
 // ============================================
-// SECURITY - Security services
+// SECURITY - Security services (Moved to domain/services)
 // ============================================
-export * from './security/index.js';
+export * from '../domain/services/security/index.js';
 
 // ============================================
 // UTILITY SERVICES

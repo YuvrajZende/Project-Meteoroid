@@ -207,8 +207,8 @@ export class GitHubService {
         try {
             await octokit.repos.get({ owner, repo });
             return true;
-        } catch (error: any) {
-            if (error.status === 404) {
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'status' in error && (error as { status: number }).status === 404) {
                 return false;
             }
             throw error;

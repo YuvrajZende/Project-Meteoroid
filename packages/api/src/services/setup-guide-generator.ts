@@ -5,8 +5,8 @@
  * Generates step-by-step setup instructions for selected services.
  */
 
-import { getServiceRegistry } from '../services/service-registry/index.js';
-import { SetupGuide, SetupStep, ServiceDefinition } from '../services/service-registry/types.js';
+import { getServiceRegistry } from '../infrastructure/api/service-registry/index.js';
+import { SetupGuide, SetupStep, ServiceDefinition } from '../infrastructure/api/service-registry/types.js';
 
 // Service-specific setup guides
 const SERVICE_SETUP_GUIDES: Record<string, Omit<SetupStep, 'service' | 'requiredCredentials'>> = {

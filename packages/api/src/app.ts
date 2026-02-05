@@ -9,13 +9,14 @@ import { registerPlugins } from './plugins/index.js';
 import { registerRoutes } from './routes/index.js';
 import { registerHooks } from './hooks/index.js';
 import { registerErrorHandler } from './utils/index.js';
-import { registerSecurityMiddleware } from './middleware/index.js';
+import { registerSecurityMiddleware, registerDIMiddleware } from './middleware/index.js';
 import {
     createAgentLoader,
     getAgentRegistry,
 } from './services/index.js';
 import { initSentry } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
+import { initDIContainer } from './di/types.js';
 import path from 'path';
 import Redis from 'ioredis';
 
@@ -26,6 +27,9 @@ import Redis from 'ioredis';
 export async function createApp(): Promise<FastifyInstance> {
     // Initialize Sentry for error tracking
     initSentry();
+
+    // Initialize DI Container (Phase 1: Dependency Injection)
+    const diContainer = initDIContainer();
 
     // Initialize Fastify with configuration - QUIET logger during startup
     const app = Fastify({
@@ -53,6 +57,13 @@ export async function createApp(): Promise<FastifyInstance> {
     // Register core components silently
     registerErrorHandler(app);
     await registerSecurityMiddleware(app);
+
+    // Register DI middleware (must be before routes)
+    await registerDIMiddleware(app, {
+        requestScoped: true,
+        debug: isDevelopment,
+    });
+
     registerHooks(app);
     await registerPlugins(app);
     await loadAgents(app);

@@ -6,14 +6,14 @@
  * Recommends optimal services based on task requirements.
  */
 
-import { getServiceRegistry } from '../services/service-registry/index.js';
-import { getConnectionManager } from '../services/connection-manager/index.js';
+import { getServiceRegistry } from '../infrastructure/api/service-registry/index.js';
+import { getConnectionManager } from '../infrastructure/api/connection-manager/index.js';
 import {
     ServiceCategory,
     ServiceQuestion,
     ServiceSelection,
     UserConnection
-} from '../services/service-registry/types.js';
+} from '../infrastructure/api/service-registry/types.js';
 
 export class InteractiveServiceSelector {
     private registry = getServiceRegistry();

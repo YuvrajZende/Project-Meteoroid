@@ -12,7 +12,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getSupabaseAdmin } from '../services/infrastructure/database-client.js';
+import { getSupabaseAdmin } from '../infrastructure/database/database-client.js';
 import crypto from 'crypto';
 
 // ============================================

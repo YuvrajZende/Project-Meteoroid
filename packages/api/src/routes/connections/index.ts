@@ -7,8 +7,8 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { getConnectionManager } from '../../services/connection-manager/index.js';
-import { getServiceRegistry } from '../../services/service-registry/index.js';
+import { getConnectionManager } from '../../infrastructure/api/connection-manager/index.js';
+import { getServiceRegistry } from '../../infrastructure/api/service-registry/index.js';
 
 interface ConnectionParams {
     id: string;

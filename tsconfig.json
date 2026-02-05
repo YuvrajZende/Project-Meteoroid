@@ -15,6 +15,8 @@
         "forceConsistentCasingInFileNames": true,
         "composite": true,
         "baseUrl": ".",
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         "paths": {
             "@loveable/orchestrator": [
                 "packages/orchestrator/src"
@@ -30,5 +32,11 @@
     "exclude": [
         "node_modules",
         "dist"
+    ],
+    "include": [
+        "packages/api/src/**/*.ts",
+        "packages/shared/src/**/*.ts",
+        "packages/orchestrator/src/**/*.ts",
+        "packages/agents/src/**/*.ts"
     ]
 }

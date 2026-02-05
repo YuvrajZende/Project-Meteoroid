@@ -13,7 +13,7 @@ import {
     getIntegratedOrchestrator,
     getMultiModelOrchestrator,
     type OrchestrationStep,
-} from '../services/orchestration/index.js';
+} from '../application/services/orchestration/index.js';
 
 // Other services
 import {
@@ -229,10 +229,12 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
             if (vectorContext && vectorContext.length > 50) {
                 app.log.info(`[VECTOR-LEARNING] Injected ${learningContext.similarProjects.length} similar projects, ${learningContext.bestPractices.length} best practices`);
-                (context as any).vectorLearningContext = vectorContext;
+                // Extend context with vector learning data
+                (context as Record<string, unknown>).vectorLearningContext = vectorContext;
             }
-        } catch (error: any) {
-            app.log.warn(`[VECTOR-LEARNING] Could not build context: ${error?.message || error}`);
+        } catch (error: unknown) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            app.log.warn(`[VECTOR-LEARNING] Could not build context: ${errorMsg}`);
         }
 
         // Execute orchestration using IntegratedOrchestrator
@@ -407,7 +409,20 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         const orchestratorStatus = orchestrator.getStatus();
 
         // Merge agent registry with monitor status
-        const agentStatusMap = new Map((orchestratorStatus as any).agentStatuses?.map((s: any) => [s.agentId, s]) || []);
+        interface AgentStatus {
+            agentId: string;
+            status: string;
+            lastExecution?: Date;
+        }
+
+        interface OrchestratorStatusWithAgents {
+            agentStatuses?: AgentStatus[];
+        }
+
+        const agentStatusMap = new Map(
+            ((orchestratorStatus as OrchestratorStatusWithAgents).agentStatuses || [])
+                .map((s: AgentStatus) => [s.agentId, s])
+        );
 
         return reply.send({
             agents: agents.map((agent: { id: string; name: string; tier: number; capabilities: string[] }) => ({
@@ -415,8 +430,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 name: agent.name,
                 tier: agent.tier,
                 capabilities: agent.capabilities,
-                status: (agentStatusMap.get(agent.id) as any)?.status || 'idle',
-                lastExecution: (agentStatusMap.get(agent.id) as any)?.lastExecution,
+                status: agentStatusMap.get(agent.id)?.status || 'idle',
+                lastExecution: agentStatusMap.get(agent.id)?.lastExecution,
             })),
             summary: {
                 total: summary.total,

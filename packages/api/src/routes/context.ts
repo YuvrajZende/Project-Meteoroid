@@ -7,6 +7,7 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getEntityExtractor, getGenerationContext } from '../services/index.js';
+import type { ExtractedEntity } from '../domain/services/analysis/entity-extractor.js';
 
 // ============================================
 // ROUTE DEFINITIONS
@@ -55,7 +56,7 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
                 success: result.success,
                 entities: result.entities,
                 entityCount: result.entities.length,
-                entityNames: result.entities.map((e: any) => e.name),
+                entityNames: result.entities.map((e: ExtractedEntity) => e.name),
                 features: result.features,
                 integrations: result.integrations,
                 projectType: result.projectType,
@@ -134,7 +135,7 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
                 success: true,
                 contextId: context.id,
                 entityCount: extraction.entities.length,
-                entityNames: extraction.entities.map((e: any) => e.name),
+                entityNames: extraction.entities.map((e: ExtractedEntity) => e.name),
                 features: enabledFeatures,
                 projectType: extraction.projectType,
             };
@@ -178,7 +179,7 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
                     taskId: context.taskId,
                     originalPrompt: context.originalPrompt,
                     entities: context.entities,
-                    entityNames: context.entities.map((e: any) => e.name),
+                    entityNames: context.entities.map((e: ExtractedEntity) => e.name),
                     features: context.features,
                     integrations: context.integrations,
                     projectType: context.projectType,
@@ -268,7 +269,7 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
             return {
                 success: true,
                 valid: validation.valid,
-                expectedEntities: context.entities.map((e: any) => e.name),
+                expectedEntities: context.entities.map((e: ExtractedEntity) => e.name),
                 missingEntities: validation.missing,
                 filesGenerated: context.generatedFiles.length,
             };
