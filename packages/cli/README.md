@@ -1,207 +1,361 @@
-# 🚀 Loveable CLI
+# Meteoroid CLI
 
-> **AI-Powered Backend Testing & Development Interface**
+> AI-Powered Backend Development Platform
 
-A beautiful, premium command-line interface for testing and interacting with the Loveable Backend system. Test all features including AI code generation, service integrations, authentication, and more!
+A comprehensive command-line interface for the Meteoroid platform, similar to Claude Code. Interact with the AI orchestrator, generate code, manage services, and more!
 
 ```
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                          🚀 LOVEABLE CLI                                  ║
-║          AI-Powered Backend Testing & Development Interface               ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════╗
+║                         METEOROID CLI                            ║
+║              AI-Powered Backend Development Platform            ║
+╚══════════════════════════════════════════════════════════════════╝
 ```
 
-## ✨ Features
+## Features
 
-### 🧠 AI Orchestrator
-- Interactive code generation with AI
-- Intent analysis testing
-- Vector search testing
-- Multi-model pipeline testing
+- **Interactive Chat Mode** - Conversational AI interface with slash commands
+- **Code Generation** - Generate complete backend systems with AI
+- **Task Analysis** - Analyze requirements before implementation
+- **Service Registry** - Browse 100+ available service integrations
+- **Agent Management** - View and manage AI agents
+- **File Operations** - Read and analyze files from the CLI
+- **System Status** - Monitor server health and infrastructure
 
-### 🤖 AI Agents
-- View all registered agents
-- Browse agent capabilities
-- View benchmark results
-
-### 💻 Code Generator
-- Generate from templates
-- Quick project scaffolding
-- Database schema generation
-- API route generation
-
-### 🔌 Service Registry (Phase 21)
-- Browse 100+ available services
-- Search by category
-- View service details and templates
-
-### 🔗 Connections
-- Manage service connections
-- Test connections
-- Create new integrations
-
-### 🔐 Authentication
-- Login/Register testing
-- Token refresh testing
-- API key validation
-- Protected endpoint testing
-
-### 🚀 Live Preview
-- Create preview sessions
-- Manage sandbox environments
-- View session metrics
-
-### ⚙️ System
-- Health checks
-- CLI configuration
-
-## 🛠️ Installation
+## Installation
 
 ```bash
-# Navigate to CLI package
 cd packages/cli
-
-# Install dependencies
 npm install
-
-# Run in development mode
-npm run dev
-
-# Or build and run
 npm run build
-npm start
 ```
 
-## 📋 Usage
+## Quick Start
 
-### Interactive Mode (Default)
+### 1. Start the Backend Server
+
+First, ensure your Meteoroid backend server is running:
 
 ```bash
+cd packages/api
 npm run dev
 ```
 
-This starts the beautiful interactive menu where you can navigate through all features.
-
-### Direct Commands
+### 2. Use the CLI
 
 ```bash
-# Check server health
-npm run dev -- health
+# Interactive chat mode (default)
+npm run dev
 
-# Browse services
-npm run dev -- services
+# Or send a prompt directly
+npm run dev "Create a REST API for user management"
 
-# Start code generation
-npm run dev -- generate
-
-# View AI agents
-npm run dev -- agents
-
-# Authentication testing
-npm run dev -- auth
-
-# Preview management
-npm run dev -- preview
+# Show help
+npm run dev -- --help
 ```
 
-## 🎨 UI Features
+## Commands
 
-The CLI includes a premium visual experience with:
+### Default Command (Chat Mode)
 
-- **Gradient banners** - Beautiful ASCII art with color gradients
-- **Animated spinners** - Loading indicators for async operations
-- **Styled tables** - Clean data presentation
-- **Status indicators** - Clear success/error/warning states
-- **Interactive menus** - Easy navigation with arrow keys
-- **Syntax highlighting** - Code blocks with highlighting
-- **Progress bars** - Visual feedback for long operations
+```bash
+meteoroid [prompt...]
+```
 
-## 📁 Project Structure
+Starts interactive chat mode. If a prompt is provided, sends it directly to the AI.
+
+**Examples:**
+```bash
+meteoroid
+meteoroid "Explain how microservices work"
+meteoroid --server http://localhost:3000
+```
+
+### chat
+
+```bash
+meteoroid chat [options] [message...]
+```
+
+Start interactive chat mode with optional direct message.
+
+**Options:**
+- `-c, --code` - Code generation mode
+- `-a, --analyze` - Analysis mode
+
+**Examples:**
+```bash
+meteoroid chat
+meteoroid chat --code "Create a user authentication service"
+meteoroid chat --analyze "Implement a scalable caching layer"
+```
+
+### generate
+
+```bash
+meteoroid generate|gen [options] <prompt>
+```
+
+Generate code using AI.
+
+**Options:**
+- `-l, --language <lang>` - Programming language
+- `-f, --framework <fw>` - Framework
+- `-o, --output <path>` - Output directory
+- `-q, --quick` - Quick mode (no file writing)
+
+**Examples:**
+```bash
+meteoroid generate "Create a REST API for task management"
+meteoroid gen -l typescript -f fastify "Build user authentication"
+meteoroid gen -q "Quick prototype for a blog API"
+```
+
+### analyze
+
+```bash
+meteoroid analyze|analyse <task>
+```
+
+Analyze a task or requirement before implementation.
+
+**Examples:**
+```bash
+meteoroid analyze "Build a scalable e-commerce backend"
+meteoroid analyse "Implement real-time notifications"
+```
+
+### status
+
+```bash
+meteoroid status
+```
+
+Show system status and infrastructure health.
+
+### agents
+
+```bash
+meteoroid agents [options]
+```
+
+List available AI agents.
+
+**Options:**
+- `-v, --verbose` - Show detailed information including capabilities
+
+**Examples:**
+```bash
+meteoroid agents
+meteoroid agents --verbose
+```
+
+### services
+
+```bash
+meteoroid services [category]
+```
+
+Browse the service registry.
+
+**Examples:**
+```bash
+meteoroid services          # List all categories
+meteoroid services database # Show database services
+meteoroid services auth     # Show authentication services
+```
+
+### read
+
+```bash
+meteoroid read [options] <file>
+```
+
+Read and display a file.
+
+**Options:**
+- `-l, --lines <n>` - Number of lines to show
+
+**Examples:**
+```bash
+meteoroid read src/app.ts
+meteoroid read --lines 50 package.json
+```
+
+### config
+
+```bash
+meteoroid config [options]
+```
+
+Manage CLI configuration.
+
+**Options:**
+- `--show` - Show current configuration
+- `--set <key>=<value>` - Set configuration value
+
+**Examples:**
+```bash
+meteoroid config --show
+meteoroid config --set server=http://localhost:3000
+```
+
+## Slash Commands
+
+When in interactive chat mode, you can use slash commands:
+
+| Command | Description |
+|---------|-------------|
+| `/help [command]` | Show available commands or detailed help |
+| `/status` | Show system status |
+| `/health` | Run detailed health check |
+| `/agents` | List available agents |
+| `/services [category]` | Browse service registry |
+| `/read <file>` | Read a file |
+| `/generate <prompt>` | Generate code |
+| `/config` | Show configuration |
+| `/clear` | Clear screen |
+| `/version` | Show version info |
+| `/chat` | Switch to chat mode |
+| `/code` | Switch to code mode |
+| `/analyze` | Switch to analyze mode |
+| `/exit` or `/quit` | Exit the CLI |
+
+## Chat Modes
+
+The CLI supports three different chat modes:
+
+### Chat Mode (`/chat`)
+Default conversational mode for general questions and discussions.
+
+### Code Mode (`/code`)
+Specialized mode for code generation and implementation tasks.
+
+### Analyze Mode (`/analyze`)
+Analysis mode for breaking down requirements and planning implementations.
+
+## Configuration
+
+### Command Line Options
+
+```bash
+# Set custom server URL
+meteoroid --server http://localhost:4000
+
+# Set authentication token
+meteoroid --token your-api-token
+
+# Enable verbose output
+meteoroid --verbose
+```
+
+### Environment Variables
+
+You can also configure the CLI via environment variables:
+
+```bash
+export METEOROID_SERVER=http://localhost:3000
+export METEOROID_TOKEN=your-api-token
+```
+
+## Examples
+
+### Generate a Complete Backend
+
+```bash
+meteoroid generate "Create a REST API for a todo app with user authentication, database integration, and JWT tokens"
+```
+
+### Analyze Before Building
+
+```bash
+meteoroid analyze "Design a scalable microservices architecture for an e-commerce platform"
+```
+
+### Interactive Session
+
+```bash
+meteoroid chat
+
+You > /status
+You > /services database
+You > What databases are available?
+You > /code Create a PostgreSQL service integration
+You > /agents
+You > /exit
+```
+
+## Development
+
+### Project Structure
 
 ```
 packages/cli/
 ├── src/
-│   ├── index.ts           # Main entry point
-│   ├── commands/          # Command modules
-│   │   ├── health.ts      # Health check command
-│   │   ├── services.ts    # Service registry
-│   │   ├── orchestrator.ts # AI orchestrator
-│   │   ├── agents.ts      # AI agents
-│   │   ├── auth.ts        # Authentication
-│   │   ├── codegen.ts     # Code generation
-│   │   ├── connections.ts # Service connections
-│   │   ├── preview.ts     # Live preview
-│   │   └── config.ts      # CLI configuration
+│   ├── index.ts           # Main CLI entry point
+│   ├── types.ts           # Type definitions
+│   ├── commands/
+│   │   └── slash-commands.ts  # Slash command handlers
+│   ├── modes/
+│   │   └── chat-mode.ts   # Chat mode implementation
 │   └── utils/
-│       ├── theme.ts       # Colors, gradients, icons
-│       ├── api.ts         # HTTP client
-│       └── ui.ts          # UI components
+│       ├── api.ts         # API client
+│       ├── theme.ts       # Colors and styling
+│       ├── ui.ts          # UI components
+│       └── index.ts       # Utility exports
+├── dist/                  # Compiled output
 ├── package.json
 └── tsconfig.json
 ```
 
-## 🔧 Configuration
+### Building
 
-The CLI can be configured through the interactive Config menu:
+```bash
+npm run build    # Compile TypeScript
+npm run dev      # Run in development mode
+npm start        # Run compiled version
+```
 
-- **Server URL** - Backend server address (default: `http://localhost:3000`)
-- **API Version** - API version to use (default: `v1`)
+## Troubleshooting
 
-## 📦 Dependencies
+### Server Not Reachable
 
-| Package | Purpose |
-|---------|---------|
-| `chalk` | Terminal colors |
-| `ora` | Spinners |
-| `inquirer` | Interactive prompts |
-| `boxen` | Styled boxes |
-| `gradient-string` | Color gradients |
-| `cli-table3` | Tables |
-| `figlet` | ASCII art |
-| `commander` | CLI framework |
+```
+[!] Server not reachable
+    Some features may not work. Server: http://localhost:3000
+```
 
-## 🚀 Quick Start
+**Solution:** Make sure the backend server is running:
+```bash
+cd packages/api
+npm run dev
+```
 
-1. **Start your backend server** (in another terminal):
-   ```bash
-   npm run dev
-   ```
+### Timeouts on Long Operations
 
-2. **Run the CLI**:
-   ```bash
-   cd packages/cli
-   npm run dev
-   ```
+For complex code generation, the operation might timeout. Increase the timeout:
 
-3. **Select "Health Check"** to verify connection
+```bash
+# The CLI has a 15-minute timeout for code generation
+# For longer operations, check the server logs
+```
 
-4. **Explore!** - Try the AI Orchestrator to generate code
+## Roadmap
 
-## 🎯 Example Workflows
+- [ ] Streaming responses (SSE)
+- [ ] Multi-file editing
+- [ ] Project initialization wizard
+- [ ] Configuration file support
+- [ ] Shell completion
+- [ ] Plugin system
 
-### Generate a REST API
+## Contributing
 
-1. Select **AI Orchestrator**
-2. Choose **Generate Code (Interactive)**
-3. Describe: "Build a REST API for managing tasks with CRUD operations"
-4. Select language/framework or let AI decide
-5. Watch the generation happen!
+Contributions are welcome! Please read the contributing guidelines before submitting PRs.
 
-### Connect a Service
+## License
 
-1. Select **Connections**
-2. Choose **Create New Connection**
-3. Pick a service (e.g., Supabase)
-4. Enter your credentials
-5. Test the connection
-
-### Test Authentication
-
-1. Select **Authentication**
-2. Choose **Login with Email/Password**
-3. Enter credentials
-4. Use **Test Protected Endpoint** to verify
+ISC
 
 ---
 
-Made with ❤️ for the Loveable Backend System
+Made with ❤️ for the Meteoroid Platform

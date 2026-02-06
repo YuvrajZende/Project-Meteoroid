@@ -23,7 +23,7 @@ import type {
     ContextArtifact,
     PersistentContext,
 } from '../../../interfaces/context.interface.js';
-import type { IProjectContextRepository } from '../../repositories/project-context.repository.js';
+import type { IProjectContextRepository } from '../../../repositories/project-context.repository.js';
 
 /**
  * Generation State
@@ -62,7 +62,7 @@ export class ContextManager implements IContextManager {
 
     constructor(
         @inject(TYPES.ProjectContextRepository) private projectContextRepo: IProjectContextRepository
-    ) {}
+    ) { }
 
     /**
      * Get the context key for multi-tenant storage

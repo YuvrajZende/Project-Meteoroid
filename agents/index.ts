@@ -44,6 +44,37 @@ export {
     getAvailableAuthTypes
 } from "./core/auth/index.js";
 
+// Frontend Analyzer Agent - Analysis Layer
+export {
+    FrontendAnalyzerAgent,
+    frontendAnalyzerAgent,
+    FrameworkDetector,
+    APICallExtractor,
+    AuthDetector,
+    DataModelInferrer,
+    RouteAnalyzer,
+    FRONTEND_ANALYZER_CAPABILITIES,
+} from "./core/analysis/index.js";
+
+// Frontend Analyzer Types
+export type {
+    FrameworkType,
+    FrameworkInfo,
+    HttpMethod,
+    ApiLibraryType,
+    ExtractedAPICall,
+    InferredFieldType,
+    InferredField,
+    InferredType,
+    InferredModel,
+    AuthProviderType,
+    DetectedAuthStrategy,
+    RouteInfo,
+    DependencyInfo,
+    FrontendAnalysisResult,
+    FrontendAnalyzerConfig,
+} from "./core/analysis/index.js";
+
 // Database Agent - Schema, Migrations, Queries (Person 2's Implementation)
 export {
     DatabaseAgentWrapper,
@@ -358,6 +389,7 @@ export {
  */
 export function getAvailableAgents(): string[] {
     return [
+        "frontend_analyzer_agent",  // Analysis Layer - Entry Point
         "auth_agent",
         "db_agent",
         "database_agent",  // Person 2's Database Agent (IAgent ID: database-agent)
@@ -381,6 +413,24 @@ export function getAvailableAgents(): string[] {
  * Agent capabilities map
  */
 export const AGENT_CAPABILITIES = {
+    // Analysis Layer (Entry Point)
+    frontend_analyzer_agent: [
+        // Framework Detection
+        "framework-detection", "react-detection", "vue-detection",
+        "next-detection", "nuxt-detection", "svelte-detection", "angular-detection",
+        // API Extraction
+        "api-extraction", "endpoint-detection", "fetch-analysis",
+        "axios-analysis", "swr-analysis", "react-query-analysis",
+        // Data Modeling
+        "model-inference", "typescript-analysis", "zod-schema-analysis", "form-state-analysis",
+        // Auth Detection
+        "auth-detection", "clerk-detection", "auth0-detection",
+        "firebase-detection", "supabase-detection", "nextauth-detection",
+        // Routing
+        "route-analysis", "protected-route-detection",
+        // Dependencies
+        "dependency-analysis", "package-analysis"
+    ],
     auth_agent: [
         // Core Auth
         "clerk-auth", "jwt-auth", "oauth", "rbac", "abac",

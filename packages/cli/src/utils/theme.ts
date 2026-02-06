@@ -27,6 +27,17 @@ export const colors = {
     dim: chalk.dim,
     bold: chalk.bold,
     header: chalk.bold.hex('#8B5CF6'),
+
+    // Additional colors for flexibility
+    white: chalk.white,
+    gray: chalk.gray,
+    grey: chalk.gray,
+    cyan: chalk.cyan,
+    green: chalk.green,
+    yellow: chalk.yellow,
+    blue: chalk.blue,
+    magenta: chalk.magenta,
+    red: chalk.red,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

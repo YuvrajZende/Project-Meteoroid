@@ -1,0 +1,348 @@
+﻿
+> loveable-backend@2.0.0 build
+> tsc -b
+
+packages/api/src/application/services/orchestration/generation-service.ts(129,11): error TS2416: Property 'generateSubtask' in type 'GenerationService' is not assignable to the same property in base type 'IGenerationService'.
+  Type '(subtask: { [key: string]: unknown; title: string; description?: string | undefined; }, context: string, options?: { model?: string | undefined; maxTokens?: number | undefined; temperature?: number | undefined; includeTests?: boolean | undefined; includeComments?: boolean | undefined; } | undefined) => Promise<...>' is not assignable to type '(subtask: Subtask, context: string, options?: { model?: string | undefined; maxTokens?: number | undefined; temperature?: number | undefined; includeTests?: boolean | undefined; includeComments?: boolean | undefined; } | undefined) => Promise<...>'.
+    Types of parameters 'subtask' and 'subtask' are incompatible.
+      Type 'Subtask' is not assignable to type '{ [key: string]: unknown; title: string; description?: string | undefined; }'.
+        Index signature for type 'string' is missing in type 'Subtask'.
+packages/api/src/application/services/orchestration/generation-service.ts(136,13): error TS2740: Type '{ [key: string]: unknown; title: string; description?: string | undefined; }' is missing the following properties from type 'Subtask': id, order, dependencies, estimatedDuration, and 2 more.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(851,25): error TS2304: Cannot find name 'multiModelResult'.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(852,58): error TS2554: Expected 7-8 arguments, but got 1.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(856,40): error TS2304: Cannot find name 'multiModelResult'.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(864,32): error TS2304: Cannot find name 'multiModelResult'.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(878,41): error TS2304: Cannot find name 'multiModelResult'.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(879,42): error TS2304: Cannot find name 'multiModelResult'.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(882,58): error TS2554: Expected 7-8 arguments, but got 1.
+packages/api/src/application/services/orchestration/integrated-orchestrator.ts(900,58): error TS2554: Expected 7-8 arguments, but got 1.
+packages/api/src/application/services/orchestration/orchestration-service.ts(40,11): error TS2416: Property 'orchestrate' in type 'OrchestrationService' is not assignable to the same property in base type 'IOrchestrator'.
+  Type '(input: OrchestrationInput, onProgress?: ((step: { phase: string; message: string; stepNumber: number; }) => void) | undefined) => Promise<OrchestrationResult>' is not assignable to type '(input: OrchestrationInput, onProgress?: ProgressCallback | undefined) => Promise<OrchestrationResult>'.
+    Types of parameters 'onProgress' and 'onProgress' are incompatible.
+      Types of parameters 'step' and 'step' are incompatible.
+        Type '{ phase: string; message: string; stepNumber: number; }' is missing the following properties from type 'OrchestrationStep': step, progress
+packages/api/src/application/services/orchestration/orchestration-service.ts(60,21): error TS2353: Object literal may only specify known properties, and 'step' does not exist in type '{ phase: string; message: string; stepNumber: number; }'.
+packages/api/src/application/services/orchestration/orchestration-service.ts(80,21): error TS2353: Object literal may only specify known properties, and 'step' does not exist in type '{ phase: string; message: string; stepNumber: number; }'.
+packages/api/src/application/services/orchestration/orchestration-service.ts(133,25): error TS2353: Object literal may only specify known properties, and 'step' does not exist in type '{ phase: string; message: string; stepNumber: number; }'.
+packages/api/src/application/services/orchestration/orchestration-service.ts(146,21): error TS2353: Object literal may only specify known properties, and 'step' does not exist in type '{ phase: string; message: string; stepNumber: number; }'.
+packages/api/src/application/services/orchestration/orchestration-service.ts(200,21): error TS2353: Object literal may only specify known properties, and 'step' does not exist in type '{ phase: string; message: string; stepNumber: number; }'.
+packages/api/src/domain/services/learning/enhanced-learning-context.ts(206,88): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/enhanced-learning-context.ts(240,13): error TS2322: Type '{ pattern: string; category: string; examples: number; confidence: number; }[]' is not assignable to type '{ pattern: string; category: "success" | "anti-pattern" | "best-practice"; examples: number; confidence: number; }[]'.
+  Type '{ pattern: string; category: string; examples: number; confidence: number; }' is not assignable to type '{ pattern: string; category: "success" | "anti-pattern" | "best-practice"; examples: number; confidence: number; }'.
+    Types of property 'category' are incompatible.
+      Type 'string' is not assignable to type '"success" | "anti-pattern" | "best-practice"'.
+packages/api/src/domain/services/learning/enhanced-learning-context.ts(247,84): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/enhanced-learning-context.ts(342,88): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/enhanced-learning-context.ts(396,79): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/learning-service.ts(288,63): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/domain/services/learning/learning-service.ts(555,33): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+packages/api/src/domain/services/learning/learning-service.ts(558,53): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+packages/api/src/domain/services/learning/learning-service.ts(712,5): error TS2322: Type 'LearningService | null' is not assignable to type 'LearningService'.
+  Type 'null' is not assignable to type 'LearningService'.
+packages/api/src/domain/services/learning/learning-service.ts(719,51): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'IGenerationIterationRepository'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(157,78): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(168,50): error TS2307: Cannot find module '../../infrastructure/ai-client.js' or its corresponding type declarations.
+packages/api/src/domain/services/learning/vector-learning-system.ts(190,22): error TS7006: Parameter 'n' implicitly has an 'any' type.
+packages/api/src/domain/services/learning/vector-learning-system.ts(191,25): error TS7006: Parameter 'n' implicitly has an 'any' type.
+packages/api/src/domain/services/learning/vector-learning-system.ts(202,94): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(330,73): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(372,70): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(414,46): error TS2339: Property 'title' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(415,31): error TS2339: Property 'category' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(416,29): error TS2339: Property 'source' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(421,78): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(467,29): error TS2345: Argument of type '(row: CodeEmbeddingRow) => { practice: string; category: any; source: string; confidence: number; }' is not assignable to parameter of type '(value: { prompt: any; config: any; generated_code: any; }, index: number, array: { prompt: any; config: any; generated_code: any; }[]) => { practice: string; category: any; source: string; confidence: number; }'.
+  Types of parameters 'row' and 'value' are incompatible.
+    Type '{ prompt: any; config: any; generated_code: any; }' is missing the following properties from type 'CodeEmbeddingRow': project_id, file_path, content, language
+packages/api/src/domain/services/learning/vector-learning-system.ts(468,46): error TS2339: Property 'prompt' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(469,31): error TS2339: Property 'config' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(469,56): error TS2339: Property 'config' does not exist on type 'CodeEmbeddingRow'.
+packages/api/src/domain/services/learning/vector-learning-system.ts(474,80): error TS2339: Property 'message' does not exist on type '{}'.
+packages/api/src/infrastructure/api/integrations/auto-deploy-manager.ts(367,17): error TS2322: Type 'CommitResult' is not assignable to type 'void'.
+packages/api/src/infrastructure/api/integrations/auto-deploy-manager.ts(477,55): error TS2307: Cannot find module '../infrastructure/database-client.js' or its corresponding type declarations.
+packages/api/src/infrastructure/api/integrations/auto-deploy-manager.ts(552,55): error TS2307: Cannot find module '../infrastructure/database-client.js' or its corresponding type declarations.
+packages/api/src/infrastructure/api/integrations/auto-deploy-manager.ts(570,37): error TS7006: Parameter 'row' implicitly has an 'any' type.
+packages/api/src/infrastructure/database/convex-migration.ts(247,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(261,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(275,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(289,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(303,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(317,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(335,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(349,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(363,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/convex-migration.ts(377,35): error TS2345: Argument of type 'string' is not assignable to parameter of type 'FunctionReference<"mutation">'.
+packages/api/src/infrastructure/database/supabase-database.ts(98,31): error TS2339: Property 'eq' does not exist on type 'PostgrestQueryBuilder<any, any, any, string, unknown>'.
+packages/api/src/infrastructure/database/supabase-database.ts(124,31): error TS2339: Property 'eq' does not exist on type 'PostgrestQueryBuilder<any, any, any, string, unknown>'.
+packages/api/src/middleware/auth-middleware.ts(65,9): error TS2687: All declarations of 'authUser' must have identical modifiers.
+packages/api/src/plugins/rate-limit.ts(45,15): error TS2769: No overload matches this call.
+  Overload 1 of 6, '(plugin: FastifyPluginCallback<RateLimitPluginOptions, RawServerDefault, FastifyTypeProviderDefault, FastifyBaseLogger>, opts: FastifyRegisterOptions<...>): FastifyInstance<...> & ... 1 more ... & { ...; }', gave the following error.
+    Type 'string | undefined' is not assignable to type 'FastifyRateLimitStoreCtor | undefined'.
+      Type 'string' is not assignable to type 'FastifyRateLimitStoreCtor'.
+  Overload 2 of 6, '(plugin: FastifyPluginAsync<RateLimitPluginOptions, RawServerDefault, FastifyTypeProviderDefault, FastifyBaseLogger>, opts: FastifyRegisterOptions<...>): FastifyInstance<...> & ... 1 more ... & { ...; }', gave the following error.
+    Argument of type 'FastifyRateLimit' is not assignable to parameter of type 'FastifyPluginAsync<RateLimitPluginOptions, RawServerDefault, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+      Target signature provides too few arguments. Expected 3 or more, but got 2.
+  Overload 3 of 6, '(plugin: FastifyPluginCallback<RateLimitPluginOptions, RawServerDefault, FastifyTypeProviderDefault, FastifyBaseLogger> | FastifyPluginAsync<...> | Promise<...> | Promise<...>, opts: FastifyRegisterOptions<...>): FastifyInstance<...> & ... 1 more ... & { ...; }', gave the following error.
+    Type 'string | undefined' is not assignable to type 'FastifyRateLimitStoreCtor | undefined'.
+      Type 'string' is not assignable to type 'FastifyRateLimitStoreCtor'.
+packages/api/src/repositories/__tests__/audit.repository.test.ts(34,52): error TS2345: Argument of type '{ projectId: string; userId: string; action: string; entityType: string; entityId: string; changes: { before: null; after: { name: string; }; }; metadata: { ip: string; }; }' is not assignable to parameter of type 'Omit<AuditLog, "id" | "createdAt">'.
+  Types of property 'changes' are incompatible.
+    Type '{ before: null; after: { name: string; }; }' is not assignable to type 'Record<string, { from: unknown; to: unknown; }>'.
+      Property 'before' is incompatible with index signature.
+        Type 'null' is not assignable to type '{ from: unknown; to: unknown; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(6,32): error TS2300: Duplicate identifier 'beforeEach'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(6,44): error TS2300: Duplicate identifier 'beforeEach'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(25,9): error TS2322: Type 'string' is not assignable to type '{ path: string; content: string; language: string; }[]'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(29,21): error TS2353: Object literal may only specify known properties, and 'quality' does not exist in type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(30,35): error TS2353: Object literal may only specify known properties, and 'total' does not exist in type '{ passed: number; failed: number; skipped: number; coverage?: number | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(31,20): error TS2353: Object literal may only specify known properties, and 'latency' does not exist in type '{ duration: number; tokensUsed: number; cost?: number | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(53,56): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(76,52): error TS2345: Argument of type '{ taskId: string; projectId: string; userId: string; prompt: string; generatedCode: string; config: { model: string; temperature: number; }; success: boolean; errors: never[]; feedback: { quality: string; }; testResults: { ...; }; metrics: { ...; }; }' is not assignable to parameter of type 'Omit<GenerationIteration, "id" | "createdAt">'.
+  Types of property 'feedback' are incompatible.
+    Property 'rating' is missing in type '{ quality: string; }' but required in type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(102,53): error TS2345: Argument of type '{ taskId: string; projectId: string; userId: string; prompt: string; generatedCode: string; config: {}; success: boolean; errors: never[]; feedback: null; testResults: null; metrics: null; }' is not assignable to parameter of type 'Omit<GenerationIteration, "id" | "createdAt">'.
+  Types of property 'feedback' are incompatible.
+    Type 'null' is not assignable to type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(103,53): error TS2345: Argument of type '{ taskId: string; projectId: string; userId: string; prompt: string; generatedCode: string; config: {}; success: boolean; errors: never[]; feedback: null; testResults: null; metrics: null; }' is not assignable to parameter of type 'Omit<GenerationIteration, "id" | "createdAt">'.
+  Types of property 'feedback' are incompatible.
+    Type 'null' is not assignable to type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(111,63): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(118,17): error TS2322: Type 'string' is not assignable to type '{ path: string; content: string; language: string; }[]'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(122,17): error TS2322: Type 'null' is not assignable to type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(123,17): error TS2322: Type 'null' is not assignable to type '{ passed: number; failed: number; skipped: number; coverage?: number | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(124,17): error TS2322: Type 'null' is not assignable to type '{ duration: number; tokensUsed: number; cost?: number | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(420,17): error TS2741: Property 'rating' is missing in type '{ quality: string; issues: never[]; }' but required in type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(421,17): error TS2739: Type '{ latency: number; tokens: number; }' is missing the following properties from type '{ duration: number; tokensUsed: number; cost?: number | undefined; }': duration, tokensUsed
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(435,17): error TS2578: Unused '@ts-expect-error' directive.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(451,17): error TS2322: Type 'string' is not assignable to type '{ path: string; content: string; language: string; }[]'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(478,57): error TS2345: Argument of type '{ quality: string; issues: never[]; suggestions: string[]; }' is not assignable to parameter of type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; }'.
+  Property 'rating' is missing in type '{ quality: string; issues: never[]; suggestions: string[]; }' but required in type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(485,57): error TS2345: Argument of type 'null' is not assignable to parameter of type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(574,17): error TS2322: Type 'string' is not assignable to type '{ path: string; content: string; language: string; }[]'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(578,17): error TS2322: Type 'null' is not assignable to type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(579,17): error TS2322: Type 'null' is not assignable to type '{ passed: number; failed: number; skipped: number; coverage?: number | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(580,17): error TS2322: Type 'null' is not assignable to type '{ duration: number; tokensUsed: number; cost?: number | undefined; }'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(608,17): error TS2322: Type 'string' is not assignable to type '{ path: string; content: string; language: string; }[]'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(612,17): error TS2322: Type 'null' is not assignable to type '{ rating: 3 | 1 | 2 | 4 | 5; comments?: string | undefined; issues?: string[] | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(613,17): error TS2322: Type 'null' is not assignable to type '{ passed: number; failed: number; skipped: number; coverage?: number | undefined; } | undefined'.
+packages/api/src/repositories/__tests__/generation-iteration.repository.test.ts(614,17): error TS2322: Type 'null' is not assignable to type '{ duration: number; tokensUsed: number; cost?: number | undefined; }'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(21,9): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(47,51): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(66,52): error TS2345: Argument of type '{ patternType: "code-structure"; description: string; example: string; context: string; frequency: number; confidence: number; relatedPrompts: string[]; }' is not assignable to parameter of type 'Omit<LearnedPattern, "id" | "createdAt" | "updatedAt">'.
+  Types of property 'patternType' are incompatible.
+    Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(89,53): error TS2345: Argument of type '{ patternType: "code-structure"; description: string; example: string; context: string; frequency: number; confidence: number; relatedPrompts: never[]; }' is not assignable to parameter of type 'Omit<LearnedPattern, "id" | "createdAt" | "updatedAt">'.
+  Types of property 'patternType' are incompatible.
+    Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(90,53): error TS2345: Argument of type '{ patternType: "code-structure"; description: string; example: string; context: string; frequency: number; confidence: number; relatedPrompts: never[]; }' is not assignable to parameter of type 'Omit<LearnedPattern, "id" | "createdAt" | "updatedAt">'.
+  Types of property 'patternType' are incompatible.
+    Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(99,17): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(118,17): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(119,17): error TS2322: Type '"error-handling"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(120,17): error TS2322: Type '"testing-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(121,17): error TS2322: Type '"api-design"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(122,17): error TS2322: Type '"optimization"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(123,17): error TS2322: Type '"security-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(124,17): error TS2322: Type '"data-validation"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(125,17): error TS2322: Type '"integration-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(126,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(146,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(148,17): error TS2322: Type 'null' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(149,17): error TS2322: Type 'null' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(152,17): error TS2322: Type 'null' is not assignable to type 'string[]'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(163,58): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(166,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(240,64): error TS2345: Argument of type '"code-structure"' is not assignable to parameter of type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(243,39): error TS2367: This comparison appears to be unintentional because the types '"warning" | "success" | "failure"' and '"code-structure"' have no overlap.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(250,64): error TS2345: Argument of type '"optimization"' is not assignable to parameter of type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(262,64): error TS2345: Argument of type '"code-structure"' is not assignable to parameter of type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(272,17): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(273,17): error TS2322: Type '"error-handling"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(274,17): error TS2322: Type '"testing-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(275,17): error TS2322: Type '"api-design"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(276,17): error TS2322: Type '"optimization"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(277,17): error TS2322: Type '"security-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(278,17): error TS2322: Type '"data-validation"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(279,17): error TS2322: Type '"integration-pattern"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(280,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(486,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(504,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(518,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(534,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(551,21): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(566,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(577,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(578,55): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(590,17): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(599,53): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(609,17): error TS2322: Type '"code-structure"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(619,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(620,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(621,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(634,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/learned-pattern.repository.test.ts(644,17): error TS2322: Type '"other"' is not assignable to type '"warning" | "success" | "failure"'.
+packages/api/src/repositories/__tests__/mock-database.ts(412,9): error TS2322: Type 'T[]' is not assignable to type 'Record<string, unknown>[]'.
+  Type 'T' is not assignable to type 'Record<string, unknown>'.
+packages/api/src/repositories/__tests__/mock-database.ts(678,11): error TS2416: Property 'transaction' in type 'MockDatabase' is not assignable to the same property in base type 'IDatabase'.
+  Type '<T>(callback: (db: IDatabase) => Promise<T>) => Promise<T>' is not assignable to type '<T>(callback: (trx: Transaction) => Promise<T>) => Promise<T>'.
+    Types of parameters 'callback' and 'callback' are incompatible.
+      Types of parameters 'trx' and 'db' are incompatible.
+        Type 'IDatabase' is missing the following properties from type 'Transaction': commit, rollback
+packages/api/src/repositories/__tests__/mock-database.ts(679,25): error TS2345: Argument of type 'this' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/project-context.repository.test.ts(53,51): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/project-context.repository.test.ts(137,58): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/project-context.repository.test.ts(284,17): error TS2578: Unused '@ts-expect-error' directive.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(22,9): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(51,53): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(73,52): error TS2345: Argument of type '{ projectId: string; testType: "authentication"; testDescription: string; userQuery: string; expectedBehavior: string; actualResult: string; success: boolean; lessons: string[]; relatedFiles: string[]; tags: string[]; }' is not assignable to parameter of type 'Omit<TestingIteration, "id" | "createdAt">'.
+  Types of property 'testType' are incompatible.
+    Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(97,53): error TS2345: Argument of type '{ projectId: string; testType: "authentication"; testDescription: string; userQuery: string; expectedBehavior: string; actualResult: string; success: boolean; lessons: never[]; relatedFiles: never[]; tags: never[]; }' is not assignable to parameter of type 'Omit<TestingIteration, "id" | "createdAt">'.
+  Types of property 'testType' are incompatible.
+    Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(98,53): error TS2345: Argument of type '{ projectId: string; testType: "authentication"; testDescription: string; userQuery: string; expectedBehavior: string; actualResult: string; success: boolean; lessons: never[]; relatedFiles: never[]; tags: never[]; }' is not assignable to parameter of type 'Omit<TestingIteration, "id" | "createdAt">'.
+  Types of property 'testType' are incompatible.
+    Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(105,17): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(106,17): error TS2322: Type '"authorization"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(107,17): error TS2322: Type '"data-validation"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(108,17): error TS2322: Type '"error-handling"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(109,17): error TS2322: Type '"performance"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(111,17): error TS2322: Type '"ui-ux"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(112,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(136,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(142,17): error TS2322: Type 'null' is not assignable to type 'string[]'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(143,17): error TS2322: Type 'null' is not assignable to type 'string[]'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(144,17): error TS2322: Type 'null' is not assignable to type 'string[]'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(155,60): error TS2345: Argument of type 'MockDatabase' is not assignable to parameter of type 'IDatabase'.
+  Property 'getConnectionState' is missing in type 'MockDatabase' but required in type 'IDatabase'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(159,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(278,61): error TS2345: Argument of type '"authentication"' is not assignable to parameter of type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(281,39): error TS2367: This comparison appears to be unintentional because the types '"unit" | "integration" | "e2e" | "manual"' and '"authentication"' have no overlap.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(285,61): error TS2345: Argument of type '"performance"' is not assignable to parameter of type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(296,61): error TS2345: Argument of type '"authentication"' is not assignable to parameter of type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(304,17): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(305,17): error TS2322: Type '"authorization"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(306,17): error TS2322: Type '"data-validation"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(307,17): error TS2322: Type '"error-handling"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(308,17): error TS2322: Type '"performance"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(310,17): error TS2322: Type '"ui-ux"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(311,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(427,52): error TS2345: Argument of type '{ projectId: string; testType: "other"; testDescription: string; userQuery: string; expectedBehavior: string; actualResult: string; success: boolean; lessons: string[]; relatedFiles: string[]; tags: string[]; }' is not assignable to parameter of type 'Omit<TestingIteration, "id" | "createdAt">'.
+  Types of property 'testType' are incompatible.
+    Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(440,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(457,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(478,17): error TS2322: Type '"other"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(539,17): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(550,53): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(560,17): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/testing-iteration.repository.test.ts(573,17): error TS2322: Type '"authentication"' is not assignable to type '"unit" | "integration" | "e2e" | "manual"'.
+packages/api/src/repositories/__tests__/user.repository.test.ts(139,17): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Partial<Omit<User, "id" | "createdAt">>'.
+packages/api/src/repositories/__tests__/user.repository.test.ts(252,17): error TS2561: Object literal may only specify known properties, but 'order' does not exist in type 'QueryOptions'. Did you mean to write 'orderBy'?
+packages/api/src/routes/deployment.ts(473,17): error TS18046: 'error' is of type 'unknown'.
+packages/api/src/routes/deployment.ts(479,34): error TS18046: 'error' is of type 'unknown'.
+packages/api/src/routes/deployment.ts(750,17): error TS2322: Type 'number' is not assignable to type 'string'.
+packages/api/src/routes/deployment.ts(757,21): error TS2322: Type 'number' is not assignable to type 'string'.
+packages/api/src/routes/deployment.ts(764,19): error TS2339: Property 'setCookie' does not exist on type 'FastifyReply<RouteGenericInterface, RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, unknown, FastifySchema, FastifyTypeProviderDefault, unknown>'.
+packages/api/src/routes/deployment.ts(803,39): error TS2339: Property 'cookies' does not exist on type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+packages/api/src/routes/deployment.ts(868,39): error TS2339: Property 'cookies' does not exist on type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+packages/api/src/routes/deployment.ts(946,39): error TS2339: Property 'cookies' does not exist on type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+packages/api/src/routes/deployment.ts(952,23): error TS2339: Property 'clearCookie' does not exist on type 'FastifyReply<RouteGenericInterface, RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, unknown, FastifySchema, FastifyTypeProviderDefault, unknown>'.
+packages/api/src/routes/deployment.ts(983,39): error TS2339: Property 'cookies' does not exist on type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+packages/api/src/routes/projects.ts(15,9): error TS2687: All declarations of 'authUser' must have identical modifiers.
+packages/api/src/routes/projects.ts(15,9): error TS2717: Subsequent property declarations must have the same type.  Property 'authUser' must be of type 'AuthenticatedUser | null', but here has type 'AuthenticatedUser | undefined'.
+packages/api/src/routes/projects.ts(131,8): error TS2345: Argument of type '(request: FastifyRequest<{ Body: CreateProjectBody; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "Create new project"; readonly security: readonly [...]; readonly body: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRe...' is not assignable to type 'FastifyRequest<{ Body: { name: string; config?: Record<string, unknown> | undefined; description?: string | undefined; }; }, RawServerDefault, IncomingMessage, ... 4 more ..., ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Body: { name: string; config?: Record<string, unknown> | undefined; description?: string | undefined; }; }'.
+        Types of property 'Body' are incompatible.
+          Type 'unknown' is not assignable to type '{ name: string; config?: Record<string, unknown> | undefined; description?: string | undefined; }'.
+packages/api/src/routes/projects.ts(209,8): error TS2345: Argument of type '(request: FastifyRequest<{ Querystring: ListProjectsQuery; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "List user projects"; readonly security: readonly [...]; readonly querystring: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFa...' is not assignable to type 'FastifyRequest<{ Querystring: { limit: number; offset: number; status?: "pending" | "failed" | "completed" | "generating" | undefined; }; }, RawServerDefault, IncomingMessage, ... 4 more ..., ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Querystring: { limit: number; offset: number; status?: "pending" | "failed" | "completed" | "generating" | undefined; }; }'.
+        Types of property 'Querystring' are incompatible.
+          Type 'unknown' is not assignable to type '{ limit: number; offset: number; status?: "pending" | "failed" | "completed" | "generating" | undefined; }'.
+packages/api/src/routes/projects.ts(272,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "Get project details"; readonly security: readonly [...]; readonly params: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastif...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/projects.ts(322,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; Body: UpdateProjectBody; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "Update project"; readonly security: readonly [...]; readonly params: { ...; }; readonly body: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseL...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; Body: { config?: Record<string, unknown> | undefined; description?: string | undefined; name?: string | undefined; }; }, RawServerDefault, ... 5 more ..., ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; Body: { config?: Record<string, unknown> | undefined; description?: string | undefined; name?: string | undefined; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/projects.ts(371,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "Delete project"; readonly security: readonly [...]; readonly params: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequ...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/projects.ts(402,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Projects"]; readonly summary: "Download project as ZIP"; readonly security: readonly [...]; readonly params: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/tasks.ts(34,9): error TS2687: All declarations of 'authUser' must have identical modifiers.
+packages/api/src/routes/tasks.ts(34,9): error TS2717: Subsequent property declarations must have the same type.  Property 'authUser' must be of type 'AuthenticatedUser | null', but here has type 'AuthenticatedUser | undefined'.
+packages/api/src/routes/tasks.ts(144,8): error TS2345: Argument of type '(request: FastifyRequest<{ Body: CreateTaskBody; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Tasks"]; readonly summary: "Submit new generation task"; readonly description: "Submit a new code generation task. Returns immediately with task ID for tracking."; readonly security: readonly [...]; readonly body: { ...' is not assignable to type 'FastifyRequest<{ Body: { prompt: string; config?: Record<string, unknown> | undefined; projectId?: string | undefined; priority?: number | undefined; }; }, RawServerDefault, ... 5 more ..., ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Body: { prompt: string; config?: Record<string, unknown> | undefined; projectId?: string | undefined; priority?: number | undefined; }; }'.
+        Types of property 'Body' are incompatible.
+          Type 'unknown' is not assignable to type '{ prompt: string; config?: Record<string, unknown> | undefined; projectId?: string | undefined; priority?: number | undefined; }'.
+packages/api/src/routes/tasks.ts(167,31): error TS2339: Property 'tier' does not exist on type 'AuthenticatedUser'.
+packages/api/src/routes/tasks.ts(261,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Tasks"]; readonly summary: "Get task status"; readonly security: readonly [...]; readonly params: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyReques...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/tasks.ts(293,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<undefined>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Tasks"]; readonly summary: "Stream task progress (SSE)"; readonly description: "Server-Sent Events stream for real-time task progress updates"; readonly security: readonly [...]; readonly params: { ...; }; }, Fastify...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/tasks.ts(412,8): error TS2345: Argument of type '(request: FastifyRequest<{ Querystring: ListTasksQuery; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Tasks"]; readonly summary: "List user tasks"; readonly security: readonly [...]; readonly querystring: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyR...' is not assignable to type 'FastifyRequest<{ Querystring: { limit: number; offset: number; status?: "failed" | "completed" | "queued" | "processing" | undefined; }; }, RawServerDefault, IncomingMessage, ... 4 more ..., ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Querystring: { limit: number; offset: number; status?: "failed" | "completed" | "queued" | "processing" | undefined; }; }'.
+        Types of property 'Querystring' are incompatible.
+          Type 'unknown' is not assignable to type '{ limit: number; offset: number; status?: "failed" | "completed" | "queued" | "processing" | undefined; }'.
+packages/api/src/routes/tasks.ts(469,8): error TS2345: Argument of type '(request: FastifyRequest<{ Params: { id: string; }; }>, reply: FastifyReply) => Promise<never>' is not assignable to parameter of type 'RouteHandlerMethod<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, RouteGenericInterface, unknown, { ...; }, FastifyTypeProviderDefault, FastifyBaseLogger>'.
+  Types of parameters 'request' and 'request' are incompatible.
+    Type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, { readonly tags: readonly ["Tasks"]; readonly summary: "Cancel pending task"; readonly security: readonly [...]; readonly params: { ...; }; readonly response: { ...; }; }, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRe...' is not assignable to type 'FastifyRequest<{ Params: { id: string; }; }, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.
+      Type 'RouteGenericInterface' is not assignable to type '{ Params: { id: string; }; }'.
+        Types of property 'Params' are incompatible.
+          Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/api/src/routes/webhooks.ts(168,33): error TS2339: Property 'rawBody' does not exist on type 'FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage, FastifySchema, FastifyTypeProviderDefault, unknown, FastifyBaseLogger, ResolveFastifyRequestType<...>>'.

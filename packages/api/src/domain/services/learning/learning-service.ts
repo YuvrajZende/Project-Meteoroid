@@ -31,15 +31,23 @@ export type { LearningConfig, GenerationIteration, TestingIteration, LearnedPatt
 // Legacy imports for backward compatibility
 import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
 import { getVectorStore, type VectorStoreService } from './vector-store.js';
-import type { IGenerationIterationRepository } from '../../repositories/generation-iteration.repository.js';
-import type { ITestingIterationRepository } from '../../repositories/testing-iteration.repository.js';
-import type { ILearnedPatternRepository } from '../../repositories/learned-pattern.repository.js';
+import type { IGenerationIterationRepository } from '../../../repositories/generation-iteration.repository.js';
+import type { ITestingIterationRepository } from '../../../repositories/testing-iteration.repository.js';
+import type { ILearnedPatternRepository } from '../../../repositories/learned-pattern.repository.js';
 
 // Database row types for Supabase queries
 interface GenerationIterationRow {
+    id: string;
+    task_id: string;
+    project_id: string;
     prompt: string;
+    generated_code?: { path: string; content: string; language: string }[];
+    config?: Record<string, unknown>;
     success?: boolean;
     status?: string;
+    errors?: string[];
+    metrics?: { duration: number; tokensUsed: number; cost?: number };
+    created_at?: string;
 }
 
 // ============================================

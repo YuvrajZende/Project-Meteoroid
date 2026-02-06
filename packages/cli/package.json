@@ -1,11 +1,11 @@
 {
-    "name": "@loveable/cli",
+    "name": "@meteoroid/cli",
     "version": "1.0.0",
-    "description": "Loveable Backend CLI - Test & Interact with AI Orchestrator",
+    "description": "Meteoroid CLI - AI-Powered Backend Development Platform",
     "type": "module",
     "main": "dist/index.js",
     "bin": {
-        "loveable": "./dist/index.js"
+        "meteoroid": "./dist/index.js"
     },
     "scripts": {
         "build": "tsc",
@@ -16,18 +16,24 @@
         "cli",
         "ai",
         "orchestrator",
-        "testing",
-        "backend"
+        "backend",
+        "code-generation",
+        "meteoroid"
     ],
     "dependencies": {
+        "@inquirer/prompts": "^8.2.0",
+        "boxen": "^8.0.1",
         "chalk": "^5.3.0",
-        "ora": "^8.0.1",
-        "inquirer": "^9.2.12"
+        "cli-table3": "^0.6.5",
+        "commander": "^14.0.3",
+        "inquirer": "^9.2.12",
+        "keyv": "^5.6.0",
+        "ora": "^8.0.1"
     },
     "devDependencies": {
         "@types/inquirer": "^9.0.7",
         "@types/node": "^20.19.26",
-        "typescript": "^5.9.3",
-        "tsx": "^4.7.0"
+        "tsx": "^4.7.0",
+        "typescript": "^5.9.3"
     }
 }
