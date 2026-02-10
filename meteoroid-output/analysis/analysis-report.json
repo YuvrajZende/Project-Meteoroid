@@ -1,0 +1,762 @@
+{
+  "framework": {
+    "type": "react-vite",
+    "version": "^18.3.1",
+    "isMetaFramework": false,
+    "usesTypeScript": true,
+    "buildTool": "vite",
+    "uiLibrary": "tailwindcss",
+    "stateManagement": null,
+    "confidence": 0.5833333333333334
+  },
+  "authStrategy": {
+    "provider": "supabase",
+    "packageName": "@supabase/supabase-js",
+    "version": "^2.95.3",
+    "features": {
+      "socialLogin": true,
+      "emailPassword": false,
+      "magicLink": false,
+      "phoneAuth": false,
+      "mfa": true,
+      "sso": false
+    },
+    "tokenStorage": "cookie"
+  },
+  "apiCalls": [],
+  "dataModels": [
+    {
+      "name": "ProductCardProps",
+      "fields": [
+        {
+          "name": "product",
+          "type": "object",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ProductCard.tsx",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "CarouselProps",
+      "fields": [
+        {
+          "name": "opts",
+          "type": "object",
+          "optional": true
+        },
+        {
+          "name": "plugins",
+          "type": "object",
+          "optional": true
+        },
+        {
+          "name": "orientation",
+          "type": "object",
+          "optional": true
+        },
+        {
+          "name": "setApi",
+          "type": "uuid",
+          "optional": true
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\carousel.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "CarouselContextProps",
+      "fields": [
+        {
+          "name": "carouselRef",
+          "type": "object",
+          "optional": false
+        },
+        {
+          "name": "api",
+          "type": "object",
+          "optional": false
+        },
+        {
+          "name": "scrollPrev",
+          "type": "uuid",
+          "optional": false
+        },
+        {
+          "name": "scrollNext",
+          "type": "uuid",
+          "optional": false
+        },
+        {
+          "name": "canScrollPrev",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "canScrollNext",
+          "type": "boolean",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\carousel.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "ChartConfig",
+      "fields": [
+        {
+          "name": "label",
+          "type": "object",
+          "optional": true
+        },
+        {
+          "name": "icon",
+          "type": "object",
+          "optional": true
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\chart.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "ChartContextProps",
+      "fields": [
+        {
+          "name": "config",
+          "type": "object",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\chart.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "FormItemContextValue",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\form.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "PaginationLinkProps",
+      "fields": [
+        {
+          "name": "isActive",
+          "type": "boolean",
+          "optional": true
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\pagination.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "SidebarContext",
+      "fields": [
+        {
+          "name": "state",
+          "type": "object",
+          "optional": false
+        },
+        {
+          "name": "open",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "setOpen",
+          "type": "uuid",
+          "optional": false
+        },
+        {
+          "name": "openMobile",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "setOpenMobile",
+          "type": "uuid",
+          "optional": false
+        },
+        {
+          "name": "isMobile",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "toggleSidebar",
+          "type": "uuid",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\components\\ui\\sidebar.tsx",
+          "type": "type"
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "brand",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "optional": false
+        },
+        {
+          "name": "originalPrice",
+          "type": "number",
+          "optional": true
+        },
+        {
+          "name": "image",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "sizes",
+          "type": "array",
+          "optional": false,
+          "arrayType": "number"
+        },
+        {
+          "name": "inStock",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "stockCount",
+          "type": "number",
+          "optional": false
+        },
+        {
+          "name": "ambassador",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "featured",
+          "type": "boolean",
+          "optional": true
+        },
+        {
+          "name": "new",
+          "type": "boolean",
+          "optional": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\data\\products.ts",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "State",
+      "fields": [
+        {
+          "name": "toasts",
+          "type": "array",
+          "optional": false,
+          "arrayType": "object"
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\hooks\\use-toast.ts",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "DbProduct",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "brand",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "optional": false
+        },
+        {
+          "name": "original_price",
+          "type": "object",
+          "optional": false
+        },
+        {
+          "name": "image_url",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "sizes",
+          "type": "array",
+          "optional": false,
+          "arrayType": "number"
+        },
+        {
+          "name": "in_stock",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "stock_count",
+          "type": "number",
+          "optional": false
+        },
+        {
+          "name": "ambassador",
+          "type": "object",
+          "optional": false
+        },
+        {
+          "name": "featured",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "is_new",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\hooks\\useProducts.ts",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "DbBrand",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "logo",
+          "type": "string",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\hooks\\useProducts.ts",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "DbAmbassador",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "brand",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "quote",
+          "type": "string",
+          "optional": false
+        },
+        {
+          "name": "stats",
+          "type": "string",
+          "optional": false
+        }
+      ],
+      "sources": [
+        {
+          "file": "src\\hooks\\useProducts.ts",
+          "type": "interface"
+        }
+      ]
+    },
+    {
+      "name": "Database",
+      "fields": [],
+      "sources": [
+        {
+          "file": "src\\integrations\\supabase\\types.ts",
+          "type": "type"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "path": "/Index",
+      "componentFile": "src\\pages\\Index.tsx",
+      "isDynamic": false,
+      "isProtected": false
+    },
+    {
+      "path": "/NotFound",
+      "componentFile": "src\\pages\\NotFound.tsx",
+      "isDynamic": false,
+      "isProtected": false
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "@hookform/resolvers",
+      "version": "^3.10.0",
+      "category": "other"
+    },
+    {
+      "name": "@radix-ui/react-accordion",
+      "version": "^1.2.11",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-alert-dialog",
+      "version": "^1.1.14",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-aspect-ratio",
+      "version": "^1.1.7",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-avatar",
+      "version": "^1.1.10",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-checkbox",
+      "version": "^1.3.2",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-collapsible",
+      "version": "^1.1.11",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-context-menu",
+      "version": "^2.2.15",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-dialog",
+      "version": "^1.1.14",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "^2.1.15",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-hover-card",
+      "version": "^1.1.14",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-label",
+      "version": "^2.1.7",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-menubar",
+      "version": "^1.1.15",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-navigation-menu",
+      "version": "^1.2.13",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-popover",
+      "version": "^1.1.14",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-progress",
+      "version": "^1.1.7",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-radio-group",
+      "version": "^1.3.7",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-scroll-area",
+      "version": "^1.2.9",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-select",
+      "version": "^2.2.5",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-separator",
+      "version": "^1.1.7",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-slider",
+      "version": "^1.3.5",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "^1.2.3",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-switch",
+      "version": "^1.2.5",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-tabs",
+      "version": "^1.1.12",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-toast",
+      "version": "^1.2.14",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-toggle",
+      "version": "^1.1.9",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-toggle-group",
+      "version": "^1.1.10",
+      "category": "framework"
+    },
+    {
+      "name": "@radix-ui/react-tooltip",
+      "version": "^1.2.7",
+      "category": "framework"
+    },
+    {
+      "name": "@supabase/supabase-js",
+      "version": "^2.95.3",
+      "category": "auth"
+    },
+    {
+      "name": "@tanstack/react-query",
+      "version": "^5.83.0",
+      "category": "framework"
+    },
+    {
+      "name": "class-variance-authority",
+      "version": "^0.7.1",
+      "category": "ui-library"
+    },
+    {
+      "name": "clsx",
+      "version": "^2.1.1",
+      "category": "utility"
+    },
+    {
+      "name": "cmdk",
+      "version": "^1.1.1",
+      "category": "other"
+    },
+    {
+      "name": "date-fns",
+      "version": "^3.6.0",
+      "category": "utility"
+    },
+    {
+      "name": "embla-carousel-react",
+      "version": "^8.6.0",
+      "category": "framework"
+    },
+    {
+      "name": "input-otp",
+      "version": "^1.4.2",
+      "category": "other"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.462.0",
+      "category": "framework"
+    },
+    {
+      "name": "next-themes",
+      "version": "^0.3.0",
+      "category": "framework"
+    },
+    {
+      "name": "react",
+      "version": "^18.3.1",
+      "category": "framework"
+    },
+    {
+      "name": "react-day-picker",
+      "version": "^8.10.1",
+      "category": "framework"
+    },
+    {
+      "name": "react-dom",
+      "version": "^18.3.1",
+      "category": "framework"
+    },
+    {
+      "name": "react-hook-form",
+      "version": "^7.61.1",
+      "category": "framework"
+    },
+    {
+      "name": "react-resizable-panels",
+      "version": "^2.1.9",
+      "category": "framework"
+    },
+    {
+      "name": "react-router-dom",
+      "version": "^6.30.1",
+      "category": "framework"
+    },
+    {
+      "name": "recharts",
+      "version": "^2.15.4",
+      "category": "other"
+    },
+    {
+      "name": "sonner",
+      "version": "^1.7.4",
+      "category": "other"
+    },
+    {
+      "name": "tailwind-merge",
+      "version": "^2.6.0",
+      "category": "other"
+    },
+    {
+      "name": "tailwindcss-animate",
+      "version": "^1.0.7",
+      "category": "other"
+    },
+    {
+      "name": "vaul",
+      "version": "^0.9.9",
+      "category": "other"
+    },
+    {
+      "name": "zod",
+      "version": "^3.25.76",
+      "category": "validation"
+    }
+  ],
+  "analyzedAt": "2026-02-10T09:42:16.053Z"
+}

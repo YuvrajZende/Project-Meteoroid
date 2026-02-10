@@ -517,19 +517,28 @@ export class TaskDistributor {
      * Convert TypeScript type to Prisma type
      */
     private toPrismaType(type: string, arrayType?: string): string {
-        const typeMap: Record<string, string> = {
-            'string': 'String',
-            'number': 'Int',
-            'boolean': 'Boolean',
-            'date': 'DateTime',
-            'uuid': 'String',
-            'email': 'String',
-            'url': 'String',
-            'object': 'Json',
-            'array': `${this.toPrismaType(arrayType || 'string')}[]`,
-            'enum': 'String', // Would need enum definition
-        };
-        return typeMap[type] || 'String';
+        switch (type) {
+            case 'string':
+            case 'uuid':
+            case 'email':
+            case 'url':
+            case 'enum':
+                return 'String';
+            case 'number':
+                return 'Int';
+            case 'boolean':
+                return 'Boolean';
+            case 'date':
+                return 'DateTime';
+            case 'object':
+                return 'Json';
+            case 'array':
+                // Break recursion
+                if (arrayType === 'array') return 'String[]';
+                return `${this.toPrismaType(arrayType || 'string')}[]`;
+            default:
+                return 'String';
+        }
     }
 
     /**

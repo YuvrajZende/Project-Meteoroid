@@ -1,12 +1,9 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Create benchmark
- */
 export const create = mutation({
     args: {
-        projectId: v.optional(v.string()),
+        projectId: v.optional(v.id("projects")),
         userId: v.optional(v.string()),
         taskType: v.optional(v.string()),
         model: v.string(),
@@ -18,22 +15,31 @@ export const create = mutation({
         qualityScore: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        const now = new Date().toISOString();
-
-        const benchmarkId = await ctx.db.insert("benchmarks", {
-            project_id: args.projectId,
-            user_id: args.userId,
-            task_type: args.taskType,
-            model: args.model,
-            prompt_tokens: args.promptTokens,
-            completion_tokens: args.completionTokens,
-            total_tokens: args.totalTokens,
-            cost: args.cost,
-            duration_ms: args.durationMs,
-            quality_score: args.qualityScore,
-            created_at: now,
+        return await ctx.db.insert("benchmarks", {
+            ...args,
+            created_at: new Date().toISOString()
         });
-
-        return benchmarkId;
     },
+});
+
+export const getStatsByModel = query({
+    args: { model: v.string() },
+    handler: async (ctx, args) => {
+        const benchmarks = await ctx.db
+            .query("benchmarks")
+            .withIndex("by_model", q => q.eq("model", args.model))
+            .collect();
+
+        // Calculate basic stats
+        const count = benchmarks.length;
+        const avgDuration = count > 0 ? benchmarks.reduce((acc, b) => acc + (b.durationMs || 0), 0) / count : 0;
+        const totalCost = benchmarks.reduce((acc, b) => acc + (b.cost || 0), 0);
+
+        return {
+            model: args.model,
+            count,
+            avgDuration,
+            totalCost
+        };
+    }
 });

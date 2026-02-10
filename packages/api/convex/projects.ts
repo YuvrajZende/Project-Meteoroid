@@ -1,34 +1,23 @@
-import { query, mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Get projects by user ID
- */
-export const getByUserId = query({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
-        const projects = await ctx.db
-            .query("projects")
-            .withIndex("by_user", (q) => q.eq("user_id", args.userId))
-            .collect();
-
-        return projects;
-    },
-});
-
-/**
- * Get project by ID
- */
-export const getById = query({
+export const get = query({
     args: { id: v.id("projects") },
     handler: async (ctx, args) => {
         return await ctx.db.get(args.id);
     },
 });
 
-/**
- * Create project
- */
+export const listByUser = query({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("projects")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .collect();
+    },
+});
+
 export const create = mutation({
     args: {
         userId: v.string(),
@@ -36,72 +25,64 @@ export const create = mutation({
         description: v.optional(v.string()),
         framework: v.optional(v.string()),
         language: v.optional(v.string()),
-        status: v.optional(v.string()),
         githubUrl: v.optional(v.string()),
+        status: v.optional(v.union(
+            v.literal("pending"),
+            v.literal("generating"),
+            v.literal("active"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("archived")
+        )),
+        config: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
-        const now = new Date().toISOString();
-
-        const projectId = await ctx.db.insert("projects", {
-            user_id: args.userId,
+        const timestamp = new Date().toISOString();
+        return await ctx.db.insert("projects", {
+            userId: args.userId,
             name: args.name,
             description: args.description,
             framework: args.framework,
             language: args.language,
+            githubUrl: args.githubUrl,
             status: args.status || "active",
-            github_url: args.githubUrl,
-            created_at: now,
-            updated_at: now,
+            config: args.config,
+            created_at: timestamp,
+            updated_at: timestamp,
         });
-
-        return projectId;
     },
 });
 
-/**
- * Update project
- */
 export const update = mutation({
     args: {
-        projectId: v.id("projects"),
+        id: v.id("projects"),
         name: v.optional(v.string()),
         description: v.optional(v.string()),
-        framework: v.optional(v.string()),
-        language: v.optional(v.string()),
-        status: v.optional(v.string()),
-        githubUrl: v.optional(v.string()),
+        status: v.optional(v.union(
+            v.literal("pending"),
+            v.literal("generating"),
+            v.literal("active"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("archived")
+        )),
+        config: v.optional(v.any()), // JSONB
     },
     handler: async (ctx, args) => {
-        const { projectId, ...updates } = args;
-
-        await ctx.db.patch(projectId, {
-            ...updates,
-            updated_at: new Date().toISOString(),
+        const timestamp = new Date().toISOString();
+        await ctx.db.patch(args.id, {
+            ...(args.name && { name: args.name }),
+            ...(args.description && { description: args.description }),
+            ...(args.status && { status: args.status }),
+            ...(args.config && { config: args.config }),
+            updated_at: timestamp,
         });
     },
 });
 
-/**
- * Delete project
- */
-export const remove = mutation({
-    args: { projectId: v.id("projects") },
+export const deleteProject = mutation({
+    args: { id: v.id("projects") },
     handler: async (ctx, args) => {
-        await ctx.db.delete(args.projectId);
-    },
-});
-
-/**
- * Get projects by status
- */
-export const getByStatus = query({
-    args: { status: v.string() },
-    handler: async (ctx, args) => {
-        const projects = await ctx.db
-            .query("projects")
-            .withIndex("by_status", (q) => q.eq("status", args.status))
-            .collect();
-
-        return projects;
+        await ctx.db.delete(args.id);
     },
 });

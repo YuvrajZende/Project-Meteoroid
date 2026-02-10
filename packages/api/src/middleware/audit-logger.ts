@@ -4,7 +4,7 @@
  */
 
 import type { FastifyRequest } from 'fastify';
-import { getSupabaseAdmin } from '../infrastructure/database/database-client.js';
+import { auditService } from '../domain/services/security/audit.js';
 
 /**
  * Audit event types
@@ -232,7 +232,7 @@ export class AuditLogger {
 
     /**
      * Flush buffer to database
-     * Implements batch insert for audit logs to Supabase
+     * Implements log insert for audit logs to Convex
      */
     async flush(): Promise<void> {
         if (this.buffer.length === 0) return;
@@ -241,35 +241,27 @@ export class AuditLogger {
         this.buffer = [];
 
         try {
-            const supabase = getSupabaseAdmin();
-
-            // Transform entries to match database schema
-            const dbEntries = entries.map(entry => ({
-                timestamp: entry.timestamp,
-                event_type: entry.eventType,
+            // Processing sequentially to avoid overwhelming if batch logic isn't perfect
+            // AuditService.log is singular.
+            // TODO: Add bulk insert to AuditService for performance.
+            // For now, Promise.all.
+            await Promise.all(entries.map(entry => auditService.log({
                 user_id: entry.userId || null,
-                resource_type: entry.resourceType || null,
+                action: entry.eventType,
+                resource_type: entry.resourceType || 'system',
                 resource_id: entry.resourceId || null,
-                action: entry.action,
                 ip_address: entry.ipAddress,
                 user_agent: entry.userAgent,
-                request_id: entry.requestId,
-                metadata: entry.metadata || null,
-                success: entry.success,
-                error_message: entry.errorMessage || null,
-            }));
+                metadata: {
+                    ...entry.metadata,
+                    errorMessage: entry.errorMessage,
+                    requestId: entry.requestId,
+                    success: entry.success
+                }
+            })));
 
-            // Batch insert to Supabase audit_logs table
-            const { error } = await supabase
-                .from('audit_logs')
-                .insert(dbEntries);
-
-            if (error) {
-                console.error('[AUDIT-LOGGER] Failed to insert audit logs:', error);
-                // Re-add failed entries to buffer for retry
-                this.buffer.unshift(...entries);
-            } else if (process.env.NODE_ENV !== 'production') {
-                console.log(`📝 Flushed ${entries.length} audit logs to database`);
+            if (process.env.NODE_ENV !== 'production') {
+                // console.log(`📝 Flushed ${entries.length} audit logs to database`);
             }
         } catch (error) {
             console.error('[AUDIT-LOGGER] Failed to flush audit logs:', error);

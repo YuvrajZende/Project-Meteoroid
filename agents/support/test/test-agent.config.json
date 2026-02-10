@@ -1,0 +1,262 @@
+{
+    "id": "test-agent",
+    "name": "Test Agent",
+    "version": "1.0.0",
+    "description": "Automated test generation for unit, integration, E2E, API, and component tests",
+    "author": "Person 2 (AI/ML Engineer)",
+    "tier": "support",
+    "category": "testing",
+    "capabilities": [
+        "vitest",
+        "jest",
+        "mocha",
+        "playwright",
+        "cypress",
+        "unit-tests",
+        "integration-tests",
+        "e2e-tests",
+        "api-tests",
+        "component-tests",
+        "snapshot-testing",
+        "mock-generation",
+        "fixture-generation",
+        "test-fixtures",
+        "coverage-analysis",
+        "coverage-reports",
+        "visual-regression",
+        "accessibility-testing",
+        "user-event-testing",
+        "page-object-model",
+        "code-analysis",
+        "test-discovery",
+        "test-scaffolding"
+    ],
+    "providers": {
+        "vitest": {
+            "name": "Vitest",
+            "description": "Fast Vite-native unit test framework",
+            "configFile": "vitest.config.ts",
+            "documentation": "https://vitest.dev/",
+            "features": [
+                "unit-tests",
+                "coverage",
+                "snapshots",
+                "mocking"
+            ]
+        },
+        "jest": {
+            "name": "Jest",
+            "description": "Delightful JavaScript testing",
+            "configFile": "jest.config.js",
+            "documentation": "https://jestjs.io/",
+            "features": [
+                "unit-tests",
+                "coverage",
+                "snapshots",
+                "mocking"
+            ]
+        },
+        "playwright": {
+            "name": "Playwright",
+            "description": "Reliable end-to-end testing",
+            "configFile": "playwright.config.ts",
+            "documentation": "https://playwright.dev/",
+            "features": [
+                "e2e-tests",
+                "cross-browser",
+                "visual-regression"
+            ]
+        },
+        "cypress": {
+            "name": "Cypress",
+            "description": "Fast, easy E2E testing",
+            "configFile": "cypress.config.ts",
+            "documentation": "https://cypress.io/",
+            "features": [
+                "e2e-tests",
+                "component-tests",
+                "visual-testing"
+            ]
+        }
+    },
+    "features": {
+        "unitTests": {
+            "enabled": true,
+            "frameworks": [
+                "vitest",
+                "jest",
+                "mocha"
+            ],
+            "features": [
+                "Test case generation from source code",
+                "Edge case detection",
+                "Mock generation for dependencies",
+                "Fixture/factory generation",
+                "Coverage threshold configuration"
+            ]
+        },
+        "integrationTests": {
+            "enabled": true,
+            "frameworks": [
+                "vitest",
+                "jest"
+            ],
+            "features": [
+                "Service layer testing",
+                "Database integration tests",
+                "Redis integration tests",
+                "External API mocking"
+            ]
+        },
+        "e2eTests": {
+            "enabled": true,
+            "frameworks": [
+                "playwright",
+                "cypress"
+            ],
+            "features": [
+                "Page Object Model generation",
+                "User flow testing",
+                "Cross-browser testing",
+                "Screenshot capture",
+                "Video recording"
+            ]
+        },
+        "apiTests": {
+            "enabled": true,
+            "dependencies": [
+                "supertest"
+            ],
+            "features": [
+                "Request/response validation",
+                "Authentication testing",
+                "Error handling testing",
+                "Schema validation"
+            ]
+        },
+        "componentTests": {
+            "enabled": true,
+            "frameworks": [
+                "react",
+                "vue",
+                "svelte",
+                "solid"
+            ],
+            "dependencies": [
+                "@testing-library/react",
+                "@testing-library/user-event"
+            ],
+            "features": [
+                "Component rendering tests",
+                "User interaction tests",
+                "Snapshot testing",
+                "Accessibility testing"
+            ]
+        }
+    },
+    "dependencies": {
+        "required": [],
+        "optional": [
+            "vitest",
+            "jest",
+            "@playwright/test",
+            "cypress",
+            "supertest",
+            "@testing-library/react",
+            "@testing-library/vue",
+            "@testing-library/user-event",
+            "@vitest/coverage-v8"
+        ]
+    },
+    "environmentVariables": [
+        {
+            "name": "TEST_ENV",
+            "description": "Test environment (node, jsdom, happy-dom)",
+            "required": false,
+            "default": "node"
+        },
+        {
+            "name": "COVERAGE_ENABLED",
+            "description": "Enable code coverage",
+            "required": false,
+            "default": "true"
+        },
+        {
+            "name": "CI",
+            "description": "Running in CI environment",
+            "required": false,
+            "default": "false"
+        }
+    ],
+    "ai": {
+        "usesAI": true,
+        "purpose": "Enhanced test case generation and edge case detection",
+        "prompts": {
+            "testGeneration": "Generate comprehensive test cases for the following code...",
+            "edgeCaseDetection": "Identify edge cases and boundary conditions for...",
+            "mockGeneration": "Generate mock implementations for the following dependencies..."
+        }
+    },
+    "templates": {
+        "location": "./templates/index.ts",
+        "sets": {
+            "basic": [
+                "vitest-config",
+                "unit-test",
+                "mock"
+            ],
+            "standard": [
+                "vitest-config",
+                "unit-test",
+                "integration-test",
+                "mock",
+                "fixture"
+            ],
+            "advanced": [
+                "vitest-config",
+                "unit-test",
+                "integration-test",
+                "api-test",
+                "mock",
+                "fixture",
+                "setup"
+            ],
+            "full": [
+                "vitest-config",
+                "playwright-config",
+                "unit-test",
+                "integration-test",
+                "e2e-test",
+                "api-test",
+                "component-test",
+                "mock",
+                "fixture",
+                "page-object",
+                "setup"
+            ]
+        }
+    },
+    "metrics": {
+        "tracked": [
+            "tests_generated",
+            "test_execution_time",
+            "coverage_percentage",
+            "test_pass_rate",
+            "mock_generation_time"
+        ],
+        "reporting": {
+            "console": true,
+            "file": true,
+            "format": [
+                "json",
+                "html",
+                "lcov"
+            ]
+        }
+    },
+    "integration": {
+        "orchestrator": true,
+        "agentLoader": true,
+        "capabilityMapping": true
+    }
+}

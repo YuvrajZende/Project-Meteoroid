@@ -6,34 +6,80 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
 import ora, { Ora } from 'ora';
-import { symbols, colors } from './theme.js';
+import { symbols, colors, ASCII_LOGO, ASCII_LOGO_SMALL, box } from './theme.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BANNER & HEADER
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function showBanner(): void {
-    console.clear();
-    const banner = boxen(
-        chalk.cyan.bold('METEOROID') + '\n' +
-        chalk.gray('AI-Powered Backend Development Platform'),
-        {
-            padding: 1,
-            margin: 1,
-            borderStyle: 'round',
-            borderColor: 'cyan',
-            textAlignment: 'center',
-        }
-    );
-    console.log(banner);
+export interface WelcomeConfig {
+    version: string;
+    model?: string;
+    workingDir?: string;
+    serverUrl?: string;
+    showTips?: boolean;
 }
 
-export function showWelcome(version: string): void {
-    showBanner();
+export function showBanner(): void {
+    console.clear();
+
+    // Use small logo for narrow terminals, large for wide
+    const termWidth = process.stdout.columns || 80;
+    const logo = termWidth >= 60 ? ASCII_LOGO : ASCII_LOGO_SMALL;
+
+    // Center and colorize the logo
+    console.log(colors.primary(logo));
+}
+
+export function showWelcome(versionOrConfig: string | WelcomeConfig): void {
+    const config: WelcomeConfig = typeof versionOrConfig === 'string'
+        ? { version: versionOrConfig }
+        : versionOrConfig;
+
+    console.clear();
+
+    // Show ASCII logo
+    const termWidth = process.stdout.columns || 80;
+    const logo = termWidth >= 60 ? ASCII_LOGO : ASCII_LOGO_SMALL;
+    console.log(colors.primary(logo));
+
+    // Subtitle line
+    console.log(colors.muted('                 AI-Powered Backend Development Platform'));
     console.log();
-    console.log(chalk.gray(`Version: ${version}`));
-    console.log(chalk.gray('Type ') + chalk.cyan('/help') + chalk.gray(' for available commands'));
-    console.log(chalk.gray('Type ') + chalk.cyan('exit') + chalk.gray(' or press Ctrl+C to quit'));
+
+    // Info section with box-style layout
+    const infoBox = boxen(
+        [
+            `${colors.muted('Version:')}    ${colors.secondary(config.version)}`,
+            config.model ? `${colors.muted('Model:')}      ${colors.secondary(config.model)}` : null,
+            config.workingDir ? `${colors.muted('Directory:')}  ${colors.secondary(config.workingDir)}` : null,
+        ].filter(Boolean).join('\n'),
+        {
+            padding: { top: 0, bottom: 0, left: 1, right: 1 },
+            borderStyle: 'round',
+            borderColor: 'gray',
+            dimBorder: true,
+        }
+    );
+    console.log(infoBox);
+
+    // Tips section
+    if (config.showTips !== false) {
+        console.log();
+        console.log(colors.accent('Tips for getting started'));
+        console.log(colors.muted('─'.repeat(Math.min(50, termWidth - 4))));
+        console.log(colors.muted('  Run ') + colors.cyan('/help') + colors.muted(' to see available commands'));
+        console.log(colors.muted('  Type ') + colors.cyan('exit') + colors.muted(' or press ') + colors.cyan('Ctrl+C') + colors.muted(' to quit'));
+    }
+
+    console.log();
+
+    // Keyboard shortcuts hint (bottom bar style)
+    const shortcuts = [
+        `${colors.cyan('tab')} switch mode`,
+        `${colors.cyan('ctrl+c')} quit`,
+    ].join('  ·  ');
+    console.log(colors.dim(shortcuts));
     console.log();
 }
 
@@ -50,14 +96,14 @@ export interface StatusBarConfig {
 
 export function showStatusBar(config: StatusBarConfig): void {
     const statusColor = config.status === 'ready' ? chalk.green :
-                        config.status === 'working' ? chalk.yellow :
-                        config.status === 'error' ? chalk.red :
-                        chalk.gray;
+        config.status === 'working' ? chalk.yellow :
+            config.status === 'error' ? chalk.red :
+                chalk.gray;
 
     const statusSymbol = config.status === 'ready' ? '●' :
-                         config.status === 'working' ? '○' :
-                         config.status === 'error' ? '×' :
-                         '○';
+        config.status === 'working' ? '○' :
+            config.status === 'error' ? '×' :
+                '○';
 
     const parts = [
         statusColor(statusSymbol),
@@ -111,14 +157,14 @@ export type BoxType = 'info' | 'success' | 'warning' | 'error';
 
 export function showBox(title: string, content: string, type: BoxType = 'info'): void {
     const borderColor = type === 'info' ? 'blue' :
-                        type === 'success' ? 'green' :
-                        type === 'warning' ? 'yellow' :
-                        'red';
+        type === 'success' ? 'green' :
+            type === 'warning' ? 'yellow' :
+                'red';
 
     const titleColor = type === 'info' ? chalk.blue :
-                       type === 'success' ? chalk.green :
-                       type === 'warning' ? chalk.yellow :
-                       chalk.red;
+        type === 'success' ? chalk.green :
+            type === 'warning' ? chalk.yellow :
+                chalk.red;
 
     const box = boxen(
         titleColor.bold(title) + '\n\n' + chalk.white(content),
@@ -185,14 +231,14 @@ export function showTasks(tasks: Task[], title?: string): void {
 
     tasks.forEach(task => {
         const statusIcon = task.status === 'completed' ? chalk.green('✓') :
-                           task.status === 'in_progress' ? chalk.yellow('○') :
-                           task.status === 'failed' ? chalk.red('×') :
-                           chalk.gray('○');
+            task.status === 'in_progress' ? chalk.yellow('○') :
+                task.status === 'failed' ? chalk.red('×') :
+                    chalk.gray('○');
 
         const statusText = task.status === 'completed' ? chalk.green('done') :
-                           task.status === 'in_progress' ? chalk.yellow('working') :
-                           task.status === 'failed' ? chalk.red('failed') :
-                           chalk.gray('pending');
+            task.status === 'in_progress' ? chalk.yellow('working') :
+                task.status === 'failed' ? chalk.red('failed') :
+                    chalk.gray('pending');
 
         console.log(`${statusIcon} ${chalk.white(task.content)} ${chalk.dim(`[${statusText}]`)}`);
     });
@@ -227,6 +273,77 @@ export function emptyLine(): void {
     console.log();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SHORTCUT MENU DISPLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ShortcutEntry {
+    key: string;
+    description: string;
+    path?: string;
+}
+
+export interface ShortcutMenuConfig {
+    title?: string;
+    shortcuts: Record<string, ShortcutEntry[]>;
+    errors?: Array<{ key: string; location: string; message: string }>;
+}
+
+export function showShortcutMenu(config: ShortcutMenuConfig): void {
+    const lines: string[] = [];
+
+    // Shortcut categories
+    for (const [category, entries] of Object.entries(config.shortcuts)) {
+        lines.push(colors.accent(category.toUpperCase()));
+        lines.push(colors.dim('─'.repeat(category.length)));
+
+        for (const entry of entries) {
+            lines.push(`  ${colors.cyan(entry.key.padEnd(8))} ${colors.muted('→')} ${entry.description}`);
+        }
+        lines.push('');
+    }
+
+    // Errors section (if any)
+    if (config.errors && config.errors.length > 0) {
+        lines.push(colors.error(`ERRORS (Active: ${config.errors.length})`));
+        lines.push(colors.dim('──────'));
+
+        for (const error of config.errors.slice(0, 5)) {
+            lines.push(`  ${colors.error(error.key.padEnd(8))} ${colors.muted('→')} ${error.message}`);
+        }
+        lines.push('');
+    }
+    // Create the boxed display
+    const content = lines.join('\n');
+    const title = config.title || 'METEOROID - HELP';
+
+    console.log();
+    console.log(boxen(content, {
+        title: colors.secondary(title) as unknown as string,
+        titleAlignment: 'center',
+        padding: 1,
+        borderStyle: 'double',
+        borderColor: 'magenta',
+    }));
+    console.log(colors.dim("Press 'q' to close"));
+    console.log();
+}
+
+export function showErrorList(errors: Array<{ key: string; location: string; message: string; type?: string }>): void {
+    console.log();
+    console.log(chalk.bold(colors.error(`Active Errors (${errors.length})`)));
+    console.log(colors.dim('─'.repeat(40)));
+
+    for (const error of errors) {
+        const typeColor = error.type === 'type' ? colors.error :
+            error.type === 'validation' ? colors.warning :
+                colors.error;
+        console.log(`  ${typeColor(error.key.padEnd(10))} ${error.message}`);
+        console.log(`  ${colors.dim(' '.repeat(10))} ${colors.muted('at')} ${colors.secondary(error.location)}`);
+    }
+    console.log();
+}
+
 export default {
     showBanner,
     showWelcome,
@@ -242,4 +359,6 @@ export default {
     clearScreen,
     separator,
     emptyLine,
+    showShortcutMenu,
+    showErrorList,
 };

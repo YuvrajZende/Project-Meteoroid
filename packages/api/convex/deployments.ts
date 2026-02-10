@@ -1,12 +1,9 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Create deployment
- */
 export const create = mutation({
     args: {
-        projectId: v.string(),
+        projectId: v.id("projects"),
         userId: v.optional(v.string()),
         provider: v.string(),
         deploymentId: v.string(),
@@ -14,19 +11,21 @@ export const create = mutation({
         status: v.string(),
     },
     handler: async (ctx, args) => {
-        const now = new Date().toISOString();
-
-        const deploymentId = await ctx.db.insert("deployments", {
-            project_id: args.projectId,
-            user_id: args.userId,
-            provider: args.provider,
-            deployment_id: args.deploymentId,
-            url: args.url,
-            status: args.status,
-            created_at: now,
-            updated_at: now,
+        const timestamp = new Date().toISOString();
+        return await ctx.db.insert("deployments", {
+            ...args,
+            created_at: timestamp,
+            updated_at: timestamp
         });
-
-        return deploymentId;
     },
+});
+
+export const listByProject = query({
+    args: { projectId: v.id("projects") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("deployments")
+            .withIndex("by_project", q => q.eq("projectId", args.projectId))
+            .collect();
+    }
 });

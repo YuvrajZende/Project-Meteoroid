@@ -1,69 +1,11 @@
 /**
  * Vector-Based Learning System
  * 
- * Uses Supabase vector embeddings to provide SEMANTIC learning from past projects.
+ * Uses Convex vector embeddings to provide SEMANTIC learning from past projects.
  * This replaces SQL table queries with intelligent vector similarity search.
- * 
- * Features:
- * - Semantic search in code_embeddings table (plural)
- * - Semantic search in backend_knowledge_base table
- * - Pattern extraction from similar successful projects
- * - Best practices and anti-patterns identification
- * - Uses FAST AI MODEL for embeddings (no OpenAI needed!)
  */
 
-import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
-
-// Database row types for Supabase queries
-interface CodeEmbeddingRow {
-    project_id: string;
-    file_path: string;
-    content: string;
-    language: string;
-    metadata?: {
-        framework?: string;
-        [key: string]: unknown;
-    };
-    similarity?: number;
-    created_at?: string;
-}
-
-interface BackendKnowledgeRow {
-    content: string;
-    title: string;
-    category: string;
-    confidence_score?: number;
-}
-
-interface LearnedPatternRow {
-    pattern_description?: string;
-    pattern?: string;
-    description?: string;
-    pattern_type?: string;
-    category?: string;
-    confidence_score?: number;
-    confidence?: number;
-}
-
-interface GenerationIterationRow {
-    prompt: string;
-    success?: boolean;
-    status?: string;
-    task_description?: string;
-    config?: {
-        framework?: string;
-        language?: string;
-        [key: string]: unknown;
-    };
-    generated_code?: string;
-}
-
-interface LearnedPatternRowFallback {
-    description?: string;
-    context?: string;
-    pattern_type?: string;
-    confidence?: number;
-}
+import { getConvexClient, api } from '../../../infrastructure/database/convex-client.js';
 
 export interface VectorLearningContext {
     similarProjects: Array<{
@@ -92,6 +34,7 @@ export interface VectorLearningContext {
 
 export class VectorLearningSystem {
     private initialized = false;
+    private convex = getConvexClient();
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
@@ -127,14 +70,17 @@ export class VectorLearningSystem {
                 return this.getEmptyContext();
             }
 
-            // 2. Semantic search in code_embedding table
+            // 2. Semantic search in code_embeddings table (Convex)
             const similarProjects = await this.searchCodeEmbeddings(embedding, {
                 language,
                 limit: maxCodeExamples,
                 threshold: 0.7
             });
 
-            // 3. Semantic search in knowledge_base table
+            // 3. Semantic search in knowledge search (Convex)
+            // Note: Schema treats knowledge_embeddings separately.
+            // Using API action/query for best practices.
+            // For now, using logic similar to original: search knowledge_embeddings and learned_patterns
             const bestPractices = await this.searchKnowledgeBase(embedding, {
                 limit: maxPractices,
                 threshold: 0.6
@@ -154,7 +100,7 @@ export class VectorLearningSystem {
             return context;
 
         } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Error building context:', error?.message || error);
+            console.warn('[VECTOR-LEARNING] Error building context:', error instanceof Error ? error.message : error);
             return this.getEmptyContext();
         }
     }
@@ -199,7 +145,7 @@ Return ONLY the array:`;
             return this.expandTo1536(features, text);
 
         } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Embedding generation error, using hash:', error?.message);
+            console.warn('[VECTOR-LEARNING] Embedding generation error, using hash:', error instanceof Error ? error.message : error);
             return this.generateHashEmbedding(text);
         }
     }
@@ -280,198 +226,74 @@ Return ONLY the array:`;
     }
 
     /**
-     * Semantic search in code_embedding table
-     * Uses existing 200+ chunks of data stored in Supabase
+     * Semantic search in code_embedding table via Convex
      */
     private async searchCodeEmbeddings(
         embedding: number[],
         options: { language?: string; limit: number; threshold: number }
     ): Promise<VectorLearningContext['similarProjects']> {
-        const supabase = getSupabaseAdmin();
-
-        if (!supabase) {
-            return [];
-        }
-
         try {
-            // Try the RPC function first (requires migration 014)
-            const { data, error } = await supabase.rpc('match_code_embeddings', {
-                query_embedding: embedding,
-                match_threshold: options.threshold,
-                match_count: options.limit,
-                filter_project_id: null, // Search all projects
-                filter_language: options.language || null
+            // Use Convex action for vector search
+            const results = await this.convex.action(api.learning_system.searchCode, {
+                embedding,
+                limit: options.limit,
+                threshold: options.threshold,
+                language: options.language
             });
 
-            if (error) {
-                console.warn('[VECTOR-LEARNING] Code search RPC failed:', error.message);
-                // Try fallback direct query
-                return this.fallbackCodeSearch(options.language, options.limit);
-            }
-
-            if (!data || data.length === 0) {
-                // Even if RPC works but returns nothing, try fallback
-                console.log('[VECTOR-LEARNING] RPC returned no results, trying fallback');
-                return this.fallbackCodeSearch(options.language, options.limit);
-            }
-
-            console.log(`[VECTOR-LEARNING] Found ${data.length} similar code chunks via RPC`);
-
-            return data.map((row: CodeEmbeddingRow) => ({
-                projectId: row.project_id || 'unknown',
-                filePath: row.file_path || '',
+            return results.map((row: any) => ({
+                projectId: row.projectId || 'unknown',
+                filePath: row.filePath || '',
                 content: row.content?.substring(0, 500) || '',
                 language: row.language || 'unknown',
                 framework: (row.metadata?.framework) || 'none',
                 similarity: row.similarity || 0
             }));
-
         } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Code search error:', error?.message);
-            return this.fallbackCodeSearch(options.language, options.limit);
-        }
-    }
-
-    /**
-     * Fallback: Direct query to code_embeddings without vector similarity
-     * Gets recent code chunks when RPC is not available
-     */
-    private async fallbackCodeSearch(language?: string, limit: number = 5): Promise<VectorLearningContext['similarProjects']> {
-        const supabase = getSupabaseAdmin();
-        if (!supabase) return [];
-
-        try {
-            let query = supabase
-                .from('code_embeddings')
-                .select('project_id, file_path, content, language')
-                .order('created_at', { ascending: false })
-                .limit(limit);
-
-            if (language) {
-                query = query.eq('language', language);
-            }
-
-            const { data, error } = await query;
-
-            if (error || !data) {
-                console.warn('[VECTOR-LEARNING] Fallback code search failed:', error?.message);
-                return [];
-            }
-
-            console.log(`[VECTOR-LEARNING] Fallback found ${data.length} recent code chunks`);
-
-            return data.map((row: CodeEmbeddingRow) => ({
-                projectId: row.project_id || 'unknown',
-                filePath: row.file_path || '',
-                content: row.content?.substring(0, 500) || '',
-                language: row.language || 'unknown',
-                framework: 'none',
-                similarity: 0.5 // Default similarity for fallback
-            }));
-        } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Fallback error:', error?.message);
+            console.warn('[VECTOR-LEARNING] Code search error:', error instanceof Error ? error.message : error);
             return [];
         }
     }
 
     /**
-     * Semantic search in knowledge_base table
-     * Also searches generation_iterations for learned practices
+     * Semantic search for best practices
+     * Currently falls back to learned patterns as knowledge embedding search isn't ported 1:1 yet
      */
     private async searchKnowledgeBase(
         embedding: number[],
         options: { limit: number; threshold: number }
     ): Promise<VectorLearningContext['bestPractices']> {
-        const supabase = getSupabaseAdmin();
-
-        if (!supabase) {
-            return [];
-        }
-
         try {
-            // Try RPC first
-            const { data, error } = await supabase.rpc('match_knowledge_embeddings', {
-                query_embedding: embedding,
-                match_threshold: options.threshold,
-                match_count: options.limit,
-                p_project_id: null
+            // TODO: Implement vector search for knowledge embeddings if needed.
+            // For now, fetching learned patterns.
+
+            const patterns = await this.convex.query(api.learning_system.listLearnedPatterns, {
+                limit: options.limit,
+                type: 'success' // Prefer successful patterns
             });
 
-            if (error) {
-                console.warn('[VECTOR-LEARNING] Knowledge search RPC failed:', error.message);
-                // Fallback to searching learned patterns
-                return this.fallbackKnowledgeSearch(options.limit);
-            }
-
-            if (!data || data.length === 0) {
-                // Fallback if no results
-                return this.fallbackKnowledgeSearch(options.limit);
-            }
-
-            console.log(`[VECTOR-LEARNING] Found ${data.length} knowledge entries via RPC`);
-
-            return data.map((row: CodeEmbeddingRow) => ({
-                practice: row.content || row.title || 'Unknown practice',
-                category: row.category || 'general',
-                source: row.source || 'knowledge-base',
-                confidence: row.similarity || 0
+            const practices = patterns.map((p: any) => ({
+                practice: p.description || p.pattern || 'Unknown practice',
+                category: p.category || 'general',
+                source: 'learned-patterns',
+                confidence: p.confidence || 0.7
             }));
 
-        } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Knowledge search error:', error?.message);
-            return this.fallbackKnowledgeSearch(options.limit);
-        }
-    }
+            // Also get recent successful generations
+            const generations = await this.convex.query(api.learning_system.getSuccessfulGenerations, {
+                limit: options.limit
+            });
 
-    /**
-     * Fallback: Get best practices from successful generations
-     */
-    private async fallbackKnowledgeSearch(limit: number = 5): Promise<VectorLearningContext['bestPractices']> {
-        const supabase = getSupabaseAdmin();
-        if (!supabase) return [];
-
-        try {
-            // Get successful generation iterations as learning material
-            const { data, error } = await supabase
-                .from('generation_iterations')
-                .select('prompt, config, generated_code')
-                .eq('success', true)
-                .order('created_at', { ascending: false })
-                .limit(limit);
-
-            if (error || !data || data.length === 0) {
-                // Try learned_patterns table
-                const { data: patterns, error: pErr } = await supabase
-                    .from('learned_patterns')
-                    .select('description, context, pattern_type, confidence')
-                    .eq('pattern_type', 'success')
-                    .order('frequency', { ascending: false })
-                    .limit(limit);
-
-                if (pErr || !patterns) {
-                    return [];
-                }
-
-                console.log(`[VECTOR-LEARNING] Fallback found ${patterns.length} learned patterns`);
-
-                return patterns.map((p: LearnedPatternRowFallback) => ({
-                    practice: p.description || 'Learned pattern',
-                    category: p.context?.substring(0, 50) || 'general',
-                    source: 'learned-patterns',
-                    confidence: p.confidence || 0.7
-                }));
-            }
-
-            console.log(`[VECTOR-LEARNING] Fallback found ${data.length} successful generations`);
-
-            return data.map((row: CodeEmbeddingRow) => ({
-                practice: `Successful: ${row.prompt?.substring(0, 100)}`,
-                category: row.config?.framework || row.config?.language || 'general',
+            const generationPractices = generations.map((g: any) => ({
+                practice: `Successful generation: ${g.prompt.substring(0, 50)}...`,
+                category: g.config?.language || 'general',
                 source: 'past-success',
                 confidence: 0.8
             }));
+
+            return [...practices, ...generationPractices].slice(0, options.limit);
         } catch (error: unknown) {
-            console.warn('[VECTOR-LEARNING] Knowledge fallback error:', error?.message);
+            console.warn('[VECTOR-LEARNING] Knowledge search error:', error instanceof Error ? error.message : error);
             return [];
         }
     }

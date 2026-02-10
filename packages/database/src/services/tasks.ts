@@ -3,18 +3,18 @@
  * Database operations for the tasks table (job queue metadata)
  */
 
-import { getSupabaseAdmin } from '../client.js';
+import { getConvexClient, api } from '../../api/src/infrastructure/database/convex-client.js';
 
 /**
  * Task status enum
  */
-export type TaskStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type TaskStatus = 'queued' | 'pending' | 'processing' | 'completed' | 'failed';
 
 /**
  * Task entity
  */
 export interface Task {
-    id: string;
+    id: string; // Convex ID
     user_id: string;
     project_id: string | null;
     prompt: string;
@@ -26,6 +26,7 @@ export interface Task {
     started_at: string | null;
     completed_at: string | null;
     created_at: string;
+    _id: string;
 }
 
 /**
@@ -55,24 +56,20 @@ export interface TaskUpdate {
  * TasksService - CRUD operations for tasks
  */
 export class TasksService {
-    private supabase = getSupabaseAdmin();
+    private convex = getConvexClient();
 
     /**
      * Get task by ID
      */
     async getById(id: string): Promise<Task | null> {
-        const { data, error } = await this.supabase
-            .from('tasks')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) {
-            if (error.code === 'PGRST116') return null;
-            throw new Error(`Failed to get task: ${error.message}`);
+        try {
+            const task = await this.convex.query(api.tasks.get, { id: id as any });
+            if (!task) return null;
+            return this.mapToEntity(task);
+        } catch (e) {
+            console.error("Failed to get task by ID", e);
+            return null;
         }
-
-        return data as Task;
     }
 
     /**
@@ -83,33 +80,32 @@ export class TasksService {
         limit?: number;
         offset?: number;
     }): Promise<{ tasks: Task[]; total: number }> {
-        let query = this.supabase
-            .from('tasks')
-            .select('*', { count: 'exact' })
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        const tasks = await this.convex.query(api.tasks.listByUser, { userId });
+
+        let filtered = tasks;
 
         if (options?.status) {
-            query = query.eq('status', options.status);
+            filtered = filtered.filter(t => t.status === options.status);
         }
 
-        if (options?.limit) {
-            query = query.limit(options.limit);
-        }
+        // Sort by created_at desc
+        filtered.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+        });
 
-        if (options?.offset) {
-            query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-        }
+        const total = filtered.length;
 
-        const { data, error, count } = await query;
-
-        if (error) {
-            throw new Error(`Failed to get tasks: ${error.message}`);
+        if (options?.offset !== undefined || options?.limit !== undefined) {
+            const start = options.offset || 0;
+            const end = options.limit ? start + options.limit : filtered.length;
+            filtered = filtered.slice(start, end);
         }
 
         return {
-            tasks: (data || []) as Task[],
-            total: count || 0,
+            tasks: filtered.map(t => this.mapToEntity(t)),
+            total,
         };
     }
 
@@ -117,74 +113,60 @@ export class TasksService {
      * Get tasks by project ID
      */
     async getByProjectId(projectId: string): Promise<Task[]> {
-        const { data, error } = await this.supabase
-            .from('tasks')
-            .select('*')
-            .eq('project_id', projectId)
-            .order('created_at', { ascending: false });
+        const tasks = await this.convex.query(api.tasks.listByProject, { projectId: projectId as any });
 
-        if (error) {
-            throw new Error(`Failed to get tasks: ${error.message}`);
-        }
+        // Sort desc
+        tasks.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+        });
 
-        return (data || []) as Task[];
+        return tasks.map(t => this.mapToEntity(t));
     }
 
     /**
      * Create a new task
      */
     async create(task: TaskInsert): Promise<Task> {
-        const { data, error } = await this.supabase
-            .from('tasks')
-            .insert({
-                user_id: task.user_id,
-                project_id: task.project_id || null,
-                prompt: task.prompt,
-                status: task.status || 'queued',
-                progress: 0,
-                agents_used: [],
-            })
-            .select()
-            .single();
+        const newId = await this.convex.mutation(api.tasks.create, {
+            userId: task.user_id,
+            projectId: task.project_id ? (task.project_id as any) : undefined,
+            prompt: task.prompt,
+            status: task.status || 'queued',
+        });
 
-        if (error) {
-            throw new Error(`Failed to create task: ${error.message}`);
-        }
-
-        return data as Task;
+        // Fetch back
+        const created = await this.getById(newId);
+        if (!created) throw new Error("Failed to retrieve created task");
+        return created;
     }
 
     /**
      * Update a task
      */
     async update(id: string, updates: TaskUpdate): Promise<Task> {
-        const { data, error } = await this.supabase
-            .from('tasks')
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single();
+        await this.convex.mutation(api.tasks.update, {
+            id: id as any,
+            status: updates.status,
+            progress: updates.progress,
+            result: updates.result,
+            error: updates.error,
+            agents_used: updates.agents_used,
+            started_at: updates.started_at,
+            completed_at: updates.completed_at,
+        });
 
-        if (error) {
-            throw new Error(`Failed to update task: ${error.message}`);
-        }
-
-        return data as Task;
+        const updated = await this.getById(id);
+        if (!updated) throw new Error("Failed to retrieve updated task");
+        return updated;
     }
 
     /**
      * Update task status
      */
     async updateStatus(id: string, status: TaskStatus): Promise<Task> {
-        const updates: TaskUpdate = { status };
-
-        if (status === 'processing') {
-            updates.started_at = new Date().toISOString();
-        } else if (status === 'completed' || status === 'failed') {
-            updates.completed_at = new Date().toISOString();
-        }
-
-        return this.update(id, updates);
+        return this.update(id, { status });
     }
 
     /**
@@ -232,14 +214,7 @@ export class TasksService {
      * Delete a task
      */
     async delete(id: string): Promise<void> {
-        const { error } = await this.supabase
-            .from('tasks')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            throw new Error(`Failed to delete task: ${error.message}`);
-        }
+        await this.convex.mutation(api.tasks.deleteTask, { id: id as any });
     }
 
     /**
@@ -249,12 +224,30 @@ export class TasksService {
         const task = await this.getById(id);
         if (!task) return null;
 
-        // Only cancel queued tasks
-        if (task.status !== 'queued') {
-            throw new Error('Can only cancel queued tasks');
+        // Only cancel queued/pending tasks
+        if (task.status !== 'queued' && task.status !== 'pending') {
+            throw new Error('Can only cancel queued or pending tasks');
         }
 
         return this.fail(id, 'Task cancelled by user');
+    }
+
+    private mapToEntity(t: any): Task {
+        return {
+            id: t._id,
+            _id: t._id,
+            user_id: t.userId || '',
+            project_id: t.projectId || null,
+            prompt: t.prompt,
+            status: (t.status as TaskStatus),
+            progress: t.progress || 0,
+            result: t.result || null,
+            error: t.error || null,
+            agents_used: t.agents_used || [],
+            started_at: t.started_at || null,
+            completed_at: t.completed_at || null,
+            created_at: t.created_at || new Date().toISOString(),
+        };
     }
 }
 

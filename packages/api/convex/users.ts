@@ -1,97 +1,105 @@
-import { query, mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Get user by email
- */
+// Get user by ID (Supabase Auth ID)
+export const get = query({
+    args: { id: v.string() },
+    handler: async (ctx, args) => {
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_external_id", (q) => q.eq("id", args.id))
+            .unique();
+        return user;
+    },
+});
+
+// Get user by Email
 export const getByEmail = query({
     args: { email: v.string() },
     handler: async (ctx, args) => {
         const user = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.email))
-            .first();
-
+            .unique();
         return user;
     },
 });
 
-/**
- * Get user by ID
- */
-export const getById = query({
-    args: { id: v.id("users") },
-    handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
-    },
-});
-
-/**
- * Create or update user
- */
+// Create or Update User (Upsert)
 export const upsert = mutation({
     args: {
+        id: v.string(), // Supabase Auth ID
         email: v.string(),
         name: v.optional(v.string()),
+        tier: v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise")),
         avatar_url: v.optional(v.string()),
-        tier: v.optional(v.string()),
+        api_quota_used: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        // Check if user exists
-        const existing = await ctx.db
+        const existingUser = await ctx.db
             .query("users")
-            .withIndex("by_email", (q) => q.eq("email", args.email))
-            .first();
+            .withIndex("by_external_id", (q) => q.eq("id", args.id))
+            .unique();
 
-        const now = new Date().toISOString();
+        const timestamp = new Date().toISOString();
 
-        if (existing) {
-            // Update existing user - map camelCase to snake_case
-            await ctx.db.patch(existing._id, {
+        if (existingUser) {
+            await ctx.db.patch(existingUser._id, {
                 email: args.email,
-                name: args.name,
-                avatar_url: args.avatar_url,
-                tier: args.tier,
-                updated_at: now,
+                name: args.name ?? existingUser.name,
+                tier: args.tier ?? existingUser.tier,
+                avatar_url: args.avatar_url ?? existingUser.avatar_url,
+                api_quota_used: args.api_quota_used ?? existingUser.api_quota_used,
+                updated_at: timestamp,
             });
-            return existing._id;
+            return existingUser._id;
         } else {
-            // Create new user
-            const userId = await ctx.db.insert("users", {
+            const newId = await ctx.db.insert("users", {
+                id: args.id,
                 email: args.email,
                 name: args.name,
-                avatar_url: args.avatar_url,
                 tier: args.tier,
-                created_at: now,
-                updated_at: now,
+                avatar_url: args.avatar_url,
+                api_quota_used: args.api_quota_used ?? 0,
+                created_at: timestamp,
+                updated_at: timestamp,
             });
-            return userId;
+            return newId;
         }
     },
 });
 
-/**
- * Update user tier
- */
-export const updateTier = mutation({
+// Increment API Quota
+export const incrementQuota = mutation({
     args: {
-        userId: v.id("users"),
-        tier: v.string(),
+        id: v.string(),
+        amount: v.number(),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.userId, {
-            tier: args.tier,
-            updated_at: new Date().toISOString(),
-        });
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_external_id", (q) => q.eq("id", args.id))
+            .unique();
+
+        if (user) {
+            await ctx.db.patch(user._id, {
+                api_quota_used: (user.api_quota_used || 0) + args.amount,
+                updated_at: new Date().toISOString(),
+            });
+        }
     },
 });
 
-/**
- * Delete user
- */
-export const remove = mutation({
-    args: { userId: v.id("users") },
+export const deleteUser = mutation({
+    args: { id: v.string() },
     handler: async (ctx, args) => {
-        await ctx.db.delete(args.userId);
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_external_id", (q) => q.eq("id", args.id))
+            .unique();
+
+        if (user) {
+            await ctx.db.delete(user._id);
+        }
     },
 });

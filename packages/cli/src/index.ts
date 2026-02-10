@@ -9,7 +9,7 @@
 
 import { Command } from 'commander';
 import { api } from './utils/index.js';
-import { showWelcome, showBox, createSpinner } from './utils/ui.js';
+import { showWelcome, showBox, createSpinner, WelcomeConfig } from './utils/ui.js';
 import { colors } from './utils/theme.js';
 import { startChatMode } from './modes/chat-mode.js';
 import { existsSync, readFileSync } from 'fs';
@@ -55,7 +55,13 @@ program
 program
     .argument('[prompt...]', 'Optional prompt to send directly')
     .action(async (prompt: string[] = [], options) => {
-        showWelcome(VERSION);
+
+        // Show enhanced welcome screen
+        showWelcome({
+            version: VERSION,
+            workingDir: process.cwd(),
+            showTips: true,
+        });
 
         // Quick health check
         const spin = createSpinner('Connecting to server...');
@@ -529,18 +535,30 @@ program
 program
     .command('transform')
     .description('Analyze a frontend repo and generate backend specifications')
-    .argument('<source>', 'GitHub URL or local path to frontend repository')
-    .option('-o, --output <path>', 'Output directory', './loveable-output')
+    .argument('[source]', 'GitHub URL or local path to frontend repository')
+    .option('-o, --output <path>', 'Output directory', './meteoroid-output')
     .option('--json', 'Include JSON analysis report')
     .option('--no-tasks', 'Skip generating agent task files')
+    .option('--no-llm', 'Skip LLM enhancement (faster, pattern-only)')
     .option('--shallow', 'Use shallow clone for GitHub repos')
-    .action(async (source: string, options) => {
+    .action(async (sourceArg: string | undefined, options) => {
+        let source = sourceArg;
+
+        if (!source) {
+            console.log();
+            console.log(colors.error('Error: Source repository is required.'));
+            console.log(colors.muted('Usage: meteoroid transform <source> [options]'));
+            console.log(colors.muted('Example: meteoroid transform https://github.com/user/repo'));
+            console.log();
+            process.exit(1);
+        }
         console.log();
-        console.log(colors.primary.bold('🔄 Loveable Transform'));
+        console.log(colors.primary.bold('🔄 Meteoroid Transform'));
         console.log(colors.muted('─'.repeat(50)));
         console.log();
         console.log(colors.muted('Source:'), colors.secondary(source));
         console.log(colors.muted('Output:'), colors.secondary(options.output));
+        console.log(colors.muted('LLM Enhancement:'), options.llm === false ? colors.warning('Disabled') : colors.success('Enabled'));
         console.log();
 
         const spin = createSpinner('Initializing pipeline...');
@@ -551,27 +569,58 @@ program
             const outputDir = resolve(process.cwd(), options.output);
 
             // Create a simple inline script that runs the pipeline
+            const pipelinePath = resolve(process.cwd(), 'agents/core/analysis/analysis-pipeline.ts');
             const scriptContent = `
-import { AnalysisPipeline } from './agents/core/analysis/analysis-pipeline.js';
+import { AnalysisPipeline } from '${pipelinePath.replace(/\\/g, '/')}';
+import * as fs from 'fs';
 
-const pipeline = new AnalysisPipeline({
-    source: ${JSON.stringify(source)},
-    outputDir: ${JSON.stringify(outputDir)},
-    includeJsonReport: ${options.json ?? false},
-    skipTaskDistribution: ${options.noTasks ?? false},
-    shallow: ${options.shallow ?? true},
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    console.error(JSON.stringify({ success: false, error: 'Uncaught: ' + err.message }));
+    process.exit(1);
 });
 
-pipeline.run()
-    .then(result => {
-        console.log(JSON.stringify(result, null, 2));
-        process.exit(0);
-    })
-    .catch(err => {
-        console.error(JSON.stringify({ error: err.message }));
+const pipeline = new AnalysisPipeline();
+
+(async () => {
+    try {
+        const result = await pipeline.run({
+            source: ${JSON.stringify(source)},
+            outputDir: ${JSON.stringify(outputDir)},
+            includeJsonReport: ${options.json ?? true},
+            specOnly: ${options.noTasks ?? false},
+            skipLLM: ${options.llm === false},
+        });
+
+        // Check if details.md was actually created
+        const detailsPath = result.details?.detailsPath;
+        const detailsExists = detailsPath && fs.existsSync(detailsPath);
+
+        // Create minimal summary with only primitives
+        const summary = {
+            success: detailsExists || result.success || false,
+            detailsPath: detailsPath || null,
+            jsonReportPath: result.details?.jsonReportPath || null,
+            duration: result.duration || 0,
+            framework: String(result.analysis?.framework?.type || 'unknown'),
+            apiCallsCount: Number(result.analysis?.apiCalls?.length || 0),
+            dataModelsCount: Number(result.analysis?.dataModels?.length || 0),
+            routesCount: Number(result.analysis?.routes?.length || 0),
+            authProvider: String(result.analysis?.authStrategy?.provider || 'none'),
+            llmEnhanced: Boolean(result.llmAnalysis),
+            error: result.error ? String(result.error) : null,
+        };
+
+        console.log(JSON.stringify(summary));
+        process.exit(summary.success ? 0 : 1);
+    } catch (err: any) {
+        console.error(JSON.stringify({ success: false, error: String(err?.message || err) }));
         process.exit(1);
-    });
+    }
+})();
 `;
+
+
 
             // Write temp script
             const tempDir = join(process.cwd(), '.loveable-temp');
@@ -606,11 +655,26 @@ pipeline.run()
 
             spin.stop();
 
-            // Parse result
+            // Parse result (flat summary structure)
             let result: any;
-            try { result = JSON.parse(stdout); } catch {
-                console.log(colors.success('✅ Transform complete!'));
-                console.log(colors.muted(stdout));
+            try {
+                result = JSON.parse(stdout);
+            } catch {
+                // If JSON parse fails, pipeline still likely succeeded
+                // Check if output files exist
+                const detailsPath = join(outputDir, 'analysis', 'details.md');
+                const { existsSync } = await import('fs');
+                if (existsSync(detailsPath)) {
+                    console.log();
+                    console.log(colors.success('✅ Transform complete!'));
+                    console.log();
+                    console.log(colors.primary('Generated Files:'));
+                    console.log(`  ${colors.success('✓')} ${detailsPath}`);
+                    console.log();
+                    return;
+                }
+                console.log(colors.warning('⚠️ Transform finished with warnings'));
+                console.log(colors.muted(stdout.slice(0, 500)));
                 return;
             }
 
@@ -620,25 +684,22 @@ pipeline.run()
             console.log(colors.success('✅ Transform complete!'));
             console.log();
 
-            // Show summary
-            if (result.analysis) {
-                console.log(colors.primary('Analysis Summary:'));
-                console.log(`  Framework: ${colors.secondary(result.analysis.framework?.type || 'unknown')}`);
-                console.log(`  API Endpoints: ${colors.secondary((result.analysis.apiCalls?.length || 0).toString())}`);
-                console.log(`  Data Models: ${colors.secondary((result.analysis.dataModels?.length || 0).toString())}`);
-                console.log(`  Auth Provider: ${colors.secondary(result.analysis.authStrategy?.provider || 'none')}`);
-                console.log(`  Routes: ${colors.secondary((result.analysis.routes?.length || 0).toString())}`);
-                console.log();
+            // Show summary (flat structure)
+            console.log(colors.primary('Analysis Summary:'));
+            console.log(`  Framework: ${colors.secondary(result.framework || 'unknown')}`);
+            console.log(`  API Endpoints: ${colors.secondary(String(result.apiCallsCount || 0))}`);
+            console.log(`  Data Models: ${colors.secondary(String(result.dataModelsCount || 0))}`);
+            console.log(`  Auth Provider: ${colors.secondary(result.authProvider || 'none')}`);
+            console.log(`  Routes: ${colors.secondary(String(result.routesCount || 0))}`);
+            if (result.llmEnhanced) {
+                console.log(`  LLM Enhanced: ${colors.success('Yes')}`);
             }
+            console.log();
 
             // Show generated files
             console.log(colors.primary('Generated Files:'));
             if (result.detailsPath) console.log(`  ${colors.success('✓')} ${result.detailsPath}`);
             if (result.jsonReportPath) console.log(`  ${colors.success('✓')} ${result.jsonReportPath}`);
-            if (result.tasksGenerated?.length) {
-                console.log(`  ${colors.success('✓')} Agent task files (${result.tasksGenerated.length}):`);
-                result.tasksGenerated.forEach((f: string) => console.log(`      • ${f}`));
-            }
 
             console.log();
             console.log(colors.muted('Next: Run the orchestrator to execute agent tasks'));
@@ -651,6 +712,212 @@ pipeline.run()
             if (err.message?.includes('git')) {
                 console.log(colors.muted('Hint: Make sure git is installed and the repository URL is valid.'));
             }
+            console.log();
+            process.exit(1);
+        }
+    });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORCHESTRATE COMMAND - Read analysis and run backend generation
+// ═══════════════════════════════════════════════════════════════════════════
+
+program
+    .command('or')
+    .alias('orchestrate')
+    .description('Generate backend from analysis output with guided setup')
+    .option('-i, --input <path>', 'Analysis output directory', './meteoroid-output')
+    .option('-o, --output <path>', 'Generated backend output directory', './generated-backend')
+    .option('--skip-questions', 'Use defaults without prompts')
+    .action(async (options) => {
+        console.log();
+        console.log(colors.primary.bold('🚀 Meteoroid Orchestrator'));
+        console.log(colors.muted('─'.repeat(50)));
+        console.log();
+
+        // Read analysis file
+        const analysisPath = resolve(process.cwd(), options.input, 'analysis', 'analysis-report.json');
+
+        if (!existsSync(analysisPath)) {
+            console.log(colors.error(`Analysis file not found: ${analysisPath}`));
+            console.log(colors.muted('Run "meteoroid transform <repo>" first to analyze a frontend.'));
+            console.log();
+            process.exit(1);
+        }
+
+        let analysis: any;
+        try {
+            const content = readFileSync(analysisPath, 'utf-8');
+            analysis = JSON.parse(content);
+        } catch (err) {
+            console.log(colors.error(`Failed to parse analysis: ${err}`));
+            process.exit(1);
+        }
+
+        // Display analysis summary
+        console.log(colors.primary('📊 Analysis Summary:'));
+        console.log(`   Framework: ${colors.secondary(analysis.framework?.type || 'unknown')}`);
+        console.log(`   Data Models: ${colors.secondary(analysis.dataModels?.length || 0)}`);
+        console.log(`   Auth: ${colors.secondary(analysis.authStrategy?.provider || 'none')}`);
+        console.log(`   Routes: ${colors.secondary(analysis.routes?.length || 0)}`);
+        console.log();
+
+        // Detect app type based on data models
+        const modelNames = (analysis.dataModels || []).map((m: any) => m.name.toLowerCase());
+        let detectedType = 'general';
+        if (modelNames.some((n: string) => ['product', 'cart', 'order', 'checkout'].includes(n))) {
+            detectedType = 'ecommerce';
+        } else if (modelNames.some((n: string) => ['post', 'article', 'blog', 'comment'].includes(n))) {
+            detectedType = 'blog';
+        } else if (modelNames.some((n: string) => ['dashboard', 'analytics', 'metric'].includes(n))) {
+            detectedType = 'dashboard';
+        }
+
+        // Collect user preferences
+        let authProvider = 'none';
+        let database = 'postgresql-prisma';
+
+        if (!options.skipQuestions) {
+            const { select, confirm } = await import('@inquirer/prompts');
+
+            // Auth question - ask if detected type needs it but none found
+            const needsAuth = ['ecommerce', 'dashboard'].includes(detectedType);
+            const hasAuth = analysis.authStrategy?.provider !== 'none';
+
+            if (needsAuth && !hasAuth) {
+                console.log(colors.warning(`🤔 This looks like a ${detectedType} app but has no auth detected.`));
+                console.log();
+
+                const wantsAuth = await confirm({
+                    message: 'Do you need authentication?',
+                    default: true,
+                });
+
+                if (wantsAuth) {
+                    authProvider = await select({
+                        message: 'Which auth provider?',
+                        choices: [
+                            { value: 'clerk', name: 'Clerk (Recommended)' },
+                            { value: 'supabase', name: 'Supabase Auth' },
+                            { value: 'nextauth', name: 'NextAuth.js' },
+                            { value: 'custom-jwt', name: 'Custom JWT' },
+                        ],
+                    });
+                }
+            } else if (hasAuth) {
+                authProvider = analysis.authStrategy.provider;
+                console.log(colors.success(`✓ Using detected auth: ${authProvider}`));
+            }
+
+            // Database question
+            console.log();
+            database = await select({
+                message: 'Which database setup?',
+                choices: [
+                    { value: 'postgresql-prisma', name: 'PostgreSQL + Prisma (Recommended)' },
+                    { value: 'supabase', name: 'Supabase (PostgreSQL + Auth + Storage)' },
+                    { value: 'mongodb', name: 'MongoDB + Mongoose' },
+                    { value: 'sqlite', name: 'SQLite (Development only)' },
+                ],
+            });
+
+            // Show summary and confirm
+            console.log();
+            console.log(colors.primary('📦 Backend Configuration:'));
+            console.log(`   Auth: ${colors.secondary(authProvider)}`);
+            console.log(`   Database: ${colors.secondary(database)}`);
+            console.log(`   Output: ${colors.secondary(options.output)}`);
+            console.log();
+
+            const proceed = await confirm({
+                message: 'Generate backend with these settings?',
+                default: true,
+            });
+
+            if (!proceed) {
+                console.log(colors.muted('Cancelled.'));
+                process.exit(0);
+            }
+        }
+
+        // Build orchestration prompt
+        const modelDescriptions = (analysis.dataModels || [])
+            .slice(0, 10)
+            .map((m: any) => m.name)
+            .join(', ');
+
+        const orchestrationPrompt = `
+Generate a complete backend for a ${analysis.framework?.type || 'React'} frontend application.
+
+Project Analysis:
+- Framework: ${analysis.framework?.type || 'unknown'}
+- TypeScript: ${analysis.framework?.usesTypeScript ? 'Yes' : 'No'}
+- Detected Data Models: ${modelDescriptions || 'None'}
+- Routes: ${analysis.routes?.length || 0} pages
+
+Requirements:
+- Authentication: ${authProvider}
+- Database: ${database}
+- Generate REST API endpoints for all data models
+- Include validation and error handling
+- Add proper security middleware
+
+Output directory: ${resolve(process.cwd(), options.output)}
+`.trim();
+
+        console.log();
+        console.log(colors.primary('🚀 Starting Orchestration...'));
+        console.log();
+
+        const spin = createSpinner('Initializing agents...');
+
+        try {
+            // Call orchestrator API endpoint
+            const response = await api.postWithTimeout('/orchestrator/execute', {
+                prompt: orchestrationPrompt,
+                context: {
+                    analysis,
+                    preferences: { authProvider, database },
+                    outputDir: resolve(process.cwd(), options.output),
+                },
+            }, 600000); // 10 min timeout for complex generation
+
+            spin.stop();
+
+            if (response.success && response.data) {
+                console.log();
+                console.log(colors.success('✅ Backend generation complete!'));
+                console.log();
+
+                const data = response.data as any;
+
+                if (data.fileWriteResult?.filesWritten?.length) {
+                    console.log(colors.primary(`Files generated (${data.fileWriteResult.filesWritten.length}):`));
+                    data.fileWriteResult.filesWritten.slice(0, 15).forEach((f: string) => {
+                        console.log(`  ${colors.success('✓')} ${f}`);
+                    });
+                    if (data.fileWriteResult.filesWritten.length > 15) {
+                        console.log(colors.muted(`  ... and ${data.fileWriteResult.filesWritten.length - 15} more`));
+                    }
+                }
+
+                if (data.generatedCode?.length) {
+                    console.log();
+                    console.log(colors.primary(`Components generated (${data.generatedCode.length}):`));
+                    data.generatedCode.slice(0, 5).forEach((c: any) => {
+                        console.log(`  ${colors.muted('•')} ${c.subtask || c.name || 'Component'}`);
+                    });
+                }
+
+                console.log();
+                console.log(colors.muted(`Output: ${resolve(process.cwd(), options.output)}`));
+                console.log();
+            } else {
+                console.log(colors.error(`Generation failed: ${response.error || 'Unknown error'}`));
+            }
+        } catch (err: any) {
+            spin.stop();
+            console.log();
+            console.log(colors.error(`Orchestration failed: ${err.message || err}`));
             console.log();
             process.exit(1);
         }

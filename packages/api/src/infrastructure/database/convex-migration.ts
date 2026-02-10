@@ -6,8 +6,39 @@
  * and import it into Convex.
  */
 
-import { getSupabaseAdmin } from './database-client.js';
-import { getConvexClient } from './convex-client.js';
+import { createClient } from '@supabase/supabase-js';
+import { ConvexHttpClient } from "convex/browser";
+import * as dotenv from "dotenv";
+import path from "path";
+
+// Load .env.local if present
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config(); // Fallback to .env
+
+const getConvexClient = () => {
+    const url = process.env.CONVEX_URL;
+    if (!url) {
+        throw new Error("CONVEX_URL environment variable is not set. Please run `npx convex dev` to set it up or check .env.local");
+    }
+    return new ConvexHttpClient(url);
+};
+
+const getSupabaseAdmin = () => {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+        throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env or .env.local");
+    }
+    return createClient(url, key, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    });
+};
+
+// We don't import 'api' here to avoid build issues if types aren't generated yet.
+// We use string literals for mutation names.
 
 /**
  * Migration statistics
@@ -44,10 +75,19 @@ export async function exportFromSupabase(): Promise<{
     learningContexts: unknown[];
     benchmarks: unknown[];
     knowledgeEmbeddings: unknown[];
+    knowledgeEmbeddings: unknown[];
+    apiKeys: unknown[];
+    userMfa: unknown[];
+    codeEmbeddings: unknown[];
+    generationIterations: unknown[];
+    learnedPatterns: unknown[];
 }> {
     const supabase = getSupabaseAdmin();
 
     // Export all tables
+    // We use a safe select strategy for new tables that might not check out in old Supabase
+
+    // Existing core tables
     const [
         { data: users },
         { data: projects },
@@ -59,6 +99,7 @@ export async function exportFromSupabase(): Promise<{
         { data: learningContexts },
         { data: benchmarks },
         { data: knowledgeEmbeddings },
+        { data: apiKeys },
     ] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('projects').select('*'),
@@ -70,6 +111,20 @@ export async function exportFromSupabase(): Promise<{
         supabase.from('learning_contexts').select('*'),
         supabase.from('benchmarks').select('*'),
         supabase.from('knowledge_embeddings').select('*'),
+        supabase.from('api_keys').select('*'),
+    ]);
+
+    // New tables (try/catch in case they don't exist in Supabase)
+    const [
+        { data: userMfa },
+        { data: codeEmbeddings },
+        { data: generationIterations },
+        { data: learnedPatterns },
+    ] = await Promise.all([
+        safeSelect(supabase, 'user_mfa'),
+        safeSelect(supabase, 'code_embeddings'),
+        safeSelect(supabase, 'generation_iterations'),
+        safeSelect(supabase, 'learned_patterns'),
     ]);
 
     return {
@@ -82,19 +137,40 @@ export async function exportFromSupabase(): Promise<{
         auditLogs: auditLogs ?? [],
         learningContexts: learningContexts ?? [],
         benchmarks: benchmarks ?? [],
-        knowledgeEmbeddings: knowledgeEmbeddings ?? [],
+        knowledgeEmbeddings: (knowledgeEmbeddings as any[]) ?? [],
+        apiKeys: (apiKeys as any[]) ?? [],
+        userMfa: (userMfa as any[]) ?? [],
+        codeEmbeddings: (codeEmbeddings as any[]) ?? [],
+        generationIterations: (generationIterations as any[]) ?? [],
+        learnedPatterns: (learnedPatterns as any[]) ?? [],
     };
 }
+
+// Helper to safely get data from Supabase even if table doesn't exist
+const safeSelect = async (supabase: any, table: string) => {
+    try {
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) {
+            // console.warn(`Error exporting ${table}:`, error.message);
+            return { data: [] };
+        }
+        return { data };
+    } catch {
+        return { data: [] };
+    }
+};
 
 /**
  * Transform Supabase user to Convex format
  */
 function transformUser(user: Record<string, unknown>): Record<string, unknown> {
     return {
+        id: user.id, // Keep Supabase ID for reference
         email: user.email,
         name: user.name ?? undefined,
         avatar_url: user.avatar_url ?? undefined,
-        tier: user.tier ?? 'free',
+        tier: (user.tier as string) || 'free',
+        api_quota_used: user.api_quota_used ?? 0,
     };
 }
 
@@ -108,20 +184,27 @@ function transformProject(project: Record<string, unknown>): Record<string, unkn
         description: project.description ?? undefined,
         framework: project.framework ?? undefined,
         language: project.language ?? undefined,
-        status: project.status ?? 'active',
+        status: project.status || 'active',
         githubUrl: project.github_url ?? undefined,
+        config: project.config ?? undefined,
     };
 }
 
 /**
  * Transform Supabase task to Convex format
  */
-function transformTask(task: Record<string, unknown>): Record<string, unknown> {
+function transformTask(task: Record<string, unknown>, projectMap: Map<string, any>): Record<string, unknown> {
+    // We need to resolve the project ID to a Convex ID if possible,
+    // BUT my schema.ts defines projectId as v.id("projects").
+    // This means we strictly need a valid Convex ID.
+    // Strategy: We will maintain a map of textId -> convexId during import.
+    const convexProjectId = projectMap.get(task.project_id as string);
+
     return {
-        projectId: task.project_id,
+        projectId: convexProjectId, // Can be undefined
         userId: task.user_id ?? undefined,
         prompt: task.prompt,
-        status: task.status ?? 'pending',
+        status: task.status || 'pending',
         result: task.result ?? undefined,
         error: task.error ?? undefined,
     };
@@ -130,10 +213,17 @@ function transformTask(task: Record<string, unknown>): Record<string, unknown> {
 /**
  * Transform Supabase generated_file to Convex format
  */
-function transformGeneratedFile(file: Record<string, unknown>): Record<string, unknown> {
+function transformGeneratedFile(file: Record<string, unknown>, taskMap: Map<string, any>, projectMap: Map<string, any>): Record<string, unknown> {
+    const convexTaskId = taskMap.get(file.task_id as string);
+    const convexProjectId = projectMap.get(file.project_id as string);
+
+    if (!convexTaskId) {
+        throw new Error(`Generated file ${file.path} has no valid task ID mapping: ${file.task_id}`);
+    }
+
     return {
-        taskId: file.task_id,
-        projectId: file.project_id ?? undefined,
+        taskId: convexTaskId,
+        projectId: convexProjectId,
         path: file.path,
         content: file.content,
         language: file.language ?? undefined,
@@ -157,9 +247,14 @@ function transformConnection(conn: Record<string, unknown>): Record<string, unkn
 /**
  * Transform Supabase deployment to Convex format
  */
-function transformDeployment(deployment: Record<string, unknown>): Record<string, unknown> {
+function transformDeployment(deployment: Record<string, unknown>, projectMap: Map<string, any>): Record<string, unknown> {
+    const convexProjectId = projectMap.get(deployment.project_id as string);
+    if (!convexProjectId) {
+        throw new Error(`Deployment has no valid project ID mapping: ${deployment.project_id}`);
+    }
+
     return {
-        projectId: deployment.project_id,
+        projectId: convexProjectId,
         userId: deployment.user_id ?? undefined,
         provider: deployment.provider,
         deploymentId: deployment.deployment_id,
@@ -181,15 +276,21 @@ function transformAuditLog(log: Record<string, unknown>): Record<string, unknown
         userAgent: log.user_agent ?? undefined,
         success: log.success ?? true,
         errorMessage: log.error_message ?? undefined,
+        metadata: log.metadata ?? undefined,
     };
 }
 
 /**
  * Transform Supabase learning_context to Convex format
  */
-function transformLearningContext(ctx: Record<string, unknown>): Record<string, unknown> {
+function transformLearningContext(ctx: Record<string, unknown>, projectMap: Map<string, any>): Record<string, unknown> {
+    const convexProjectId = projectMap.get(ctx.project_id as string);
+    if (!convexProjectId) {
+        throw new Error(`Learning Context has no valid project ID mapping`);
+    }
+
     return {
-        projectId: ctx.project_id,
+        projectId: convexProjectId,
         contextType: ctx.context_type ?? undefined,
         contextData: ctx.context_data ?? undefined,
         embeddings: ctx.embeddings ?? undefined,
@@ -199,9 +300,11 @@ function transformLearningContext(ctx: Record<string, unknown>): Record<string, 
 /**
  * Transform Supabase benchmark to Convex format
  */
-function transformBenchmark(benchmark: Record<string, unknown>): Record<string, unknown> {
+function transformBenchmark(benchmark: Record<string, unknown>, projectMap: Map<string, any>): Record<string, unknown> {
+    const convexProjectId = projectMap.get(benchmark.project_id as string);
+
     return {
-        projectId: benchmark.project_id ?? undefined,
+        projectId: convexProjectId,
         userId: benchmark.user_id ?? undefined,
         taskType: benchmark.task_type ?? undefined,
         model: benchmark.model,
@@ -211,6 +314,17 @@ function transformBenchmark(benchmark: Record<string, unknown>): Record<string, 
         cost: benchmark.cost ?? undefined,
         durationMs: benchmark.duration_ms ?? undefined,
         qualityScore: benchmark.quality_score ?? undefined,
+    };
+}
+
+function transformApiKey(key: Record<string, unknown>): Record<string, unknown> {
+    return {
+        userId: key.user_id,
+        name: key.name,
+        keyHash: key.key_hash,
+        keyPrefix: key.key_prefix,
+        scopes: key.scopes || [],
+        expiresAt: key.expires_at ?? undefined,
     };
 }
 
@@ -226,25 +340,16 @@ export async function importToConvex(
 
     const convex = getConvexClient();
 
-    // Import using relative path that works from the build output
-    // The functions will be called by their string identifier
-    const usersUpsert: string = 'users:upsert';
-    const projectsCreate: string = 'projects:create';
-    const tasksCreate: string = 'tasks:create';
-    const generatedFilesCreate: string = 'generated_files:create';
-    const auditLogsCreate: string = 'audit_logs:create';
-    const knowledgeEmbeddingsCreate: string = 'knowledge_embeddings:create';
-    const connectionsUpsert: string = 'connections:upsert';
-    const deploymentsCreate: string = 'deployments:create';
-    const learningContextsCreate: string = 'learning_contexts:create';
-    const benchmarksCreate: string = 'benchmarks:create';
+    // ID Mappings for relational integrity
+    const projectMap = new Map<string, any>(); // Supabase ID -> Convex ID
+    const taskMap = new Map<string, any>();    // Supabase ID -> Convex ID
 
     // Import users
     let userErrors = 0;
     let userImported = 0;
     for (const user of data.users) {
         try {
-            await convex.mutation(usersUpsert, transformUser(user as Record<string, unknown>));
+            await convex.mutation("users:upsert", transformUser(user as Record<string, unknown>));
             userImported++;
         } catch (error) {
             userErrors++;
@@ -258,7 +363,12 @@ export async function importToConvex(
     let projectImported = 0;
     for (const project of data.projects) {
         try {
-            await convex.mutation(projectsCreate, transformProject(project as Record<string, unknown>));
+            const pData = project as Record<string, unknown>;
+            // Note: Projects transformation creates a new record. 
+            // We need to return the ID to map it.
+            // My projects:create implementation returns the new ID.
+            const newId = await convex.mutation("projects:create", transformProject(pData));
+            projectMap.set(pData.id as string, newId);
             projectImported++;
         } catch (error) {
             projectErrors++;
@@ -272,7 +382,11 @@ export async function importToConvex(
     let taskImported = 0;
     for (const task of data.tasks) {
         try {
-            await convex.mutation(tasksCreate, transformTask(task as Record<string, unknown>));
+            const tData = task as Record<string, unknown>;
+            const newData = transformTask(tData, projectMap);
+            // My tasks:create returns the new ID
+            const newId = await convex.mutation("tasks:create", newData);
+            taskMap.set(tData.id as string, newId);
             taskImported++;
         } catch (error) {
             taskErrors++;
@@ -286,11 +400,14 @@ export async function importToConvex(
     let fileImported = 0;
     for (const file of data.generatedFiles) {
         try {
-            await convex.mutation(generatedFilesCreate, transformGeneratedFile(file as Record<string, unknown>));
+            await convex.mutation("generated_files:create", transformGeneratedFile(file as Record<string, unknown>, taskMap, projectMap));
             fileImported++;
         } catch (error) {
             fileErrors++;
-            errors.push(`Generated file import failed: ${error}`);
+            // Don't clutter logs if it's just missing parent
+            if (!String(error).includes("no valid task ID")) {
+                errors.push(`Generated file import failed: ${error}`);
+            }
         }
     }
     stats.push({ table: 'generated_files', exported: data.generatedFiles.length, imported: fileImported, errors: fileErrors, skipped: 0 });
@@ -300,7 +417,7 @@ export async function importToConvex(
     let auditImported = 0;
     for (const log of data.auditLogs) {
         try {
-            await convex.mutation(auditLogsCreate, transformAuditLog(log as Record<string, unknown>));
+            await convex.mutation("audit_logs:create", transformAuditLog(log as Record<string, unknown>));
             auditImported++;
         } catch (error) {
             auditErrors++;
@@ -309,12 +426,12 @@ export async function importToConvex(
     }
     stats.push({ table: 'audit_logs', exported: data.auditLogs.length, imported: auditImported, errors: auditErrors, skipped: 0 });
 
-    // Import knowledge embeddings (vectors for AI search)
+    // Import knowledge embeddings
     let embeddingErrors = 0;
     let embeddingImported = 0;
     for (const embedding of data.knowledgeEmbeddings) {
         try {
-            await convex.mutation(knowledgeEmbeddingsCreate, {
+            await convex.mutation("knowledge_embeddings:create", {
                 content: (embedding as any).content,
                 embedding: (embedding as any).embedding,
                 metadata: (embedding as any).metadata,
@@ -332,7 +449,7 @@ export async function importToConvex(
     let connectionImported = 0;
     for (const conn of data.connections) {
         try {
-            await convex.mutation(connectionsUpsert, transformConnection(conn as Record<string, unknown>));
+            await convex.mutation("connections:upsert", transformConnection(conn as Record<string, unknown>));
             connectionImported++;
         } catch (error) {
             connectionErrors++;
@@ -346,11 +463,13 @@ export async function importToConvex(
     let deploymentImported = 0;
     for (const dep of data.deployments) {
         try {
-            await convex.mutation(deploymentsCreate, transformDeployment(dep as Record<string, unknown>));
+            await convex.mutation("deployments:create", transformDeployment(dep as Record<string, unknown>, projectMap));
             deploymentImported++;
         } catch (error) {
             deploymentErrors++;
-            errors.push(`Deployment import failed: ${error}`);
+            if (!String(error).includes("no valid project ID")) {
+                errors.push(`Deployment import failed: ${error}`);
+            }
         }
     }
     stats.push({ table: 'deployments', exported: data.deployments.length, imported: deploymentImported, errors: deploymentErrors, skipped: 0 });
@@ -360,11 +479,13 @@ export async function importToConvex(
     let learningImported = 0;
     for (const ctx of data.learningContexts) {
         try {
-            await convex.mutation(learningContextsCreate, transformLearningContext(ctx as Record<string, unknown>));
+            await convex.mutation("learning_contexts:create", transformLearningContext(ctx as Record<string, unknown>, projectMap));
             learningImported++;
         } catch (error) {
             learningErrors++;
-            errors.push(`Learning context import failed: ${error}`);
+            if (!String(error).includes("no valid project ID")) {
+                errors.push(`Learning context import failed: ${error}`);
+            }
         }
     }
     stats.push({ table: 'learning_contexts', exported: data.learningContexts.length, imported: learningImported, errors: learningErrors, skipped: 0 });
@@ -374,7 +495,7 @@ export async function importToConvex(
     let benchmarkImported = 0;
     for (const bm of data.benchmarks) {
         try {
-            await convex.mutation(benchmarksCreate, transformBenchmark(bm as Record<string, unknown>));
+            await convex.mutation("benchmarks:create", transformBenchmark(bm as Record<string, unknown>, projectMap));
             benchmarkImported++;
         } catch (error) {
             benchmarkErrors++;
@@ -382,6 +503,110 @@ export async function importToConvex(
         }
     }
     stats.push({ table: 'benchmarks', exported: data.benchmarks.length, imported: benchmarkImported, errors: benchmarkErrors, skipped: 0 });
+
+    // Import API Keys
+    let keyErrors = 0;
+    let keyImported = 0;
+    for (const key of data.apiKeys) {
+        try {
+            await convex.mutation("api_keys:create", transformApiKey(key as Record<string, unknown>));
+            keyImported++;
+        } catch (error) {
+            keyErrors++;
+            errors.push(`API Key import failed: ${error}`);
+        }
+    }
+    stats.push({ table: 'api_keys', exported: data.apiKeys.length, imported: keyImported, errors: keyErrors, skipped: 0 });
+
+    // Import MFA
+    let mfaErrors = 0;
+    let mfaImported = 0;
+    for (const mfa of data.userMfa) {
+        try {
+            await convex.mutation("mfa:setup", {
+                userId: (mfa as any).user_id,
+                recoveryEmail: (mfa as any).recovery_email || "",
+                secretEncrypted: (mfa as any).totp_secret_encrypted,
+                backupCodesHashed: (mfa as any).backup_codes_hashed || [],
+            });
+            // If it was enabled, we need to enable it.
+            if ((mfa as any).mfa_enabled) {
+                await convex.mutation("mfa:enable", { userId: (mfa as any).user_id });
+            }
+            mfaImported++;
+        } catch (error) {
+            mfaErrors++;
+            errors.push(`MFA import failed: ${error}`);
+        }
+    }
+    stats.push({ table: 'user_mfa', exported: data.userMfa.length, imported: mfaImported, errors: mfaErrors, skipped: 0 });
+
+    // Import Code Embeddings
+    let codeEmbErrors = 0;
+    let codeEmbImported = 0;
+    for (const emb of data.codeEmbeddings) {
+        try {
+            await convex.mutation("learning_system:createCodeEmbedding", {
+                projectId: projectMap.get((emb as any).project_id),
+                filePath: (emb as any).file_path || (emb as any).path,
+                content: (emb as any).content,
+                language: (emb as any).language,
+                embedding: (emb as any).embedding,
+                metadata: (emb as any).metadata,
+            });
+            codeEmbImported++;
+        } catch (error) {
+            codeEmbErrors++;
+            if (!String(error).includes("no valid project ID")) {
+                errors.push(`Code embedding import failed: ${error}`);
+            }
+        }
+    }
+    stats.push({ table: 'code_embeddings', exported: data.codeEmbeddings.length, imported: codeEmbImported, errors: codeEmbErrors, skipped: 0 });
+
+    // Import Learned Patterns
+    let patternErrors = 0;
+    let patternImported = 0;
+    for (const pat of data.learnedPatterns) {
+        try {
+            await convex.mutation("learning_system:createLearnedPattern", {
+                pattern: (pat as any).pattern,
+                description: (pat as any).description,
+                pattern_type: (pat as any).pattern_type,
+                category: (pat as any).category,
+                context: (pat as any).context,
+                confidence: (pat as any).confidence,
+                frequency: (pat as any).frequency,
+            });
+            patternImported++;
+        } catch (error) {
+            patternErrors++;
+            errors.push(`Learned pattern import failed: ${error}`);
+        }
+    }
+    stats.push({ table: 'learned_patterns', exported: data.learnedPatterns.length, imported: patternImported, errors: patternErrors, skipped: 0 });
+
+    // Import Generation Iterations
+    let genErrors = 0;
+    let genImported = 0;
+    for (const gen of data.generationIterations) {
+        try {
+            await convex.mutation("learning_system:logGeneration", {
+                projectId: projectMap.get((gen as any).project_id),
+                taskId: taskMap.get((gen as any).task_id),
+                prompt: (gen as any).prompt,
+                success: (gen as any).success,
+                generated_code: (gen as any).generated_code,
+                config: (gen as any).config,
+            });
+            genImported++;
+        } catch (error) {
+            genErrors++;
+            errors.push(`Generation iteration import failed: ${error}`);
+        }
+    }
+    stats.push({ table: 'generation_iterations', exported: data.generationIterations.length, imported: genImported, errors: genErrors, skipped: 0 });
+
 
     const duration = Date.now() - startTime;
 
@@ -439,8 +664,7 @@ export async function validateMigration(): Promise<{
     differences: Array<{ table: string; supabase: number; convex: number }>;
 }> {
     // This would query both databases and compare counts
-    // Implementation depends on deployed Convex functions
-
+    // For now, this is a placeholder
     return {
         valid: true,
         differences: [],

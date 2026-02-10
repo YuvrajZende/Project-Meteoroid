@@ -1,9 +1,9 @@
 /**
  * Vector Store Service
- * Operations for knowledge embeddings (pgvector)
+ * Operations for knowledge embeddings (Convex Vector Search)
  */
 
-import { getSupabaseAdmin } from '../client.js';
+import { getConvexClient, api } from '../../api/src/infrastructure/database/convex-client.js';
 
 /**
  * Knowledge embedding entity
@@ -14,6 +14,7 @@ export interface KnowledgeEmbedding {
     embedding: number[];
     metadata: Record<string, unknown> | null;
     created_at: string;
+    _id: string;
 }
 
 /**
@@ -39,132 +40,116 @@ export interface SimilarityResult {
  * VectorStoreService - Vector similarity search and storage
  */
 export class VectorStoreService {
-    private supabase = getSupabaseAdmin();
+    private convex = getConvexClient();
 
     /**
      * Store a new embedding
      */
     async store(data: KnowledgeEmbeddingInsert): Promise<KnowledgeEmbedding> {
-        const { data: result, error } = await this.supabase
-            .from('knowledge_embeddings')
-            .insert({
-                content: data.content,
-                embedding: data.embedding,
-                metadata: data.metadata || null,
-            })
-            .select()
-            .single();
+        const newId = await this.convex.mutation(api.knowledge_embeddings.create, {
+            content: data.content,
+            embedding: data.embedding,
+            metadata: data.metadata || undefined,
+        });
 
-        if (error) {
-            throw new Error(`Failed to store embedding: ${error.message}`);
-        }
-
-        return result as KnowledgeEmbedding;
+        return {
+            id: newId,
+            _id: newId,
+            content: data.content,
+            embedding: data.embedding,
+            metadata: data.metadata || null,
+            created_at: new Date().toISOString(),
+        };
     }
 
     /**
      * Store multiple embeddings at once
      */
     async storeMany(items: KnowledgeEmbeddingInsert[]): Promise<KnowledgeEmbedding[]> {
-        const { data, error } = await this.supabase
-            .from('knowledge_embeddings')
-            .insert(items.map(item => ({
+        // Use createMany mutation
+        const ids = await this.convex.mutation(api.knowledge_embeddings.createMany, {
+            items: items.map(item => ({
                 content: item.content,
                 embedding: item.embedding,
-                metadata: item.metadata || null,
-            })))
-            .select();
+                metadata: item.metadata || undefined,
+            }))
+        });
 
-        if (error) {
-            throw new Error(`Failed to store embeddings: ${error.message}`);
-        }
-
-        return (data || []) as KnowledgeEmbedding[];
+        return ids.map((id, index) => ({
+            id: id,
+            _id: id,
+            content: items[index].content,
+            embedding: items[index].embedding,
+            metadata: items[index].metadata || null,
+            created_at: new Date().toISOString(),
+        }));
     }
 
     /**
      * Search for similar content using vector similarity
-     * Requires the match_embeddings function to be created in Supabase
      */
     async search(queryEmbedding: number[], options?: {
-        matchThreshold?: number;
+        matchThreshold?: number; // Convex doesn't directly support threshold in search query, post-filtering needed
         matchCount?: number;
     }): Promise<SimilarityResult[]> {
-        const threshold = options?.matchThreshold ?? 0.7;
-        const count = options?.matchCount ?? 10;
-
-        const { data, error } = await this.supabase.rpc('match_embeddings', {
-            query_embedding: queryEmbedding,
-            match_threshold: threshold,
-            match_count: count,
+        const results = await this.convex.action(api.knowledge_embeddings.search, {
+            embedding: queryEmbedding,
+            limit: options?.matchCount,
         });
 
-        if (error) {
-            throw new Error(`Failed to search embeddings: ${error.message}`);
+        // Filter by threshold if provided
+        let filtered = results;
+        if (options?.matchThreshold) {
+            filtered = results.filter(r => r.similarity >= (options.matchThreshold as number));
         }
 
-        return (data || []) as SimilarityResult[];
+        return filtered.map(r => ({
+            id: r._id,
+            content: r.content,
+            similarity: r.similarity,
+            metadata: r.metadata || null,
+        }));
     }
 
     /**
      * Delete an embedding by ID
      */
     async delete(id: string): Promise<void> {
-        const { error } = await this.supabase
-            .from('knowledge_embeddings')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            throw new Error(`Failed to delete embedding: ${error.message}`);
-        }
+        await this.convex.mutation(api.knowledge_embeddings.deleteEmbedding, { id: id as any });
     }
 
     /**
      * Delete embeddings by metadata filter
      */
     async deleteByMetadata(key: string, value: string): Promise<void> {
-        const { error } = await this.supabase
-            .from('knowledge_embeddings')
-            .delete()
-            .eq(`metadata->>${key}`, value);
-
-        if (error) {
-            throw new Error(`Failed to delete embeddings: ${error.message}`);
-        }
+        await this.convex.mutation(api.knowledge_embeddings.deleteByMetadata, { key, value });
     }
 
     /**
      * Get embedding by ID
      */
     async getById(id: string): Promise<KnowledgeEmbedding | null> {
-        const { data, error } = await this.supabase
-            .from('knowledge_embeddings')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) {
-            if (error.code === 'PGRST116') return null;
-            throw new Error(`Failed to get embedding: ${error.message}`);
-        }
-
-        return data as KnowledgeEmbedding;
+        const item = await this.convex.query(api.knowledge_embeddings.getById, { id: id as any });
+        if (!item) return null;
+        return this.mapToEntity(item);
     }
 
     /**
      * Count total embeddings
      */
     async count(): Promise<number> {
-        const { count, error } = await this.supabase
-            .from('knowledge_embeddings')
-            .select('*', { count: 'exact', head: true });
+        return await this.convex.query(api.knowledge_embeddings.count, {});
+    }
 
-        if (error) {
-            throw new Error(`Failed to count embeddings: ${error.message}`);
-        }
-
-        return count || 0;
+    private mapToEntity(item: any): KnowledgeEmbedding {
+        return {
+            id: item._id,
+            _id: item._id,
+            content: item.content,
+            embedding: item.embedding,
+            metadata: item.metadata || null,
+            created_at: item.created_at || new Date().toISOString(),
+        };
     }
 }
 

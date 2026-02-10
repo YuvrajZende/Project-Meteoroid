@@ -33,7 +33,7 @@ slashCommands['help'] = {
     usage: '/help [command]',
     handler: async (args?: string[]) => {
         console.log();
-        console.log(colors.header('Available Commands'));
+        console.log(colors.header('Meteoroid Commands'));
         console.log();
 
         if (args && args.length > 0) {
@@ -48,11 +48,18 @@ slashCommands['help'] = {
                 console.log(colors.error(`Unknown command: /${cmdName}`));
             }
         } else {
-            // Show all commands
+            // CLI Commands (run from outside chat mode)
+            console.log(colors.accent('CLI Commands (run from terminal):'));
+            console.log();
+            console.log(`  ${colors.primary('meteoroid transform <url>')}  ${colors.muted('Analyze a frontend repo')}`);
+            console.log(`  ${colors.primary('meteoroid or')}               ${colors.muted('Generate backend from analysis')}`);
+            console.log(`  ${colors.primary('meteoroid --help')}           ${colors.muted('Show all CLI commands')}`);
+            console.log();
+
+            // Chat mode commands
             const categories = {
-                'General': ['help', 'status', 'clear', 'exit', 'version'],
-                'AI & Code': ['generate', 'chat', 'analyze', 'optimize'],
-                'Project': ['read', 'list', 'search', 'context'],
+                'Chat Mode': ['help', 'status', 'clear', 'exit', 'version'],
+                'AI & Code': ['generate', 'chat', 'analyze'],
                 'System': ['config', 'health', 'agents', 'services'],
             };
 

@@ -3,25 +3,27 @@
  * Database operations for the projects table
  */
 
-import { getSupabaseAdmin } from '../client.js';
+import { getConvexClient, api } from '../../api/src/infrastructure/database/convex-client.js';
+import { Id } from '../../api/convex/_generated/dataModel.js';
 
 /**
  * Project status enum
  */
-export type ProjectStatus = 'pending' | 'generating' | 'completed' | 'failed';
+export type ProjectStatus = 'pending' | 'generating' | 'active' | 'completed' | 'failed' | 'archived';
 
 /**
  * Project entity
  */
 export interface Project {
-    id: string;
-    user_id: string;
+    id: string; // Convex ID
+    user_id: string; // Mapped from userId
     name: string;
     description: string | null;
     config: Record<string, unknown>;
     status: ProjectStatus;
     created_at: string;
     updated_at: string;
+    _id: string;
 }
 
 /**
@@ -49,24 +51,28 @@ export interface ProjectUpdate {
  * ProjectsService - CRUD operations for projects
  */
 export class ProjectsService {
-    private supabase = getSupabaseAdmin();
+    private convex = getConvexClient();
 
     /**
      * Get project by ID
      */
     async getById(id: string): Promise<Project | null> {
-        const { data, error } = await this.supabase
-            .from('projects')
-            .select('*')
-            .eq('id', id)
-            .single();
+        // ID might be a Supabase ID (UUID) or Convex ID.
+        // If it's a valid Convex ID, use get.
+        // If not, we can't easily query by internal ID unless we stored it.
+        // Assumption: We are fully migrating, so IDs passed here will be Convex IDs.
 
-        if (error) {
-            if (error.code === 'PGRST116') return null;
-            throw new Error(`Failed to get project: ${error.message}`);
+        try {
+            // Cast to generic Id to satisfy type checker if strict
+            const project = await this.convex.query(api.projects.get, { id: id as any });
+
+            if (!project) return null;
+
+            return this.mapToEntity(project);
+        } catch (e) {
+            console.error("Failed to get project by ID", e);
+            return null;
         }
-
-        return data as Project;
     }
 
     /**
@@ -77,33 +83,33 @@ export class ProjectsService {
         limit?: number;
         offset?: number;
     }): Promise<{ projects: Project[]; total: number }> {
-        let query = this.supabase
-            .from('projects')
-            .select('*', { count: 'exact' })
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        const projects = await this.convex.query(api.projects.listByUser, { userId });
+
+        // Client-side filtering and pagination (since we don't have complex queries in backend yet)
+        let filtered = projects;
 
         if (options?.status) {
-            query = query.eq('status', options.status);
+            filtered = filtered.filter(p => p.status === options.status);
         }
 
-        if (options?.limit) {
-            query = query.limit(options.limit);
-        }
+        // Sort by created_at desc
+        filtered.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+        });
 
-        if (options?.offset) {
-            query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-        }
+        const total = filtered.length;
 
-        const { data, error, count } = await query;
-
-        if (error) {
-            throw new Error(`Failed to get projects: ${error.message}`);
+        if (options?.offset !== undefined || options?.limit !== undefined) {
+            const start = options.offset || 0;
+            const end = options.limit ? start + options.limit : filtered.length;
+            filtered = filtered.slice(start, end);
         }
 
         return {
-            projects: (data || []) as Project[],
-            total: count || 0,
+            projects: filtered.map(p => this.mapToEntity(p)),
+            total,
         };
     }
 
@@ -111,41 +117,37 @@ export class ProjectsService {
      * Create a new project
      */
     async create(project: ProjectInsert): Promise<Project> {
-        const { data, error } = await this.supabase
-            .from('projects')
-            .insert({
-                user_id: project.user_id,
-                name: project.name,
-                description: project.description || null,
-                config: project.config || {},
-                status: project.status || 'pending',
-            })
-            .select()
-            .single();
+        const newId = await this.convex.mutation(api.projects.create, {
+            userId: project.user_id,
+            name: project.name,
+            description: project.description || undefined,
+            config: project.config,
+            status: (project.status as any) || 'pending',
+        });
 
-        if (error) {
-            throw new Error(`Failed to create project: ${error.message}`);
-        }
+        await new Promise(resolve => setTimeout(resolve, 100)); // Hack: wait for propagation? 
+        // Better: return the object from creating, but my mutation returns ID.
 
-        return data as Project;
+        const created = await this.getById(newId);
+        if (!created) throw new Error("Failed to retrieve created project");
+        return created;
     }
 
     /**
      * Update a project
      */
     async update(id: string, updates: ProjectUpdate): Promise<Project> {
-        const { data, error } = await this.supabase
-            .from('projects')
-            .update({ ...updates, updated_at: new Date().toISOString() })
-            .eq('id', id)
-            .select()
-            .single();
+        await this.convex.mutation(api.projects.update, {
+            id: id as any,
+            name: updates.name,
+            description: updates.description || undefined,
+            config: updates.config,
+            status: updates.status as any,
+        });
 
-        if (error) {
-            throw new Error(`Failed to update project: ${error.message}`);
-        }
-
-        return data as Project;
+        const updated = await this.getById(id);
+        if (!updated) throw new Error("Failed to retrieve updated project");
+        return updated;
     }
 
     /**
@@ -159,14 +161,7 @@ export class ProjectsService {
      * Delete a project
      */
     async delete(id: string): Promise<void> {
-        const { error } = await this.supabase
-            .from('projects')
-            .delete()
-            .eq('id', id);
-
-        if (error) {
-            throw new Error(`Failed to delete project: ${error.message}`);
-        }
+        await this.convex.mutation(api.projects.deleteProject, { id: id as any });
     }
 
     /**
@@ -175,6 +170,20 @@ export class ProjectsService {
     async isOwner(projectId: string, userId: string): Promise<boolean> {
         const project = await this.getById(projectId);
         return project?.user_id === userId;
+    }
+
+    private mapToEntity(p: any): Project {
+        return {
+            id: p._id,
+            _id: p._id,
+            user_id: p.userId,
+            name: p.name,
+            description: p.description ?? null,
+            config: p.config ?? {},
+            status: (p.status as ProjectStatus) || 'pending',
+            created_at: p.created_at || new Date().toISOString(),
+            updated_at: p.updated_at || new Date().toISOString(),
+        };
     }
 }
 

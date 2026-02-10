@@ -1,28 +1,27 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Create learning context
- */
 export const create = mutation({
     args: {
-        projectId: v.string(),
+        projectId: v.id("projects"),
         contextType: v.optional(v.string()),
         contextData: v.optional(v.any()),
-        embeddings: v.optional(v.any()),
+        embeddings: v.optional(v.array(v.number()))
     },
     handler: async (ctx, args) => {
-        const now = new Date().toISOString();
-
-        const contextId = await ctx.db.insert("learning_contexts", {
-            project_id: args.projectId,
-            context_type: args.contextType,
-            context_data: args.contextData,
-            embeddings: args.embeddings,
-            created_at: now,
-            updated_at: now,
+        return await ctx.db.insert("learning_contexts", {
+            ...args,
+            created_at: new Date().toISOString()
         });
-
-        return contextId;
     },
+});
+
+export const listByProject = query({
+    args: { projectId: v.id("projects") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("learning_contexts")
+            .withIndex("by_project", q => q.eq("projectId", args.projectId))
+            .collect();
+    }
 });

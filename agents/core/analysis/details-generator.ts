@@ -23,6 +23,7 @@ import type {
     RouteInfo,
     DependencyInfo,
 } from './types.js';
+import type { LLMEnhancedAnalysis } from './llm-analyzer.js';
 
 // ============================================
 // TYPES
@@ -45,6 +46,9 @@ export interface DetailsGeneratorConfig {
         url: string;
         branch: string;
     };
+
+    /** LLM-enhanced analysis (optional) */
+    llmAnalysis?: LLMEnhancedAnalysis;
 }
 
 export interface GeneratedDetails {
@@ -96,12 +100,53 @@ export class DetailsGenerator {
         let jsonReportPath: string | undefined;
         if (this.config.includeJsonReport) {
             jsonReportPath = path.join(outputDir, 'analysis-report.json');
-            await fs.promises.writeFile(
-                jsonReportPath,
-                JSON.stringify(analysisResult, null, 2),
-                'utf-8'
-            );
-            console.log(`[DetailsGenerator] Generated: ${jsonReportPath}`);
+            try {
+                // Create a serializable copy of the result
+                const serializableResult = {
+                    framework: analysisResult.framework,
+                    authStrategy: {
+                        provider: analysisResult.authStrategy.provider,
+                        packageName: analysisResult.authStrategy.packageName,
+                        version: analysisResult.authStrategy.version,
+                        features: analysisResult.authStrategy.features,
+                        tokenStorage: analysisResult.authStrategy.tokenStorage,
+                    },
+                    apiCalls: analysisResult.apiCalls.map(call => ({
+                        endpoint: call.endpoint,
+                        method: call.method,
+                        filePath: call.sourceFile,
+                        requiresAuth: call.requiresAuth,
+                    })),
+                    dataModels: analysisResult.dataModels.map(model => ({
+                        name: model.name,
+                        fields: model.fields.slice(0, 20), // Limit fields
+                        sources: model.sources.slice(0, 3), // Limit sources
+                    })),
+                    routes: analysisResult.routes.map(route => ({
+                        path: route.path,
+                        componentFile: route.componentFile,
+                        isDynamic: route.isDynamic,
+                        isProtected: route.isProtected,
+                    })),
+                    // Dependencies is an array, simplify it
+                    dependencies: analysisResult.dependencies.slice(0, 50).map(dep => ({
+                        name: dep.name,
+                        version: dep.version,
+                        category: dep.category,
+                    })),
+                    analyzedAt: analysisResult.analyzedAt?.toISOString?.() || new Date().toISOString(),
+                };
+
+                await fs.promises.writeFile(
+                    jsonReportPath,
+                    JSON.stringify(serializableResult, null, 2),
+                    'utf-8'
+                );
+                console.log(`[DetailsGenerator] Generated: ${jsonReportPath}`);
+            } catch (jsonError) {
+                console.warn(`[DetailsGenerator] Warning: Could not generate JSON report: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
+                jsonReportPath = undefined; // Mark as not created
+            }
         }
 
         // Determine which agents are needed
@@ -124,14 +169,24 @@ export class DetailsGenerator {
      * Build the markdown content
      */
     private buildMarkdownContent(): string {
-        const { analysisResult, repoMetadata } = this.config;
+        const { analysisResult, repoMetadata, llmAnalysis } = this.config;
         const sections: string[] = [];
 
         // Header
         sections.push(this.buildHeader(repoMetadata));
 
+        // LLM Enhanced Spec (if available) - at the top for visibility
+        if (llmAnalysis) {
+            sections.push(this.buildLLMSpecSection(llmAnalysis));
+        }
+
         // Overview
         sections.push(this.buildOverview(analysisResult));
+
+        // LLM Component Summaries (if available)
+        if (llmAnalysis && llmAnalysis.componentSummaries.length > 0) {
+            sections.push(this.buildComponentSummariesSection(llmAnalysis));
+        }
 
         // Authentication
         sections.push(this.buildAuthSection(analysisResult.authStrategy));
@@ -139,8 +194,18 @@ export class DetailsGenerator {
         // Database/Models
         sections.push(this.buildDatabaseSection(analysisResult.dataModels));
 
+        // LLM Model Relationships (if available)
+        if (llmAnalysis && llmAnalysis.modelRelationships.length > 0) {
+            sections.push(this.buildModelRelationshipsSection(llmAnalysis));
+        }
+
         // API Endpoints
         sections.push(this.buildApiSection(analysisResult.apiCalls));
+
+        // LLM API Contracts (if available)
+        if (llmAnalysis && llmAnalysis.apiContracts.length > 0) {
+            sections.push(this.buildAPIContractsSection(llmAnalysis));
+        }
 
         // Routes
         sections.push(this.buildRoutesSection(analysisResult.routes));
@@ -161,7 +226,7 @@ export class DetailsGenerator {
         const lines = [
             '# Backend Requirements Specification',
             '',
-            `> Generated by Loveable Backend Orchestrator`,
+            `> Generated by Meteoroid AI-Powered Backend Generator`,
             `> Date: ${new Date().toISOString()}`,
         ];
 
@@ -171,6 +236,120 @@ export class DetailsGenerator {
             lines.push(`- **Name:** ${repoMetadata.owner}/${repoMetadata.name}`);
             lines.push(`- **URL:** ${repoMetadata.url}`);
             lines.push(`- **Branch:** ${repoMetadata.branch}`);
+        }
+
+        return lines.join('\n');
+    }
+
+    // ============================================
+    // LLM ENHANCED SECTIONS
+    // ============================================
+
+    /**
+     * Build LLM-generated specification section
+     */
+    private buildLLMSpecSection(llm: LLMEnhancedAnalysis): string {
+        const spec = llm.enhancedSpec;
+        const lines = [
+            '## 🧠 AI-Enhanced Project Analysis',
+            '',
+            `**App Type:** ${spec.appType}`,
+            '',
+            '### Project Overview',
+            spec.projectOverview,
+            '',
+            '### Key Features Required',
+        ];
+
+        for (const feature of spec.keyFeatures) {
+            lines.push(`- ${feature}`);
+        }
+
+        lines.push('');
+        lines.push('### Data Flow');
+        lines.push(spec.dataFlowSummary);
+
+        lines.push('');
+        lines.push('### Security Requirements');
+        for (const req of spec.securityRequirements) {
+            lines.push(`- ${req}`);
+        }
+
+        lines.push('');
+        lines.push('### Suggested Architecture');
+        lines.push(spec.suggestedArchitecture);
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Build component summaries section
+     */
+    private buildComponentSummariesSection(llm: LLMEnhancedAnalysis): string {
+        const lines = [
+            '## 📦 Component Analysis',
+            '',
+            '| Component | Purpose | State Management |',
+            '|-----------|---------|------------------|',
+        ];
+
+        for (const comp of llm.componentSummaries.slice(0, 15)) {
+            const state = comp.stateManagement || 'None';
+            lines.push(`| ${comp.componentName} | ${comp.purpose.slice(0, 60)} | ${state} |`);
+        }
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Build model relationships section
+     */
+    private buildModelRelationshipsSection(llm: LLMEnhancedAnalysis): string {
+        const lines = [
+            '## 🔗 Model Relationships',
+            '',
+        ];
+
+        for (const rel of llm.modelRelationships) {
+            lines.push(`- **${rel.sourceModel}** → ${rel.targetModel} (${rel.relationshipType})`);
+            lines.push(`  - *${rel.description}*`);
+        }
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Build API contracts section
+     */
+    private buildAPIContractsSection(llm: LLMEnhancedAnalysis): string {
+        const lines = [
+            '## 📋 Inferred API Contracts',
+            '',
+        ];
+
+        for (const contract of llm.apiContracts.slice(0, 10)) {
+            lines.push(`### \`${contract.method} ${contract.endpoint}\``);
+            lines.push('');
+            lines.push(`**Description:** ${contract.description}`);
+            lines.push(`**Auth Required:** ${contract.authRequired ? 'Yes 🔒' : 'No'}`);
+
+            if (Object.keys(contract.requestSchema).length > 0) {
+                lines.push('');
+                lines.push('**Request Body:**');
+                lines.push('```json');
+                lines.push(JSON.stringify(contract.requestSchema, null, 2));
+                lines.push('```');
+            }
+
+            if (Object.keys(contract.responseSchema).length > 0) {
+                lines.push('');
+                lines.push('**Response:**');
+                lines.push('```json');
+                lines.push(JSON.stringify(contract.responseSchema, null, 2));
+                lines.push('```');
+            }
+
+            lines.push('');
         }
 
         return lines.join('\n');

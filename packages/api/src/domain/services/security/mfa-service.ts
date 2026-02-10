@@ -1,19 +1,10 @@
 /**
  * Multi-Factor Authentication (MFA) Service
  * Implements TOTP (Time-based One-Time Password) for 2FA
- * 
- * Features:
- * - TOTP secret generation (RFC 6238)
- * - QR code URL generation for authenticator apps
- * - TOTP verification with time window tolerance
- * - Backup codes generation and verification
- * - Database integration with user_mfa table
- * 
- * @module services/mfa-service
  */
 
 import crypto from 'crypto';
-import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
+import { getConvexClient, api } from '../../../infrastructure/database/convex-client.js';
 
 // ============================================
 // TOTP CONFIGURATION
@@ -72,7 +63,7 @@ export interface MFAStatus {
 /**
  * Generate a cryptographically secure random secret for TOTP
  */
-function generateSecret(length: number = TOTP_CONFIG.secretLength): string {
+export function generateSecret(length: number = TOTP_CONFIG.secretLength): string {
     const buffer = crypto.randomBytes(length);
     return base32Encode(buffer);
 }
@@ -133,7 +124,7 @@ function base32Decode(encoded: string): Buffer {
 /**
  * Generate TOTP code for a given time
  */
-function generateTOTP(secret: string, time: number = Date.now()): string {
+export function generateTOTP(secret: string, time: number = Date.now()): string {
     const secretBuffer = base32Decode(secret);
     const counter = Math.floor(time / 1000 / TOTP_CONFIG.period);
 
@@ -162,7 +153,7 @@ function generateTOTP(secret: string, time: number = Date.now()): string {
 /**
  * Verify TOTP code with time window tolerance
  */
-function verifyTOTP(secret: string, code: string, window: number = TOTP_CONFIG.window): boolean {
+export function verifyTOTP(secret: string, code: string, window: number = TOTP_CONFIG.window): boolean {
     const now = Date.now();
 
     // Check current and adjacent time windows
@@ -185,7 +176,7 @@ function verifyTOTP(secret: string, code: string, window: number = TOTP_CONFIG.w
 /**
  * Generate QR code URL for authenticator apps
  */
-function generateQRCodeUrl(secret: string, email: string): string {
+export function generateQRCodeUrl(secret: string, email: string): string {
     const issuer = encodeURIComponent(TOTP_CONFIG.issuer);
     const account = encodeURIComponent(email);
 
@@ -291,6 +282,7 @@ function decryptSecret(encryptedData: string): string {
 
 export class MFAService {
     private initialized = false;
+    private convex = getConvexClient();
 
     constructor() {
         this.initialized = true;
@@ -308,16 +300,10 @@ export class MFAService {
      */
     async setupMFA(userId: string, email: string): Promise<MFASetupResult> {
         try {
-            const supabase = getSupabaseAdmin();
-
             // Check if user already has MFA
-            const { data: existing } = await supabase
-                .from('user_mfa')
-                .select('id, mfa_enabled')
-                .eq('user_id', userId)
-                .single();
+            const status = await this.convex.query(api.mfa.getStatus, { userId });
 
-            if (existing?.mfa_enabled) {
+            if (status?.mfa_enabled) {
                 return {
                     success: false,
                     error: 'MFA is already enabled for this user',
@@ -337,18 +323,13 @@ export class MFAService {
             // Encrypt the secret for storage (not hash - we need to recover it)
             const encryptedSecret = encryptSecret(secret);
 
-            // Store in database (upsert)
-            const { error } = await supabase.from('user_mfa').upsert({
-                user_id: userId,
-                mfa_enabled: false, // Not enabled until verified
-                totp_secret_encrypted: encryptedSecret,
-                backup_codes_hashed: hashedBackupCodes,
-                recovery_email: email,
-            }, { onConflict: 'user_id' });
-
-            if (error) {
-                throw error;
-            }
+            // Store in database via Convex mutation
+            await this.convex.mutation(api.mfa.setup, {
+                userId,
+                recoveryEmail: email,
+                secretEncrypted: encryptedSecret,
+                backupCodesHashed: hashedBackupCodes,
+            });
 
             return {
                 success: true,
@@ -370,16 +351,10 @@ export class MFAService {
      */
     async enableMFA(userId: string, totpCode: string): Promise<MFAVerifyResult> {
         try {
-            const supabase = getSupabaseAdmin();
-
             // Get user's MFA record
-            const { data, error } = await supabase
-                .from('user_mfa')
-                .select('totp_secret_encrypted, mfa_enabled')
-                .eq('user_id', userId)
-                .single();
+            const data = await this.convex.query(api.mfa.getSecretsInternal, { userId });
 
-            if (error || !data) {
+            if (!data) {
                 return {
                     valid: false,
                     error: 'MFA not set up for this user',
@@ -391,6 +366,10 @@ export class MFAService {
                     valid: false,
                     error: 'MFA is already enabled',
                 };
+            }
+
+            if (!data.totp_secret_encrypted) {
+                return { valid: false, error: "MFA setup incomplete" };
             }
 
             // Decrypt the stored TOTP secret
@@ -407,17 +386,7 @@ export class MFAService {
             }
 
             // Enable MFA for the user
-            const { error: updateError } = await supabase
-                .from('user_mfa')
-                .update({
-                    mfa_enabled: true,
-                    verified_at: new Date().toISOString(),
-                })
-                .eq('user_id', userId);
-
-            if (updateError) {
-                throw updateError;
-            }
+            await this.convex.mutation(api.mfa.enable, { userId });
 
             return {
                 valid: true,
@@ -436,16 +405,10 @@ export class MFAService {
      */
     async verifyMFA(userId: string, code: string): Promise<MFAVerifyResult> {
         try {
-            const supabase = getSupabaseAdmin();
+            // Get user's MFA record (need secrets to verify)
+            const data = await this.convex.query(api.mfa.getSecretsInternal, { userId });
 
-            // Get user's MFA record
-            const { data, error } = await supabase
-                .from('user_mfa')
-                .select('totp_secret_encrypted, backup_codes_hashed, mfa_enabled')
-                .eq('user_id', userId)
-                .single();
-
-            if (error || !data) {
+            if (!data) {
                 return {
                     valid: false,
                     error: 'MFA not configured for this user',
@@ -467,10 +430,10 @@ export class MFAService {
                     const updatedCodes = [...(data.backup_codes_hashed || [])];
                     updatedCodes.splice(index, 1);
 
-                    await supabase
-                        .from('user_mfa')
-                        .update({ backup_codes_hashed: updatedCodes })
-                        .eq('user_id', userId);
+                    await this.convex.mutation(api.mfa.updateBackupCodes, {
+                        userId,
+                        backupCodesHashed: updatedCodes
+                    });
 
                     return {
                         valid: true,
@@ -481,11 +444,13 @@ export class MFAService {
 
             // Verify TOTP code - decrypt secret and verify
             try {
-                const secret = decryptSecret(data.totp_secret_encrypted);
-                const isValid = verifyTOTP(secret, code);
+                if (data.totp_secret_encrypted) {
+                    const secret = decryptSecret(data.totp_secret_encrypted);
+                    const isValid = verifyTOTP(secret, code);
 
-                if (isValid) {
-                    return { valid: true };
+                    if (isValid) {
+                        return { valid: true };
+                    }
                 }
             } catch (decryptError) {
                 console.error('[MFA] Decryption error:', decryptError);
@@ -519,21 +484,7 @@ export class MFAService {
                 };
             }
 
-            const supabase = getSupabaseAdmin();
-
-            const { error } = await supabase
-                .from('user_mfa')
-                .update({
-                    mfa_enabled: false,
-                    totp_secret_encrypted: null,
-                    backup_codes_hashed: null,
-                    verified_at: null,
-                })
-                .eq('user_id', userId);
-
-            if (error) {
-                throw error;
-            }
+            await this.convex.mutation(api.mfa.disable, { userId });
 
             return { success: true };
         } catch (err) {
@@ -550,15 +501,9 @@ export class MFAService {
      */
     async getMFAStatus(userId: string): Promise<MFAStatus> {
         try {
-            const supabase = getSupabaseAdmin();
+            const data = await this.convex.query(api.mfa.getStatus, { userId });
 
-            const { data, error } = await supabase
-                .from('user_mfa')
-                .select('mfa_enabled, verified_at, backup_codes_hashed')
-                .eq('user_id', userId)
-                .single();
-
-            if (error || !data) {
+            if (!data) {
                 return { enabled: false };
             }
 
@@ -592,20 +537,14 @@ export class MFAService {
                 };
             }
 
-            const supabase = getSupabaseAdmin();
-
             // Generate new backup codes
             const backupCodes = generateBackupCodes();
             const hashedBackupCodes = await hashBackupCodes(backupCodes);
 
-            const { error } = await supabase
-                .from('user_mfa')
-                .update({ backup_codes_hashed: hashedBackupCodes })
-                .eq('user_id', userId);
-
-            if (error) {
-                throw error;
-            }
+            await this.convex.mutation(api.mfa.updateBackupCodes, {
+                userId,
+                backupCodesHashed: hashedBackupCodes
+            });
 
             return {
                 success: true,

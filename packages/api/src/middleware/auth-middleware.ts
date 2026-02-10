@@ -13,6 +13,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getSupabaseAdmin } from '../infrastructure/database/database-client.js';
+import { apiKeysService } from '../domain/services/security/api-keys.js';
 import crypto from 'crypto';
 
 // ============================================
@@ -226,61 +227,22 @@ export function authenticate(options: AuthOptions = {}) {
  */
 async function validateAPIKey(apiKey: string): Promise<APIKeyValidation> {
     // Format: prefix_hash (e.g., "lvb_xxxx...")
-    if (!apiKey.startsWith('lvb_')) {
+    if (!apiKey.startsWith('lv_') && !apiKey.startsWith('lvb_')) { // Support both prefixes
         return { valid: false, userId: '', scopes: [], name: '' };
     }
 
     try {
-        // Hash the API key to match against stored hash
-        const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        const keyRecord = await apiKeysService.validate(apiKey);
 
-        const supabase = getSupabaseAdmin();
-
-        // Look up the API key in database
-        const { data, error } = await supabase
-            .from('api_keys')
-            .select('id, user_id, name, scopes, is_active, expires_at, revoked_at')
-            .eq('key_hash', keyHash)
-            .single();
-
-        if (error || !data) {
+        if (!keyRecord) {
             return { valid: false, userId: '', scopes: [], name: '' };
         }
-
-        // Check if key is active
-        if (!data.is_active) {
-            return { valid: false, userId: '', scopes: [], name: '' };
-        }
-
-        // Check if key is revoked
-        if (data.revoked_at) {
-            return { valid: false, userId: '', scopes: [], name: '' };
-        }
-
-        // Check if key is expired
-        if (data.expires_at && new Date(data.expires_at) < new Date()) {
-            return { valid: false, userId: '', scopes: [], name: '' };
-        }
-
-        // Update last used timestamp (fire and forget)
-        void (async () => {
-            try {
-                await supabase
-                    .from('api_keys')
-                    .update({
-                        last_used_at: new Date().toISOString(),
-                    })
-                    .eq('id', data.id);
-            } catch {
-                // Ignore update errors
-            }
-        })();
 
         return {
             valid: true,
-            userId: data.user_id,
-            scopes: data.scopes || ['read'],
-            name: data.name,
+            userId: keyRecord.user_id,
+            scopes: keyRecord.scopes || ['read'],
+            name: keyRecord.name,
         };
     } catch (err) {
         console.error('[AUTH] API key validation error:', err);

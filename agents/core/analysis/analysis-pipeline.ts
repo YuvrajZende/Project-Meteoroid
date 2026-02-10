@@ -13,6 +13,7 @@ import { RepoCloner, CloneResult, RepoMetadata } from './repo-cloner.js';
 import { FrontendAnalyzerAgent } from './frontend-analyzer.js';
 import { DetailsGenerator, GeneratedDetails } from './details-generator.js';
 import { TaskDistributor, DistributionResult } from './task-distributor.js';
+import { LLMAnalyzer, LLMEnhancedAnalysis } from './llm-analyzer.js';
 import type { FrontendAnalysisResult } from './types.js';
 
 // ============================================
@@ -43,6 +44,9 @@ export interface PipelineOptions {
 
     /** Project name for generated files */
     projectName?: string;
+
+    /** Skip LLM enhancement (faster, pattern-only) */
+    skipLLM?: boolean;
 }
 
 export interface PipelineResult {
@@ -65,6 +69,9 @@ export interface PipelineResult {
 
     /** Distributed task info (if not spec-only) */
     tasks?: DistributionResult;
+
+    /** LLM-enhanced analysis (if not skipped) */
+    llmAnalysis?: LLMEnhancedAnalysis;
 
     /** Total duration in milliseconds */
     duration: number;
@@ -93,13 +100,14 @@ export class AnalysisPipeline {
         const startTime = Date.now();
 
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('  LOVEABLE BACKEND ORCHESTRATOR - Analysis Pipeline');
+        console.log('  METEOROID - AI-Powered Analysis Pipeline');
         console.log('═══════════════════════════════════════════════════════════════');
         console.log();
 
         let cloneResult: CloneResult | undefined;
         let repoMetadata: RepoMetadata | undefined;
         let analyzedPath: string;
+        let llmAnalysis: LLMEnhancedAnalysis | undefined;
 
         try {
             // ========================================
@@ -163,6 +171,33 @@ export class AnalysisPipeline {
             console.log();
 
             // ========================================
+            // STEP 2.5: LLM ENHANCEMENT (if enabled)
+            // ========================================
+
+            if (!options.skipLLM) {
+                try {
+                    console.log('🧠 STEP 2.5: LLM-Enhanced Analysis...');
+                    console.log();
+
+                    const llmAnalyzer = new LLMAnalyzer();
+                    llmAnalysis = await llmAnalyzer.analyze(analysis, analyzedPath);
+
+                    console.log(`   Components summarized: ${llmAnalysis.componentSummaries.length}`);
+                    console.log(`   API contracts inferred: ${llmAnalysis.apiContracts.length}`);
+                    console.log(`   Model relationships: ${llmAnalysis.modelRelationships.length}`);
+                    console.log(`   App type: ${llmAnalysis.enhancedSpec.appType}`);
+                    console.log();
+                } catch (llmError) {
+                    console.log('⚠️  LLM enhancement skipped (no API key or error)');
+                    console.log(`   ${llmError instanceof Error ? llmError.message : 'Unknown error'}`);
+                    console.log();
+                }
+            } else {
+                console.log('⏭️  STEP 2.5: LLM Enhancement skipped (--no-llm)');
+                console.log();
+            }
+
+            // ========================================
             // STEP 3: GENERATE DETAILS.MD
             // ========================================
 
@@ -179,6 +214,7 @@ export class AnalysisPipeline {
                     url: repoMetadata.url,
                     branch: repoMetadata.branch,
                 } : undefined,
+                llmAnalysis: llmAnalysis,
             });
 
             const details = await detailsGenerator.generate();
@@ -254,6 +290,7 @@ export class AnalysisPipeline {
                 analysis,
                 details,
                 tasks,
+                llmAnalysis,
                 duration,
             };
 

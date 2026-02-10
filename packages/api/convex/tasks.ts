@@ -1,117 +1,130 @@
-import { query, mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * Get tasks by project ID
- */
-export const getByProjectId = query({
-    args: { projectId: v.string() },
-    handler: async (ctx, args) => {
-        const tasks = await ctx.db
-            .query("tasks")
-            .withIndex("by_project", (q) => q.eq("project_id", args.projectId))
-            .collect();
-
-        return tasks;
-    },
-});
-
-/**
- * Get task by ID
- */
-export const getById = query({
+export const get = query({
     args: { id: v.id("tasks") },
     handler: async (ctx, args) => {
         return await ctx.db.get(args.id);
     },
 });
 
-/**
- * Create task
- */
+export const listByProject = query({
+    args: { projectId: v.id("projects") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("tasks")
+            .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+            .collect();
+    },
+});
+
 export const create = mutation({
     args: {
-        projectId: v.string(),
+        projectId: v.optional(v.id("projects")),
         userId: v.optional(v.string()),
         prompt: v.string(),
-        status: v.optional(v.string()),
+        status: v.optional(v.union(
+            v.literal("queued"),
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed")
+        )),
         result: v.optional(v.any()),
         error: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const now = new Date().toISOString();
-
-        const taskId = await ctx.db.insert("tasks", {
-            project_id: args.projectId,
-            user_id: args.userId,
+        const timestamp = new Date().toISOString();
+        return await ctx.db.insert("tasks", {
+            projectId: args.projectId,
+            userId: args.userId,
             prompt: args.prompt,
             status: args.status || "pending",
+            progress: 0,
             result: args.result,
             error: args.error,
-            created_at: now,
-            updated_at: now,
+            created_at: timestamp,
         });
-
-        return taskId;
     },
 });
 
-/**
- * Update task
- */
-export const update = mutation({
+export const updateStatus = mutation({
     args: {
-        taskId: v.id("tasks"),
-        status: v.optional(v.string()),
+        id: v.id("tasks"),
+        status: v.union(
+            v.literal("queued"),
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed")
+        ),
+        progress: v.optional(v.number()),
         result: v.optional(v.any()),
         error: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const { taskId, ...updates } = args;
+        const changes: any = { status: args.status };
+        if (args.progress !== undefined) changes.progress = args.progress;
+        if (args.result !== undefined) changes.result = args.result;
+        if (args.error !== undefined) changes.error = args.error;
 
-        await ctx.db.patch(taskId, {
-            ...updates,
-            updated_at: new Date().toISOString(),
-        });
+        if (args.status === 'processing') changes.started_at = new Date().toISOString();
+        if (args.status === 'completed' || args.status === 'failed') changes.completed_at = new Date().toISOString();
+
+        await ctx.db.patch(args.id, changes);
     },
 });
 
-/**
- * Delete task
- */
-export const remove = mutation({
-    args: { taskId: v.id("tasks") },
+export const update = mutation({
+    args: {
+        id: v.id("tasks"),
+        status: v.optional(v.union(
+            v.literal("queued"),
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed")
+        )),
+        progress: v.optional(v.number()),
+        result: v.optional(v.any()),
+        error: v.optional(v.string()),
+        agents_used: v.optional(v.array(v.string())),
+        prompt: v.optional(v.string()),
+        started_at: v.optional(v.string()),
+        completed_at: v.optional(v.string()),
+    },
     handler: async (ctx, args) => {
-        await ctx.db.delete(args.taskId);
+        const changes: any = {};
+        if (args.status !== undefined) changes.status = args.status;
+        if (args.progress !== undefined) changes.progress = args.progress;
+        if (args.result !== undefined) changes.result = args.result;
+        if (args.error !== undefined) changes.error = args.error;
+        if (args.agents_used !== undefined) changes.agents_used = args.agents_used;
+        if (args.prompt !== undefined) changes.prompt = args.prompt;
+        if (args.started_at !== undefined) changes.started_at = args.started_at;
+        if (args.completed_at !== undefined) changes.completed_at = args.completed_at;
+
+        // Auto-timestamp logic
+        if (args.status === 'processing' && !args.started_at) changes.started_at = new Date().toISOString();
+        if ((args.status === 'completed' || args.status === 'failed') && !args.completed_at) changes.completed_at = new Date().toISOString();
+
+        await ctx.db.patch(args.id, changes);
     },
 });
 
-/**
- * Get tasks by user ID
- */
-export const getByUserId = query({
+export const deleteTask = mutation({
+    args: { id: v.id("tasks") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.id);
+    },
+});
+
+export const listByUser = query({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
-        const tasks = await ctx.db
+        return await ctx.db
             .query("tasks")
-            .withIndex("by_user", (q) => q.eq("user_id", args.userId))
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
             .collect();
-
-        return tasks;
-    },
-});
-
-/**
- * Get tasks by status
- */
-export const getByStatus = query({
-    args: { status: v.string() },
-    handler: async (ctx, args) => {
-        const tasks = await ctx.db
-            .query("tasks")
-            .withIndex("by_status", (q) => q.eq("status", args.status))
-            .collect();
-
-        return tasks;
     },
 });
