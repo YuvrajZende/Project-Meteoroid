@@ -20,42 +20,15 @@ interface CodeEmbeddingRow {
     file_path: string;
     content: string;
     language: string;
+    title?: string;
+    category?: string;
+    source?: string;
     metadata?: {
         framework?: string;
         [key: string]: unknown;
     };
     similarity?: number;
     created_at?: string;
-}
-
-interface BackendKnowledgeRow {
-    content: string;
-    title: string;
-    category: string;
-    confidence_score?: number;
-}
-
-interface LearnedPatternRow {
-    pattern_description?: string;
-    pattern?: string;
-    description?: string;
-    pattern_type?: string;
-    category?: string;
-    confidence_score?: number;
-    confidence?: number;
-}
-
-interface GenerationIterationRow {
-    prompt: string;
-    success?: boolean;
-    status?: string;
-    task_description?: string;
-    config?: {
-        framework?: string;
-        language?: string;
-        [key: string]: unknown;
-    };
-    generated_code?: string;
 }
 
 interface LearnedPatternRowFallback {
@@ -153,7 +126,7 @@ export class VectorLearningSystem {
 
             return context;
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Error building context:', error?.message || error);
             return this.getEmptyContext();
         }
@@ -165,7 +138,7 @@ export class VectorLearningSystem {
      */
     private async generateEmbedding(text: string): Promise<number[] | null> {
         try {
-            const { getAIClient } = await import('../../infrastructure/ai-client.js');
+            const { getAIClient } = await import('../../../infrastructure/ai-client.js');
             const aiClient = getAIClient();
 
             // Use AI to extract semantic features
@@ -198,7 +171,7 @@ Return ONLY the array:`;
             console.log(`[VECTOR-LEARNING] Generated embedding with ${features.length} AI features`);
             return this.expandTo1536(features, text);
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Embedding generation error, using hash:', error?.message);
             return this.generateHashEmbedding(text);
         }
@@ -326,7 +299,7 @@ Return ONLY the array:`;
                 similarity: row.similarity || 0
             }));
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Code search error:', error?.message);
             return this.fallbackCodeSearch(options.language, options.limit);
         }
@@ -368,7 +341,7 @@ Return ONLY the array:`;
                 framework: 'none',
                 similarity: 0.5 // Default similarity for fallback
             }));
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Fallback error:', error?.message);
             return [];
         }
@@ -417,7 +390,7 @@ Return ONLY the array:`;
                 confidence: row.similarity || 0
             }));
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Knowledge search error:', error?.message);
             return this.fallbackKnowledgeSearch(options.limit);
         }
@@ -464,13 +437,13 @@ Return ONLY the array:`;
 
             console.log(`[VECTOR-LEARNING] Fallback found ${data.length} successful generations`);
 
-            return data.map((row: CodeEmbeddingRow) => ({
+            return data.map((row: any) => ({
                 practice: `Successful: ${row.prompt?.substring(0, 100)}`,
                 category: row.config?.framework || row.config?.language || 'general',
                 source: 'past-success',
                 confidence: 0.8
             }));
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[VECTOR-LEARNING] Knowledge fallback error:', error?.message);
             return [];
         }

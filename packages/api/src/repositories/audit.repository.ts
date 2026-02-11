@@ -295,6 +295,6 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
      * Generate a unique ID
      */
     private generateId(): string {
-        return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return crypto.randomUUID();
     }
 }

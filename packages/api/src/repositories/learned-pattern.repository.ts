@@ -167,6 +167,6 @@ export class LearnedPatternRepository extends BaseRepository implements ILearned
      * Generate a unique ID
      */
     private generateId(): string {
-        return `pattern_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return crypto.randomUUID();
     }
 }

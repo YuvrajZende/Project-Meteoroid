@@ -1,14 +1,15 @@
 /**
  * Default Service Definitions
  * Phase 21: Service Integration Framework
- * 
+ *
  * Exports all pre-configured service definitions.
- * Start with the 5 essential services:
- * 1. Supabase (Database + Auth)
- * 2. Sentry (Monitoring)
- * 3. GitHub Actions (CI/CD)
- * 4. Resend (Email)
- * 5. Stripe (Payments)
+ * Primary services:
+ * 1. Supabase (Vector Database + Auth) - pgvector for embeddings, authentication
+ * 2. Local PostgreSQL (via MCP) - Relational data for users, projects, tasks, etc.
+ * 3. Sentry (Monitoring)
+ * 4. GitHub Actions (CI/CD)
+ * 5. Resend (Email)
+ * 6. Stripe (Payments)
  */
 
 import { ServiceDefinition } from '../types.js';
@@ -23,7 +24,7 @@ import { stripeService } from './stripe.js';
  */
 export function getDefaultServices(): ServiceDefinition[] {
     return [
-        supabaseService,
+        supabaseService, // Vector operations + Auth
         sentryService,
         githubActionsService,
         resendService,

@@ -30,16 +30,24 @@ export type { LearningConfig, GenerationIteration, TestingIteration, LearnedPatt
 
 // Legacy imports for backward compatibility
 import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
-import { getVectorStore, type VectorStoreService } from './vector-store.js';
-import type { IGenerationIterationRepository } from '../../repositories/generation-iteration.repository.js';
-import type { ITestingIterationRepository } from '../../repositories/testing-iteration.repository.js';
-import type { ILearnedPatternRepository } from '../../repositories/learned-pattern.repository.js';
+import { type VectorStoreService } from './vector-store.js';
+import type { IGenerationIterationRepository } from '../../../repositories/generation-iteration.repository.js';
+import type { ITestingIterationRepository } from '../../../repositories/testing-iteration.repository.js';
+import type { ILearnedPatternRepository } from '../../../repositories/learned-pattern.repository.js';
 
 // Database row types for Supabase queries
 interface GenerationIterationRow {
+    id: string;
+    task_id: string;
+    project_id: string;
     prompt: string;
+    generated_code: any;
+    config: any;
     success?: boolean;
     status?: string;
+    errors: any;
+    metrics: any;
+    created_at: string;
 }
 
 // ============================================
@@ -61,7 +69,7 @@ export class LearningService implements ILearningService {
     private readonly learnedPatternRepo: ILearnedPatternRepository;
 
     // Legacy fallback (can be removed once fully migrated)
-    private readonly database?: IDatabase;
+    private readonly _database?: IDatabase;
 
     constructor(
         @inject(TYPES.GenerationIterationRepository) generationIterationRepo: IGenerationIterationRepository,
@@ -74,7 +82,7 @@ export class LearningService implements ILearningService {
         this.generationIterationRepo = generationIterationRepo;
         this.testingIterationRepo = testingIterationRepo;
         this.learnedPatternRepo = learnedPatternRepo;
-        this.database = database;
+        this._database = database;
 
         this.config = {
             enabled: config?.enabled ?? true,
@@ -144,7 +152,7 @@ export class LearningService implements ILearningService {
 
         // Store in database via repository
         try {
-            const createdIteration = await this.generationIterationRepo.create(iteration);
+            await this.generationIterationRepo.create(iteration);
             console.log('[LEARNING] Successfully stored iteration in database');
         } catch (error) {
             console.warn('[LEARNING] Failed to store iteration in DB:', error);
@@ -277,7 +285,7 @@ export class LearningService implements ILearningService {
 
             // Update frequency in database
             try {
-                await this.learnedPatternRepo.updateFrequency(existing.id);
+                await this.learnedPatternRepo.updateFrequency(existing.id!);
             } catch (error) {
                 console.warn('[LEARNING] Failed to update pattern frequency:', error);
             }
@@ -544,7 +552,7 @@ export class LearningService implements ILearningService {
                                 prompt: row.prompt,
                                 generatedCode: row.generated_code || [],
                                 config: row.config || {},
-                                success: row.success,
+                                success: row.success ?? false,
                                 errors: row.errors || [],
                                 metrics: row.metrics || { duration: 0, tokensUsed: 0 },
                                 createdAt: new Date(row.created_at),
@@ -701,13 +709,13 @@ export function getLearningService(): LearningService {
             throw new Error('LearningService requires DI container. Please initialize DI container first using initDIContainer().');
         }
     }
-    return learningServiceInstance;
+    return learningServiceInstance!;
 }
 
 /**
  * @deprecated Use DI container instead
  */
 export function createLearningService(config?: Partial<LearningConfig>): LearningService {
-    learningServiceInstance = new LearningService(undefined, undefined, config);
+    learningServiceInstance = new LearningService(undefined as any, undefined as any, undefined as any, undefined, undefined, config);
     return learningServiceInstance;
 }

@@ -150,6 +150,6 @@ export class TestingIterationRepository extends BaseRepository implements ITesti
      * Generate a unique ID
      */
     private generateId(): string {
-        return `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return crypto.randomUUID();
     }
 }

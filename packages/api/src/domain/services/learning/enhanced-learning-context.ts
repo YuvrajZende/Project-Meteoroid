@@ -37,16 +37,6 @@ interface LearnedPatternRow {
     examples?: number;
 }
 
-interface CodeEmbeddingRow {
-    file_path: string;
-    content: string;
-    metadata?: {
-        project_id?: string;
-        [key: string]: unknown;
-    };
-    similarity?: number;
-}
-
 export interface LearningContext {
     relevantExperiences: Array<{
         prompt: string;
@@ -202,7 +192,7 @@ export class EnhancedLearningContextBuilder {
             }));
 
             return experiences;
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[LEARNING-CONTEXT] Error in getRelevantExperiences:', error?.message || error);
             return [];
         }
@@ -239,11 +229,11 @@ export class EnhancedLearningContextBuilder {
             // Safely map with fallbacks
             return data.map((row: LearnedPatternRow & { occurrence_count?: number; count?: number }) => ({
                 pattern: row.pattern_description || row.pattern || row.description || 'Use best practices',
-                category: row.pattern_type || row.category || 'best-practice',
+                category: (row.pattern_type || row.category || 'best-practice') as 'success' | 'anti-pattern' | 'best-practice',
                 examples: row.occurrence_count || row.count || 1,
                 confidence: row.confidence_score || row.confidence || 0.7,
             }));
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[LEARNING-CONTEXT] Error in getLearnedPatterns:', error?.message || error);
             return [];
         }
@@ -338,7 +328,7 @@ export class EnhancedLearningContextBuilder {
                 .sort((a, b) => b.occurrences - a.occurrences)
                 .slice(0, 5);
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[LEARNING-CONTEXT] Error in getWarningsAndPitfalls:', error?.message || error);
             return [];
         }
@@ -392,7 +382,7 @@ export class EnhancedLearningContextBuilder {
                 mostUsedFramework: framework || 'none',
                 averageComplexity: 'moderate',
             };
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.warn('[LEARNING-CONTEXT] Error in getStatistics:', error?.message || error);
             return {
                 totalIterations: 0,

@@ -125,7 +125,7 @@ export class ValidationService implements IValidationService {
     /**
      * Validate syntax only
      */
-    async validateSyntax(code: string, language: string): Promise<ValidationResult['details']['syntax']> {
+    async validateSyntax(code: string, _language: string): Promise<ValidationResult['details']['syntax']> {
         const errors: Array<{ line: number; column: number; message: string }> = [];
 
         // Basic syntax checks
@@ -195,7 +195,7 @@ export class ValidationService implements IValidationService {
     /**
      * Check code quality
      */
-    async checkQuality(code: string, language: string): Promise<ValidationResult['details']['quality']> {
+    async checkQuality(code: string, _language: string): Promise<ValidationResult['details']['quality']> {
         const issues: ValidationResult['details']['quality']['issues'] = [];
         let score = 100;
 
@@ -258,7 +258,7 @@ export class ValidationService implements IValidationService {
     /**
      * Security scan
      */
-    async scanSecurity(code: string, language: string): Promise<ValidationResult['details']['security']> {
+    async scanSecurity(code: string, _language: string): Promise<ValidationResult['details']['security']> {
         const vulnerabilities: ValidationResult['details']['security']['vulnerabilities'] = [];
 
         const lowerCode = code.toLowerCase();
@@ -396,7 +396,7 @@ export class ValidationService implements IValidationService {
             }
         });
 
-        lineCount.forEach((lineNumbers, line) => {
+        lineCount.forEach((lineNumbers, _line) => {
             if (lineNumbers.length > 2) {
                 duplicates.push(...lineNumbers.slice(1));
             }

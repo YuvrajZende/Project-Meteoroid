@@ -18,7 +18,7 @@ import { AIClient, getAIClient } from '../../../infrastructure/ai-client.js';
 import { FileWriterService, getFileWriter, type WriteResult } from '../../../infrastructure/file-writer.js';
 import { checkSupabaseConnection } from '../../../infrastructure/database/database-client.js';
 import { getBenchmarkingService } from '../../../infrastructure/benchmarking.js';
-import { getCostTracker, type CostSummary } from '../../../infrastructure/cost-tracker.js';
+import { getCostTracker } from '../../../infrastructure/cost-tracker.js';
 
 // Context
 import {
@@ -283,6 +283,8 @@ export class IntegratedOrchestrator {
         let taskAnalysis: TaskAnalysis | null = null;
         let aiAnalysis: OrchestrationResult['aiAnalysis'] | undefined;
         const agentsExecuted: string[] = [];
+        // Shared result variable for multi-model orchestrator
+        let multiModelResult: any = null;
 
         // Get CostTrackerService for cost tracking
         const costTracker = getCostTracker();
@@ -507,6 +509,8 @@ export class IntegratedOrchestrator {
 
             addStep('execution', `Processing ${subtasksToProcess.length} subtasks...`);
 
+
+
             for (let i = 0; i < subtasksToProcess.length; i++) {
                 const subtask = subtasksToProcess[i];
                 const agent = selectedAgents[i % selectedAgents.length] || 'api-agent';
@@ -535,16 +539,18 @@ export class IntegratedOrchestrator {
 
                     codeGenStart = Date.now();
 
-                    let codeResult: { code: string; explanation: string; files?: Array<{ path: string }> };
+                    let codeResult: { code: string; explanation: string; files?: Array<{ path: string; content?: string }> };
                     let tokenUsage = { prompt: 0, completion: 0, total: 0 };
                     let totalCost = 0;
+
+                    // Reset for this subtask
+                    multiModelResult = null;
+
+                    // Reset multi-model result for this subtask (variable declared outside loop)
 
                     // Use Multi-Model Pipeline if enabled (default: true)
                     if (this.config.useMultiModel) {
                         addStep('multi-model', `Using two-stage pipeline: FAST (analysis) → POWER (generation)`, undefined, agent);
-
-                        // Store multi-model result for later use in architecture storage
-                        let multiModelResult: Awaited<ReturnType<typeof this.multiModelOrchestrator.execute>> | null = null;
 
                         // 🧠 PHASE 18: Build learning context from past experiences
                         let learningContext = '';
@@ -645,12 +651,17 @@ IMPORTANT: You are generating code for a specific system described above.
                             },
                         });
 
+
+                        if (!multiModelResult) {
+                            throw new Error('Multi-model execution returned null or undefined');
+                        }
+
                         // Extract code and files from multi-model result
                         // CRITICAL: Preserve file content, not just paths!
                         codeResult = {
-                            code: multiModelResult.files.map(f => `// ${f.path}\n${f.content}`).join('\n\n') || multiModelResult.code,
+                            code: multiModelResult.files?.map((f: any) => `// ${f.path}\n${f.content}`).join('\n\n') || multiModelResult.code,
                             explanation: multiModelResult.explanation || 'Generated using multi-model pipeline',
-                            files: multiModelResult.files.map(f => ({ path: f.path, content: f.content })),
+                            files: multiModelResult.files?.map((f: any) => ({ path: f.path, content: f.content })),
                         };
 
                         // Get token usage from cost records
@@ -849,17 +860,16 @@ IMPORTANT: You are generating code for a specific system described above.
 
                     // Store architecture blueprint if available from multi-model result
                     if (multiModelResult?.architectureBlueprint) {
-                        await this.architectureKnowledge.storeArchitecture({
-                            projectId: input.projectId,
-                            userId: input.userId,
-                            taskId: input.taskId,
-                            blueprint: multiModelResult.architectureBlueprint,
-                            generatedFiles: generatedFilePaths,
-                            qualityScore,
-                            framework: input.context?.framework || 'fastify',
-                            language: input.context?.language || 'typescript',
-                            timestamp: new Date().toISOString(),
-                        });
+                        await this.architectureKnowledge.storeArchitecture(
+                            input.projectId,
+                            input.prompt,
+                            input.context?.language || 'typescript',
+                            input.context?.framework || 'fastify',
+                            [], // features
+                            multiModelResult.architectureBlueprint,
+                            generatedFilePaths,
+                            qualityScore
+                        );
                         console.log(`[ARCH-KNOWLEDGE] Stored architecture blueprint for ${input.projectId}`);
                     } else if (multiModelResult) {
                         // Create a minimal blueprint from available multi-model data
@@ -879,7 +889,16 @@ IMPORTANT: You are generating code for a specific system described above.
                             explanation: multiModelResult.explanation,
                             timestamp: new Date().toISOString(),
                         };
-                        await this.architectureKnowledge.storeArchitecture(minimalBlueprint as any);
+                        await this.architectureKnowledge.storeArchitecture(
+                            input.projectId,
+                            input.prompt,
+                            input.context?.language || 'typescript',
+                            input.context?.framework || 'fastify',
+                            [],
+                            minimalBlueprint as any,
+                            generatedFilePaths,
+                            qualityScore
+                        );
                         console.log(`[ARCH-KNOWLEDGE] Stored minimal architecture for ${input.projectId}`);
                     } else {
                         // Legacy: Create minimal blueprint without multi-model data
@@ -897,7 +916,16 @@ IMPORTANT: You are generating code for a specific system described above.
                             qualityScore,
                             timestamp: new Date().toISOString(),
                         };
-                        await this.architectureKnowledge.storeArchitecture(minimalBlueprint as any);
+                        await this.architectureKnowledge.storeArchitecture(
+                            input.projectId,
+                            input.prompt,
+                            input.context?.language || 'typescript',
+                            input.context?.framework || 'fastify',
+                            [],
+                            minimalBlueprint as any,
+                            generatedFilePaths,
+                            qualityScore
+                        );
                         console.log(`[ARCH-KNOWLEDGE] Stored minimal architecture for ${input.projectId}`);
                     }
 

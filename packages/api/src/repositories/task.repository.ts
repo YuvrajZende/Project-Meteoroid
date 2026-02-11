@@ -327,6 +327,6 @@ export class TaskRepository extends BaseRepository implements ITaskRepository {
      * Generate a unique ID
      */
     private generateId(): string {
-        return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return crypto.randomUUID();
     }
 }

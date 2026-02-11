@@ -23,11 +23,6 @@ interface HealthResponse {
  */
 interface DeepHealthResponse extends HealthResponse {
     checks: {
-        convex: {
-            status: 'healthy' | 'unhealthy';
-            latency?: number;
-            error?: string;
-        };
         supabase: {
             status: 'healthy' | 'unhealthy';
             latency?: number;
@@ -127,14 +122,6 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
                         checks: {
                             type: 'object',
                             properties: {
-                                convex: {
-                                    type: 'object',
-                                    properties: {
-                                        status: { type: 'string' },
-                                        latency: { type: 'number' },
-                                        error: { type: 'string' },
-                                    },
-                                },
                                 supabase: {
                                     type: 'object',
                                     properties: {
@@ -187,14 +174,12 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
 
         // Determine overall status
         const allHealthy =
-            dbHealth.convex.connected &&
             dbHealth.supabase.connected &&
             vectorStoreCheck.status === 'healthy' &&
             redisCheck.status === 'healthy' &&
             agentsCheck.status === 'healthy';
 
         const anyUnhealthy =
-            !dbHealth.convex.connected ||
             !dbHealth.supabase.connected ||
             vectorStoreCheck.status === 'unhealthy' ||
             redisCheck.status === 'unhealthy' ||
@@ -213,11 +198,6 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
             uptime: process.uptime(),
             version: '1.0.0',
             checks: {
-                convex: {
-                    status: dbHealth.convex.connected ? 'healthy' : 'unhealthy',
-                    latency: dbHealth.convex.latency,
-                    error: dbHealth.convex.error,
-                },
                 supabase: {
                     status: dbHealth.supabase.connected ? 'healthy' : 'unhealthy',
                     latency: dbHealth.supabase.latency,

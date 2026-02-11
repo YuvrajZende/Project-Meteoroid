@@ -1,7 +1,7 @@
 /**
  * Adapter Factory
  * Phase 21: Service Integration Framework
- * 
+ *
  * Factory for creating and retrieving service adapters.
  */
 
@@ -42,10 +42,11 @@ export function getAllAdapters(): BaseAdapter[] {
  * Initialize all adapters
  */
 export async function initializeAdapters(): Promise<void> {
-    // Import and register adapters dynamically
+    // Register Supabase adapter (for vector operations)
     try {
         const { SupabaseAdapter } = await import('./database/supabase-adapter.js');
         registerAdapter(new SupabaseAdapter());
+        console.log('[Adapters] Supabase adapter registered (vector operations)');
     } catch (e) {
         console.warn('[Adapters] Supabase adapter not available');
     }
@@ -53,11 +54,19 @@ export async function initializeAdapters(): Promise<void> {
     try {
         const { SentryAdapter } = await import('./monitoring/sentry-adapter.js');
         registerAdapter(new SentryAdapter());
+        console.log('[Adapters] Sentry adapter registered');
     } catch (e) {
         console.warn('[Adapters] Sentry adapter not available');
     }
 
     console.log(`[Adapters] Initialized ${adapterRegistry.size} adapters`);
+}
+
+/**
+ * Get primary database adapter (Supabase for vector operations)
+ */
+export function getPrimaryDatabaseAdapter(): BaseAdapter | undefined {
+    return getServiceAdapter('supabase');
 }
 
 export { BaseAdapter };

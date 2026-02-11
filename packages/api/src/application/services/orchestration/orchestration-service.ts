@@ -13,7 +13,7 @@
 
 import { injectable, inject } from 'inversify';
 import { TYPES } from '../../../di/types.js';
-import type { IOrchestrator, OrchestrationInput, OrchestrationResult, OrchestratorStatus } from '../../../interfaces/orchestration.interface.js';
+import type { IOrchestrator, OrchestrationInput, OrchestrationResult, OrchestratorStatus, ProgressCallback } from '../../../interfaces/orchestration.interface.js';
 import type { IPlanningService } from '../../../interfaces/planning.interface.js';
 import type { IGenerationService } from '../../../interfaces/generation.interface.js';
 import type { IValidationService } from '../../../interfaces/validation.interface.js';
@@ -29,9 +29,9 @@ export class OrchestrationService implements IOrchestrator {
         @inject(TYPES.PlanningService) private planningService: IPlanningService,
         @inject(TYPES.GenerationService) private generationService: IGenerationService,
         @inject(TYPES.ValidationService) private validationService: IValidationService,
-        @inject(TYPES.ContextManager) private contextManager?: IContextManager,
+        @inject(TYPES.ContextManager) private readonly _contextManager?: IContextManager,
         @inject(TYPES.LearningService) private learningService?: ILearningService
-    ) {}
+    ) { }
 
     /**
      * Main orchestration method
@@ -39,7 +39,7 @@ export class OrchestrationService implements IOrchestrator {
      */
     async orchestrate(
         input: OrchestrationInput,
-        onProgress?: (step: { phase: string; message: string; stepNumber: number }) => void
+        onProgress?: ProgressCallback
     ): Promise<OrchestrationResult> {
         const requestId = input.taskId || crypto.randomUUID();
         console.log(`[OrchestrationService] Starting orchestration ${requestId}`);

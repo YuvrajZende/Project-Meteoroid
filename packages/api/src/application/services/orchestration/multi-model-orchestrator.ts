@@ -317,8 +317,9 @@ export class MultiModelOrchestrator {
             console.log(`[STAGE 2] Code length: ${code.length} chars`);
 
             // Record generation cost
-            const context = await this.buildContext(request, contextAnalysis);
-            const contextTokens = context.length / 4;
+            // Estimate input tokens from the prompt + analysis (avoid redundant buildContext call)
+            const promptLength = (request.prompt?.length || 0) + JSON.stringify(contextAnalysis || {}).length;
+            const contextTokens = promptLength / 4;
             const outputTokens = Math.ceil(code.length / 4);
 
             generationCost = costTracker.recordCost({

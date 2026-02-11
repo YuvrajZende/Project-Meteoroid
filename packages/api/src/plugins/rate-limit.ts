@@ -7,30 +7,30 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
 import { env } from '../config/index.js';
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 
-let redisClient: ReturnType<typeof createClient> | null = null;
+let redisClient: Redis | null = null;
 
 // Initialize Redis client if configured
-async function getRedisStore() {
+async function getRedisClient(): Promise<Redis | null> {
     if (!env.REDIS_URL) {
         return null;
     }
 
     if (!redisClient) {
         try {
-            redisClient = createClient({
-                url: env.REDIS_URL,
-                socket: {
-                    reconnectStrategy: () => 5000, // Reconnect after 5 seconds
-                    connectTimeout: 10000,
-                },
+            redisClient = new Redis(env.REDIS_URL, {
+                connectTimeout: 10000,
+                maxRetriesPerRequest: 1,
+                lazyConnect: true,
             });
 
             await redisClient.connect();
+            await redisClient.ping();
             return redisClient;
         } catch (error) {
             console.warn('[RATE-LIMIT] Redis connection failed, using in-memory store:', error);
+            redisClient = null;
             return null;
         }
     }
@@ -40,13 +40,12 @@ async function getRedisStore() {
 
 export async function registerRateLimit(app: FastifyInstance): Promise<void> {
     // Try to initialize Redis
-    const redis = await getRedisStore();
+    const redis = await getRedisClient();
 
-    await app.register(rateLimit, {
+    const rateLimitOptions: Parameters<typeof rateLimit>[1] = {
         global: true,
         max: env.RATE_LIMIT_MAX,
         timeWindow: env.RATE_LIMIT_WINDOW_MS,
-        store: redis ? 'redis' : undefined,
 
         // Custom key generator (by IP + User ID if authenticated)
         keyGenerator: (request) => {
@@ -78,10 +77,14 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
         allowList: (request) => {
             return request.url === '/health' || request.url === '/';
         },
+    };
 
-        // Redis store configuration (only if Redis is available)
-        redis: redis ? redis : undefined,
-    });
+    // Only attach Redis if connected
+    if (redis) {
+        (rateLimitOptions as any).redis = redis;
+    }
+
+    await app.register(rateLimit, rateLimitOptions);
 
     const storeType = redis ? 'Redis' : 'in-memory';
     app.log.info(`[PLUGINS] Rate limiting registered (${env.RATE_LIMIT_MAX} req/${env.RATE_LIMIT_WINDOW_MS}ms, store: ${storeType})`);

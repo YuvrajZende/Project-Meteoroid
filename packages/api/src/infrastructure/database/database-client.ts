@@ -1,15 +1,19 @@
 /**
  * Database Client Service
- * Provides Supabase (legacy) and Convex (current) connection utilities
- * Phase 5: Migrating from Supabase to Convex
+ * Provides hybrid database connection:
+ * - Local PostgreSQL (via MCP) for relational data
+ * - Supabase (with pgvector) for vector operations
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { getConvexClient, closeConvexClient } from './convex-client.js';
+import { HybridDatabase } from './hybrid-database.js';
 
 // Singleton Supabase clients
 let supabaseClient: SupabaseClient | null = null;
 let supabaseAdmin: SupabaseClient | null = null;
+
+// Singleton hybrid database
+let hybridDatabase: HybridDatabase | null = null;
 
 /**
  * Get or create the Supabase client (respects RLS)
@@ -55,6 +59,16 @@ export function getSupabaseAdmin(): SupabaseClient {
     }
 
     return supabaseAdmin;
+}
+
+/**
+ * Get the hybrid database singleton
+ */
+export function getHybridDatabase(): HybridDatabase {
+    if (!hybridDatabase) {
+        hybridDatabase = new HybridDatabase();
+    }
+    return hybridDatabase;
 }
 
 /**
@@ -179,6 +193,46 @@ export async function checkVectorStore(): Promise<{
 }
 
 /**
+ * Check local PostgreSQL connectivity via MCP
+ */
+export async function checkLocalConnection(): Promise<{
+    connected: boolean;
+    message: string;
+    latency?: number;
+    error?: string;
+}> {
+    try {
+        const startTime = Date.now();
+        const hybridDb = getHybridDatabase();
+
+        // Simple connection test via the hybrid database
+        const state = await hybridDb.getConnectionState();
+        const latency = Date.now() - startTime;
+
+        if (!state.local.connected) {
+            return {
+                connected: false,
+                message: 'Local PostgreSQL connection failed',
+                error: 'Could not connect to local PostgreSQL via MCP',
+            };
+        }
+
+        return {
+            connected: true,
+            message: 'Local PostgreSQL healthy',
+            latency,
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return {
+            connected: false,
+            message: 'Local PostgreSQL check failed',
+            error: errorMsg,
+        };
+    }
+}
+
+/**
  * Test database operations with a full CRUD cycle
  */
 export async function testDatabaseOperations(): Promise<{
@@ -294,65 +348,29 @@ export async function testDatabaseOperations(): Promise<{
     }
 }
 
-// ============================================================================
-// CONVEX EXPORTS (Phase 5 Migration)
-// ============================================================================
-
 /**
- * Get or create the Convex client
- */
-export { getConvexClient, closeConvexClient };
-
-/**
- * Check Convex database connectivity
- */
-export async function checkConvexConnection(): Promise<{
-    connected: boolean;
-    message: string;
-    latency?: number;
-    error?: string;
-}> {
-    try {
-        const startTime = Date.now();
-        const client = getConvexClient();
-
-        // Try a simple query to check connectivity
-        // Note: This will be implemented once we have Convex functions
-        const latency = Date.now() - startTime;
-
-        return {
-            connected: true,
-            message: 'Convex healthy',
-            latency,
-        };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        return {
-            connected: false,
-            message: 'Convex connection failed',
-            error: errorMsg,
-        };
-    }
-}
-
-/**
- * Unified database health check (tries Convex first, falls back to Supabase)
+ * Unified database health check
  */
 export async function checkDatabaseHealth(): Promise<{
-    convex: Awaited<ReturnType<typeof checkConvexConnection>>;
+    local: Awaited<ReturnType<typeof checkLocalConnection>>;
     supabase: Awaited<ReturnType<typeof checkSupabaseConnection>>;
+    vectorStore: Awaited<ReturnType<typeof checkVectorStore>>;
 }> {
-    const [convexResult, supabaseResult] = await Promise.allSettled([
-        checkConvexConnection(),
+    const [localResult, supabaseResult, vectorResult] = await Promise.allSettled([
+        checkLocalConnection(),
         checkSupabaseConnection(),
+        checkVectorStore(),
     ]);
 
     return {
-        convex: convexResult.status === 'fulfilled'
-            ? await convexResult.value
+        local: localResult.status === 'fulfilled'
+            ? await localResult.value
             : { connected: false, message: 'Check failed', error: 'Promise rejected' },
         supabase: supabaseResult.status === 'fulfilled'
             ? await supabaseResult.value
             : { connected: false, message: 'Check failed', error: 'Promise rejected' },
+        vectorStore: vectorResult.status === 'fulfilled'
+            ? await vectorResult.value
+            : { connected: false, message: 'Check failed', tableExists: false, functionExists: false, error: 'Promise rejected' },
     };
 }

@@ -258,6 +258,6 @@ export class ProjectRepository extends BaseRepository implements IProjectReposit
      * Generate a unique ID
      */
     private generateId(): string {
-        return `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return crypto.randomUUID();
     }
 }

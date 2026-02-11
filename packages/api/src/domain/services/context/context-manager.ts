@@ -12,18 +12,16 @@
 
 import { injectable, inject } from 'inversify';
 import { TYPES } from '../../../di/types.js';
-import type { IDatabase } from '../../../interfaces/database.interface.js';
 import type {
     IContextManager,
     ConversationMessage,
     ContextWindow,
     ExtractedContextEntity,
     WorkingMemory,
-    ContextDecision,
     ContextArtifact,
     PersistentContext,
 } from '../../../interfaces/context.interface.js';
-import type { IProjectContextRepository } from '../../repositories/project-context.repository.js';
+import type { IProjectContextRepository } from '../../../repositories/project-context.repository.js';
 
 /**
  * Generation State
@@ -62,7 +60,7 @@ export class ContextManager implements IContextManager {
 
     constructor(
         @inject(TYPES.ProjectContextRepository) private projectContextRepo: IProjectContextRepository
-    ) {}
+    ) { }
 
     /**
      * Get the context key for multi-tenant storage
@@ -219,7 +217,7 @@ export class ContextManager implements IContextManager {
 
     async extractContext(projectId: string, userId: string, messages: ConversationMessage[]): Promise<ExtractedContextEntity[]> {
         const contextWindow = this.getContextWindow(projectId, userId);
-        const entities: ExtractedContextEntity[] = [];
+        const _entities: ExtractedContextEntity[] = [];
         for (const message of messages) {
             this.extractEntities(message.content, contextWindow);
         }
