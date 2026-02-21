@@ -3,6 +3,11 @@
  * Week 2: Repository Layer - Day 11
  *
  * Handles all database operations for projects
+ * 
+ * PERFORMANCE FEATURES:
+ * - Batch loading of related entities (prevents N+1)
+ * - Single query with JOINs for related data
+ * - Query optimization with proper indexing hints
  */
 
 import { injectable, inject } from 'inversify';
@@ -14,7 +19,29 @@ import type {
     QueryOptions,
     PaginatedResult,
 } from '../interfaces/repository.interface.js';
-import { BaseRepository, RepositoryError } from './base.repository.js';
+import { BaseRepository } from './base.repository.js';
+
+// ============================================
+// PERFORMANCE: Extended types for eager loading
+// ============================================
+
+export interface ProjectWithTasks extends Project {
+    tasks: Array<{
+        id: string;
+        type: string;
+        status: string;
+        prompt: string;
+        createdAt: Date;
+    }>;
+    taskCount: number;
+}
+
+export interface ProjectWithStats extends Project {
+    taskCount: number;
+    completedTaskCount: number;
+    failedTaskCount: number;
+    lastTaskAt: Date | null;
+}
 
 @injectable()
 export class ProjectRepository extends BaseRepository implements IProjectRepository {
@@ -259,5 +286,164 @@ export class ProjectRepository extends BaseRepository implements IProjectReposit
      */
     private generateId(): string {
         return crypto.randomUUID();
+    }
+
+    // ============================================
+    // PERFORMANCE: N+1 Query Prevention Methods
+    // ============================================
+
+    /**
+     * PERFORMANCE: Find projects with task counts in a single query
+     * Prevents N+1 when displaying project list with task counts
+     */
+    async findByUserWithStats(userId: string, options?: QueryOptions): Promise<ProjectWithStats[]> {
+        try {
+            const orderBy = this.buildOrderBy(options);
+            const pagination = this.buildPagination(options);
+
+            // Single query with LEFT JOIN and aggregation
+            const results = await this.query<any>(
+                `SELECT 
+                    p.*,
+                    COUNT(t.id) as task_count,
+                    COUNT(t.id) FILTER (WHERE t.status = 'completed') as completed_task_count,
+                    COUNT(t.id) FILTER (WHERE t.status = 'failed') as failed_task_count,
+                    MAX(t.updated_at) as last_task_at
+                FROM projects p
+                LEFT JOIN tasks t ON t.project_id = p.id
+                WHERE p.user_id = $userId AND p.status != 'deleted'
+                GROUP BY p.id
+                ${orderBy}
+                ${pagination}`,
+                { userId }
+            );
+
+            return results.map(r => ({
+                ...this.rowToEntity<Project>(r),
+                taskCount: Number(r.task_count || 0),
+                completedTaskCount: Number(r.completed_task_count || 0),
+                failedTaskCount: Number(r.failed_task_count || 0),
+                lastTaskAt: r.last_task_at ? new Date(r.last_task_at) : null,
+            }));
+        } catch (error) {
+            this.handleError(error, 'findByUserWithStats');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Find project with recent tasks in a single query
+     * Prevents N+1 when showing project details with tasks
+     */
+    async findByIdWithTasks(projectId: string, taskLimit: number = 10): Promise<ProjectWithTasks | null> {
+        try {
+            // Use a subquery to get recent tasks efficiently
+            const results = await this.query<any>(
+                `SELECT 
+                    p.*,
+                    COALESCE(
+                        jsonb_agg(
+                            jsonb_build_object(
+                                'id', t.id,
+                                'type', t.type,
+                                'status', t.status,
+                                'prompt', t.prompt,
+                                'createdAt', t.created_at
+                            )
+                            ORDER BY t.created_at DESC
+                        ) FILTER (WHERE t.id IS NOT NULL),
+                        '[]'::jsonb
+                    ) as tasks,
+                    COUNT(t.id) as task_count
+                FROM projects p
+                LEFT JOIN LATERAL (
+                    SELECT id, type, status, prompt, created_at
+                    FROM tasks
+                    WHERE project_id = p.id
+                    ORDER BY created_at DESC
+                    LIMIT $taskLimit
+                ) t ON true
+                WHERE p.id = $projectId AND p.status != 'deleted'
+                GROUP BY p.id`,
+                { projectId, taskLimit }
+            );
+
+            if (!results[0]) {
+                return null;
+            }
+
+            const row = results[0];
+            return {
+                ...this.rowToEntity<Project>(row),
+                tasks: row.tasks || [],
+                taskCount: Number(row.task_count || 0),
+            };
+        } catch (error) {
+            this.handleError(error, 'findByIdWithTasks');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Batch load projects by IDs
+     * Prevents N+1 when loading multiple projects
+     */
+    async findByIds(ids: string[]): Promise<Project[]> {
+        if (ids.length === 0) return [];
+
+        try {
+            const results = await this.query<any>(
+                `SELECT * FROM projects 
+                 WHERE id = ANY($ids) AND status != 'deleted'`,
+                { ids }
+            );
+
+            return results.map(r => this.rowToEntity<Project>(r));
+        } catch (error) {
+            this.handleError(error, 'findByIds');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Batch load project stats by IDs
+     * Single query for multiple project statistics
+     */
+    async findStatsByIds(ids: string[]): Promise<Map<string, { taskCount: number; lastTaskAt: Date | null }>> {
+        if (ids.length === 0) return new Map();
+
+        try {
+            const results = await this.query<{
+                project_id: string;
+                task_count: bigint;
+                last_task_at: string | null;
+            }>(
+                `SELECT 
+                    t.project_id,
+                    COUNT(t.id) as task_count,
+                    MAX(t.updated_at) as last_task_at
+                FROM tasks t
+                WHERE t.project_id = ANY($ids)
+                GROUP BY t.project_id`,
+                { ids }
+            );
+
+            const statsMap = new Map<string, { taskCount: number; lastTaskAt: Date | null }>();
+            
+            for (const row of results) {
+                statsMap.set(row.project_id, {
+                    taskCount: Number(row.task_count),
+                    lastTaskAt: row.last_task_at ? new Date(row.last_task_at) : null,
+                });
+            }
+
+            // Add entries for projects with no tasks
+            for (const id of ids) {
+                if (!statsMap.has(id)) {
+                    statsMap.set(id, { taskCount: 0, lastTaskAt: null });
+                }
+            }
+
+            return statsMap;
+        } catch (error) {
+            this.handleError(error, 'findStatsByIds');
+        }
     }
 }

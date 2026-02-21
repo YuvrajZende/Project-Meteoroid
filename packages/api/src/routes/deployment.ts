@@ -17,6 +17,23 @@ import {
     type DeploymentProvider,
 } from '../services/index.js';
 
+// Cookie plugin types
+declare module 'fastify' {
+    interface FastifyRequest {
+        cookies: Record<string, string>;
+    }
+    interface FastifyReply {
+        setCookie(name: string, value: string, options?: {
+            path?: string;
+            httpOnly?: boolean;
+            secure?: boolean;
+            sameSite?: 'strict' | 'lax' | 'none';
+            maxAge?: string;
+        }): FastifyReply;
+        clearCookie(name: string, options?: { path?: string; httpOnly?: boolean; secure?: boolean; sameSite?: 'strict' | 'lax' | 'none' }): FastifyReply;
+    }
+}
+
 // ============================================
 // OAUTH STATE STORE (In-memory with expiration)
 // ============================================
@@ -81,7 +98,7 @@ function deleteUserSession(sessionId: string): void {
 /**
  * Get all sessions for a user (by user ID)
  */
-function getUserSessionsByUserId(userId: string): UserSession[] {
+function _getUserSessionsByUserId(userId: string): UserSession[] {
     const sessions: UserSession[] = [];
     const now = Date.now();
 
@@ -97,9 +114,8 @@ function getUserSessionsByUserId(userId: string): UserSession[] {
 /**
  * Delete all sessions for a user
  */
-function deleteUserSessionsByUserId(userId: string): number {
+function _deleteUserSessionsByUserId(userId: string): number {
     let count = 0;
-    const now = Date.now();
 
     for (const [sessionId, session] of sessionStore.entries()) {
         if (session.userId === userId) {
@@ -114,7 +130,7 @@ function deleteUserSessionsByUserId(userId: string): number {
 /**
  * Get session by user ID and provider
  */
-function getUserSessionByProvider(userId: string, provider: string): UserSession | undefined {
+function _getUserSessionByProvider(userId: string, provider: string): UserSession | undefined {
     const now = Date.now();
 
     for (const session of sessionStore.values()) {
@@ -470,13 +486,13 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
         } catch (error: unknown) {
             app.log.error(error, 'Deployment failed');
 
-            if (error.name === 'ZodError') {
+            if (error instanceof Error && error.name === 'ZodError') {
                 return reply.status(400).send({
                     success: false,
                     error: {
                         code: 'VALIDATION_ERROR',
                         message: 'Invalid request data',
-                        details: error.errors,
+                        details: (error as Error & { errors: unknown[] }).errors,
                     },
                 });
             }
@@ -747,14 +763,14 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
             const tokenPreview = `${accessToken.substring(0, 8)}...`;
 
             storeUserSession(sessionId, {
-                userId: user.id,
+                userId: String(user.id),
                 accessToken,
                 tokenPreview,
                 provider: 'github',
                 createdAt: now,
                 expiresAt: now + SESSION_TTL_MS,
                 userInfo: {
-                    id: user.id,
+                    id: String(user.id),
                     login: user.login,
                     avatarUrl: user.avatarUrl,
                 },
@@ -766,7 +782,7 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
-                maxAge: SESSION_TTL_MS / 1000,
+                maxAge: String(SESSION_TTL_MS / 1000),
             });
 
             return reply.send({

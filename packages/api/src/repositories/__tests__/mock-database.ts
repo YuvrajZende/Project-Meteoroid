@@ -3,10 +3,31 @@
  * Simulates database behavior for unit tests
  */
 
-import type { IDatabase } from '../../interfaces/database.interface.js';
+import type { IDatabase, Transaction } from '../../interfaces/database.interface.js';
 
 type QueryResult<T> = T[];
 type QueryParams = Record<string, unknown>;
+
+class MockTransaction implements Transaction {
+    private db: MockDatabase;
+
+    constructor(db: MockDatabase) {
+        this.db = db;
+    }
+
+    async query<T>(sql: string, params?: QueryParams): Promise<{ data: T[] | null; error: string | null; count: number }> {
+        const results = await this.db.query<T>(sql, params);
+        return { data: results, error: null, count: results.length };
+    }
+
+    async commit(): Promise<void> {
+        // Mock commit - no-op
+    }
+
+    async rollback(): Promise<void> {
+        // Mock rollback - no-op
+    }
+}
 
 export class MockDatabase implements IDatabase {
     private tables: Map<string, Record<string, unknown>[]> = new Map();
@@ -359,7 +380,7 @@ export class MockDatabase implements IDatabase {
     /**
      * Apply ORDER BY clause
      */
-    private applyOrderBy<T>(results: Record<string, unknown>[], sql: string): Record<string, unknown>[] {
+    private applyOrderBy(results: Record<string, unknown>[], sql: string): Record<string, unknown>[] {
         if (!sql.includes('ORDER BY')) return results;
 
         const orderMatch = sql.match(/ORDER BY\s+(\w+)(?:\s+(ASC|DESC))?/i);
@@ -409,7 +430,7 @@ export class MockDatabase implements IDatabase {
         }
 
         // Build aggregated results
-        return Object.entries(groups).map(([groupKey, rows]) => {
+        const aggregatedResults: Record<string, unknown>[] = Object.entries(groups).map(([groupKey, rows]) => {
             const result: Record<string, unknown> = {};
             result[groupColumn] = groupKey;
 
@@ -419,7 +440,9 @@ export class MockDatabase implements IDatabase {
             }
 
             return result;
-        }) as unknown as T[];
+        });
+
+        return aggregatedResults as T[];
     }
 
     /**
@@ -675,8 +698,9 @@ export class MockDatabase implements IDatabase {
     /**
      * Mock transaction support
      */
-    async transaction<T>(callback: (db: IDatabase) => Promise<T>): Promise<T> {
-        return callback(this);
+    async transaction<T>(callback: (trx: Transaction) => Promise<T>): Promise<T> {
+        const trx = new MockTransaction(this);
+        return callback(trx);
     }
 
     /**
@@ -728,6 +752,13 @@ export class MockDatabase implements IDatabase {
      */
     resetErrors(): void {
         this.shouldThrowError = false;
+    }
+
+    /**
+     * Get connection state (mock implementation)
+     */
+    async getConnectionState(): Promise<{ connected: boolean; latency?: number }> {
+        return { connected: true, latency: 0 };
     }
 
     /**

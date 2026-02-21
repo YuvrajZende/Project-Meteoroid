@@ -9,7 +9,6 @@
  * - Tracking generation metrics
  */
 
-import type { CodeGenerationRequest, CodeGenerationResult } from './generator.interface.js';
 import type { Subtask } from './planning.interface.js';
 
 export interface GenerationRequest {

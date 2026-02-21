@@ -8,21 +8,17 @@
  * This gives us the best of both worlds:
  * - Local speed and control for relational queries
  * - Battle-tested pgvector for semantic search
+ *
+ * NOTE: Imports getSupabaseAdmin from supabase-client.ts to avoid circular dependency
  */
 
-import { getSupabaseAdmin } from './database-client.js';
+import { getSupabaseAdmin } from './supabase-client.js';
 import type { IDatabase, Transaction } from '../../interfaces/database.interface.js';
 
-/**
- * Tables that should use Supabase (vector operations)
- */
 const SUPABASE_TABLES = new Set([
     'knowledge_embeddings',
 ]);
 
-/**
- * Tables that should use local PostgreSQL
- */
 const LOCAL_TABLES = new Set([
     'users',
     'projects',
@@ -34,53 +30,38 @@ const LOCAL_TABLES = new Set([
     'learning_contexts',
     'benchmarks',
     'api_keys',
-    'posts', // Local development table
+    'posts',
 ]);
 
-/**
- * Hybrid Database Implementation
- */
 export class HybridDatabase implements IDatabase {
     private initialized: boolean = false;
 
-    /**
-     * Execute a SQL query, routing to the appropriate database
-     */
     async query<T>(sql: string, params?: Record<string, unknown>): Promise<T[]> {
-        // Extract table name from SQL
         const tableNameMatch = sql.match(/FROM\s+(\w+)|INSERT\s+INTO\s+(\w+)|UPDATE\s+(\w+)/i);
         if (!tableNameMatch) {
             throw new Error('Could not extract table name from SQL');
         }
         const tableName = (tableNameMatch[1] || tableNameMatch[2] || tableNameMatch[3]).toLowerCase();
 
-        // Route to Supabase for vector tables
         if (SUPABASE_TABLES.has(tableName)) {
-            return this.querySupabase<T>(sql, params);
+            return this.querySupabase<T>(sql, params, tableName);
         }
 
-        // Route to local PostgreSQL for relational tables
         if (LOCAL_TABLES.has(tableName)) {
             return this.queryLocal<T>(sql, params);
         }
 
-        // Default to local PostgreSQL
         return this.queryLocal<T>(sql, params);
     }
 
-    /**
-     * Query Supabase (for vector operations)
-     */
-    private async querySupabase<T>(sql: string, params?: Record<string, unknown>): Promise<T[]> {
+    private async querySupabase<T>(sql: string, params?: Record<string, unknown>, tableName?: string): Promise<T[]> {
         const supabase = getSupabaseAdmin();
         const tableNameMatch = sql.match(/FROM\s+(\w+)|INSERT\s+INTO\s+(\w+)|UPDATE\s+(\w+)/i);
-        const tableName = tableNameMatch![1] || tableNameMatch![2] || tableNameMatch![3];
+        const resolvedTableName = tableName || (tableNameMatch![1] || tableNameMatch![2] || tableNameMatch![3]);
 
-        // Handle SELECT queries
         if (sql.trim().toUpperCase().startsWith('SELECT')) {
-            let query = supabase.from(tableName).select('*');
+            let query = supabase.from(resolvedTableName).select('*');
 
-            // Parse WHERE clause
             if (sql.includes('WHERE')) {
                 const whereMatch = sql.match(/WHERE\s+(\w+)\s*=\s*\$(\w+)/i);
                 if (whereMatch && params) {
@@ -89,7 +70,6 @@ export class HybridDatabase implements IDatabase {
                 }
             }
 
-            // Parse ORDER BY
             const orderMatch = sql.match(/ORDER BY\s+(\w+)(?:\s+(ASC|DESC))?/i);
             if (orderMatch) {
                 const [, column, direction] = orderMatch;
@@ -100,7 +80,6 @@ export class HybridDatabase implements IDatabase {
                 }
             }
 
-            // Parse LIMIT
             const limitMatch = sql.match(/LIMIT\s+(\d+)/i);
             if (limitMatch) {
                 query = query.limit(parseInt(limitMatch[1], 10));
@@ -115,10 +94,9 @@ export class HybridDatabase implements IDatabase {
             return (data || []) as T[];
         }
 
-        // Handle INSERT queries
         if (sql.trim().toUpperCase().startsWith('INSERT')) {
             const { data, error } = await supabase
-                .from(tableName)
+                .from(resolvedTableName)
                 .insert(params)
                 .select();
 
@@ -129,22 +107,31 @@ export class HybridDatabase implements IDatabase {
             return (data || []) as T[];
         }
 
-        // Handle UPDATE queries
         if (sql.trim().toUpperCase().startsWith('UPDATE')) {
             const whereMatch = sql.match(/WHERE\s+(\w+)\s*=\s*\$(\w+)/i);
-            let query = supabase.from(tableName);
+
+            const updateData = { ...params };
 
             if (whereMatch && params) {
                 const [, column, paramKey] = whereMatch;
-                query = query.eq(column, params[paramKey]);
+                delete updateData[paramKey];
+                const { data, error } = await supabase
+                    .from(resolvedTableName)
+                    .update(updateData)
+                    .eq(column, params[paramKey])
+                    .select();
+
+                if (error) {
+                    throw new Error(`Supabase update failed: ${error.message}`);
+                }
+
+                return (data || []) as T[];
             }
 
-            const updateData = { ...params };
-            if (whereMatch) {
-                delete updateData[whereMatch[2]];
-            }
-
-            const { data, error } = await query.update(updateData).select();
+            const { data, error } = await supabase
+                .from(resolvedTableName)
+                .update(updateData)
+                .select();
 
             if (error) {
                 throw new Error(`Supabase update failed: ${error.message}`);
@@ -153,17 +140,24 @@ export class HybridDatabase implements IDatabase {
             return (data || []) as T[];
         }
 
-        // Handle DELETE queries
         if (sql.trim().toUpperCase().startsWith('DELETE')) {
             const whereMatch = sql.match(/WHERE\s+(\w+)\s*=\s*\$(\w+)/i);
-            let query = supabase.from(tableName);
 
             if (whereMatch && params) {
                 const [, column, paramKey] = whereMatch;
-                query = query.eq(column, params[paramKey]);
+                const { error } = await supabase
+                    .from(resolvedTableName)
+                    .delete()
+                    .eq(column, params[paramKey]);
+
+                if (error) {
+                    throw new Error(`Supabase delete failed: ${error.message}`);
+                }
+
+                return [] as T[];
             }
 
-            const { error } = await query.delete();
+            const { error } = await supabase.from(resolvedTableName).delete();
 
             if (error) {
                 throw new Error(`Supabase delete failed: ${error.message}`);
@@ -175,14 +169,7 @@ export class HybridDatabase implements IDatabase {
         throw new Error('Unsupported SQL query type for Supabase');
     }
 
-    /**
-     * Query local PostgreSQL via MCP (for relational operations)
-     */
     private async queryLocal<T>(sql: string, params?: Record<string, unknown>): Promise<T[]> {
-        // Use the MCP PostgreSQL server
-        const { execute_sql } = await import('mcp__postgres__execute_sql');
-
-        // Replace $param-style with PostgreSQL's $1, $2 style
         let paramIndex = 1;
         const pgSql = sql.replace(/\$(\w+)/g, (match, paramName) => {
             if (params && paramName in params) {
@@ -191,8 +178,7 @@ export class HybridDatabase implements IDatabase {
             return match;
         });
 
-        // Convert params object to array
-        const paramValues: any[] = [];
+        const paramValues: unknown[] = [];
         if (params) {
             const paramNames = sql.match(/\$(\w+)/g) || [];
             for (const param of paramNames) {
@@ -204,9 +190,9 @@ export class HybridDatabase implements IDatabase {
         }
 
         try {
+            const { execute_sql } = await import('mcp__postgres__execute_sql');
             const result = await execute_sql({ sql: pgSql });
 
-            // The MCP tool returns the result in a specific format
             if (result && Array.isArray(result)) {
                 return result as T[];
             }
@@ -217,9 +203,6 @@ export class HybridDatabase implements IDatabase {
         }
     }
 
-    /**
-     * Execute a transaction (uses local PostgreSQL)
-     */
     async transaction<T>(callback: (trx: Transaction) => Promise<T>): Promise<T> {
         const trx: Transaction = {
             query: async <T>(sql: string, params?: Record<string, unknown>) => {
@@ -237,9 +220,6 @@ export class HybridDatabase implements IDatabase {
         return callback(trx);
     }
 
-    /**
-     * Get connection health status for both databases
-     */
     async getConnectionState(): Promise<{
         connected: boolean;
         latency?: number;
@@ -249,7 +229,6 @@ export class HybridDatabase implements IDatabase {
         const startTime = Date.now();
 
         try {
-            // Check local PostgreSQL via MCP
             let localConnected = false;
             try {
                 await this.queryLocal('SELECT 1');
@@ -258,7 +237,6 @@ export class HybridDatabase implements IDatabase {
                 localConnected = false;
             }
 
-            // Check Supabase
             let supabaseConnected = false;
             try {
                 const supabase = getSupabaseAdmin();
@@ -285,9 +263,6 @@ export class HybridDatabase implements IDatabase {
         }
     }
 
-    /**
-     * Initialize database connections
-     */
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
@@ -304,16 +279,10 @@ export class HybridDatabase implements IDatabase {
         this.initialized = true;
     }
 
-    /**
-     * Close database connections
-     */
     async close(): Promise<void> {
         this.initialized = false;
     }
 
-    /**
-     * Vector similarity search via Supabase pgvector
-     */
     async vectorSearch(
         embedding: number[],
         options: {
@@ -321,8 +290,8 @@ export class HybridDatabase implements IDatabase {
             count?: number;
             tableName?: string;
         } = {}
-    ): Promise<any[]> {
-        const { threshold = 0.78, count = 10, tableName = 'knowledge_embeddings' } = options;
+    ): Promise<unknown[]> {
+        const { threshold = 0.78, count = 10 } = options;
 
         const supabase = getSupabaseAdmin();
 
@@ -337,7 +306,7 @@ export class HybridDatabase implements IDatabase {
                 throw new Error(`Vector search failed: ${error.message}`);
             }
 
-            return (data || []) as any[];
+            return (data || []) as unknown[];
         } catch (error) {
             console.error('[HybridDatabase] Vector search error:', error);
             return [];

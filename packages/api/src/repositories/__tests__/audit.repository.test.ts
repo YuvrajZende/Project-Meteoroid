@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AuditRepository } from '../audit.repository.js';
 import { MockDatabase } from './mock-database.js';
-import { mockAuditLog, mockAuditLogRow } from './fixtures.js';
+import { mockAuditLogRow } from './fixtures.js';
 import { RepositoryError } from '../base.repository.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
 
@@ -27,8 +27,8 @@ describe('AuditRepository', () => {
                 action: 'project.created',
                 entityType: 'project',
                 entityId: 'proj_123',
-                changes: { before: null, after: { name: 'New Project' } },
-                metadata: { ip: '127.0.0.1' },
+                changes: { name: { from: null, to: 'New Project' } },
+                metadata: { ipAddress: '127.0.0.1' },
             };
 
             const result = await repository.create(newLog);

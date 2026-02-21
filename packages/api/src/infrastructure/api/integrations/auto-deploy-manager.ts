@@ -15,7 +15,6 @@ import {
     getGitHubService,
     type DeploymentStatus,
 } from './index.js';
-import { ConnectionManager } from '../connection-manager/index.js';
 
 // ============================================
 // TYPES
@@ -364,7 +363,7 @@ export class AutoDeployManager extends EventEmitter {
                     lastDeployedAt: new Date(),
                 });
 
-                return result;
+                console.log(`[AUTO-DEPLOY] GitHub commit successful for ${projectId}`);
             } catch (commitError) {
                 const errorMsg = commitError instanceof Error ? commitError.message : String(commitError);
                 console.error(`[AUTO-DEPLOY] Failed to create GitHub commit: ${errorMsg}`);
@@ -474,7 +473,7 @@ export class AutoDeployManager extends EventEmitter {
 
         try {
             // Dynamic import to avoid issues when Supabase is not configured
-            const { getSupabaseAdmin } = await import('../infrastructure/database-client.js');
+            const { getSupabaseAdmin } = await import('../../database/database-client.js');
             const supabase = getSupabaseAdmin();
 
             // Transform to database format
@@ -549,7 +548,7 @@ export class AutoDeployManager extends EventEmitter {
         }
 
         try {
-            const { getSupabaseAdmin } = await import('../infrastructure/database-client.js');
+            const { getSupabaseAdmin } = await import('../../database/database-client.js');
             const supabase = getSupabaseAdmin();
 
             const { data, error } = await supabase

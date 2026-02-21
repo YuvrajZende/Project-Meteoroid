@@ -8,6 +8,12 @@
  * - Working memory
  * - Generation state
  * - Context persistence
+ * 
+ * PERFORMANCE FEATURES:
+ * - Automatic context cleanup (prevents memory leaks)
+ * - Max context age (old contexts are pruned)
+ * - Max total contexts limit
+ * - Periodic cleanup on access
  */
 
 import { injectable, inject } from 'inversify';
@@ -22,6 +28,29 @@ import type {
     PersistentContext,
 } from '../../../interfaces/context.interface.js';
 import type { IProjectContextRepository } from '../../../repositories/project-context.repository.js';
+
+// ============================================
+// PERFORMANCE: Memory Management Configuration
+// ============================================
+
+const MEMORY_CONFIG = {
+    // Maximum age of a context before cleanup (30 minutes)
+    maxContextAgeMs: 30 * 60 * 1000,
+    // Maximum number of contexts to keep in memory
+    maxContexts: 100,
+    // Maximum messages per context
+    maxMessagesPerContext: 100,
+    // Maximum entities per context
+    maxEntitiesPerContext: 50,
+    // Cleanup interval (check every 5 minutes)
+    cleanupIntervalMs: 5 * 60 * 1000,
+};
+
+// Track context creation times for cleanup
+interface ContextMetadata {
+    createdAt: Date;
+    lastAccessedAt: Date;
+}
 
 /**
  * Generation State
@@ -56,7 +85,12 @@ export class ContextManager implements IContextManager {
     private workingMemories: Map<string, WorkingMemory> = new Map();
     private generationStates: Map<string, GenerationState> = new Map();
     private persistentContexts: Map<string, PersistentContext> = new Map();
+    
+    // PERFORMANCE: Track context metadata for cleanup
+    private contextMetadata: Map<string, ContextMetadata> = new Map();
+    
     private initialized: boolean = false;
+    private lastCleanup: Date = new Date();
 
     constructor(
         @inject(TYPES.ProjectContextRepository) private projectContextRepo: IProjectContextRepository
@@ -69,11 +103,95 @@ export class ContextManager implements IContextManager {
         return `${userId}:${projectId}`;
     }
 
+    // ============================================
+    // PERFORMANCE: Memory Cleanup
+    // ============================================
+
+    /**
+     * Perform periodic cleanup of old/unused contexts
+     */
+    private performCleanup(): void {
+        const now = new Date();
+        
+        // Only run cleanup periodically
+        if (now.getTime() - this.lastCleanup.getTime() < MEMORY_CONFIG.cleanupIntervalMs) {
+            return;
+        }
+        
+        this.lastCleanup = now;
+        
+        // Find contexts to remove
+        const keysToRemove: string[] = [];
+        
+        for (const [key, metadata] of this.contextMetadata) {
+            const age = now.getTime() - metadata.lastAccessedAt.getTime();
+            
+            // Remove if too old
+            if (age > MEMORY_CONFIG.maxContextAgeMs) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        // If still over limit, remove oldest
+        if (this.contextMetadata.size - keysToRemove.length > MEMORY_CONFIG.maxContexts) {
+            const sortedByAccess = [...this.contextMetadata.entries()]
+                .sort((a, b) => a[1].lastAccessedAt.getTime() - b[1].lastAccessedAt.getTime());
+            
+            const toRemove = sortedByAccess
+                .slice(0, this.contextMetadata.size - MEMORY_CONFIG.maxContexts)
+                .map(([key]) => key);
+            
+            keysToRemove.push(...toRemove);
+        }
+        
+        // Perform removal
+        for (const key of keysToRemove) {
+            this.contextWindows.delete(key);
+            this.workingMemories.delete(key);
+            this.contextMetadata.delete(key);
+            this.persistentContexts.delete(key);
+        }
+        
+        // Cleanup completed generation states
+        for (const [taskId, state] of this.generationStates) {
+            if (state.phase === 'complete' || state.phase === 'failed') {
+                const age = now.getTime() - (state.endTime?.getTime() || state.startTime.getTime());
+                if (age > MEMORY_CONFIG.maxContextAgeMs) {
+                    this.generationStates.delete(taskId);
+                }
+            }
+        }
+        
+        if (keysToRemove.length > 0) {
+            console.log(`[CONTEXT-MANAGER] Cleaned up ${keysToRemove.length} old contexts`);
+        }
+    }
+
+    /**
+     * Update context access time
+     */
+    private touchContext(key: string): void {
+        const metadata = this.contextMetadata.get(key);
+        if (metadata) {
+            metadata.lastAccessedAt = new Date();
+        } else {
+            this.contextMetadata.set(key, {
+                createdAt: new Date(),
+                lastAccessedAt: new Date(),
+            });
+        }
+        
+        // Trigger cleanup periodically
+        this.performCleanup();
+    }
+
     /**
      * Get or create context window for specific project/user
      */
     private getContextWindow(projectId: string, userId: string): ContextWindow {
         const key = this.getContextKey(projectId, userId);
+        this.touchContext(key); // PERFORMANCE: Track access
+        
         if (!this.contextWindows.has(key)) {
             this.contextWindows.set(key, {
                 messages: [],
@@ -83,7 +201,15 @@ export class ContextManager implements IContextManager {
                 recentFiles: [],
             });
         }
-        return this.contextWindows.get(key)!;
+        
+        const context = this.contextWindows.get(key)!;
+        
+        // PERFORMANCE: Trim entities if over limit
+        if (context.entities.length > MEMORY_CONFIG.maxEntitiesPerContext) {
+            context.entities = context.entities.slice(-MEMORY_CONFIG.maxEntitiesPerContext);
+        }
+        
+        return context;
     }
 
     /**
@@ -91,6 +217,7 @@ export class ContextManager implements IContextManager {
      */
     private getWorkingMemoryObj(projectId: string, userId: string): WorkingMemory {
         const key = this.getContextKey(projectId, userId);
+        this.touchContext(key); // PERFORMANCE: Track access
         if (!this.workingMemories.has(key)) {
             this.workingMemories.set(key, {
                 currentTask: null,
@@ -217,7 +344,6 @@ export class ContextManager implements IContextManager {
 
     async extractContext(projectId: string, userId: string, messages: ConversationMessage[]): Promise<ExtractedContextEntity[]> {
         const contextWindow = this.getContextWindow(projectId, userId);
-        const _entities: ExtractedContextEntity[] = [];
         for (const message of messages) {
             this.extractEntities(message.content, contextWindow);
         }
@@ -257,6 +383,7 @@ export class ContextManager implements IContextManager {
     }
 
     private trimContext(contextWindow: ContextWindow): void {
+        // PERFORMANCE: Trim by token count
         while (contextWindow.tokenCount > contextWindow.maxTokens * 0.9) {
             const removed = contextWindow.messages.shift();
             if (removed) {
@@ -264,6 +391,16 @@ export class ContextManager implements IContextManager {
             } else {
                 break;
             }
+        }
+        
+        // PERFORMANCE: Also trim by message count
+        if (contextWindow.messages.length > MEMORY_CONFIG.maxMessagesPerContext) {
+            const toRemove = contextWindow.messages.length - MEMORY_CONFIG.maxMessagesPerContext;
+            contextWindow.messages.splice(0, toRemove);
+            // Recalculate token count
+            contextWindow.tokenCount = contextWindow.messages.reduce(
+                (sum, msg) => sum + this.estimateTokens(msg.content), 0
+            );
         }
     }
 

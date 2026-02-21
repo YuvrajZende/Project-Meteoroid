@@ -11,6 +11,7 @@ import { registerSwagger } from './swagger.js';
 import { registerSensible } from './sensible.js';
 import { registerCSRF } from './csrf.js';
 import { registerIPBlocking } from '../middleware/ip-blocking.js';
+import { registerSizeLimits } from './size-limits.js';
 
 /**
  * Register all plugins to the Fastify instance
@@ -27,6 +28,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
     await registerHelmet(app);
     await registerCors(app);
     await registerRateLimit(app);
+    await registerSizeLimits(app);
 
     // 3. CSRF Protection (after cookie support, before routes)
     await registerCSRF(app);
@@ -53,4 +55,5 @@ export {
     registerSensible,
     registerCSRF,
     registerIPBlocking,
+    registerSizeLimits,
 };

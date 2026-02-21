@@ -9,7 +9,7 @@ import { getJobQueue } from '../infrastructure/job-queue.js';
 import { getKeyManager } from '../infrastructure/key-manager.js';
 import { getAgentRegistry } from '../services/registry/agent-registry.js';
 import { getAIClient } from '../infrastructure/ai-client.js';
-import type { Agent } from '../services/registry/agent-registry.js';
+import type { IAgent } from '@loveable/shared';
 
 /**
  * Generation stages
@@ -215,9 +215,8 @@ export async function processGenerationJob(
             agentsUsed.push(step.agentId);
 
             try {
-                // Get the agent from registry using getAllAgents and filtering
-                const allAgents = registry.getAllAgents();
-                const agent = allAgents.find(a => a.id === step.agentId);
+                // Get the agent from registry
+                const agent = registry.getById(step.agentId);
 
                 if (agent) {
                     // Execute agent with context
@@ -418,7 +417,7 @@ function analyzePrompt(prompt: string): string[] {
  * Execute agent generation using AI client
  */
 async function executeAgentGeneration(
-    agent: Agent,
+    agent: IAgent,
     prompt: string
 ): Promise<Array<{ path: string; content: string; type: string }>> {
     try {

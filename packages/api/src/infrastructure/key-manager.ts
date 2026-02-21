@@ -1,6 +1,15 @@
 /**
  * Key Manager
  * Manages AI provider API keys with rotation, failover, and cost tracking
+ * 
+ * SECURITY FEATURES:
+ * - Automatic key rotation on rate limits (429) and errors
+ * - Key blacklisting with automatic recovery
+ * - Multiple selection strategies (round-robin, least-used, random)
+ * - Cost tracking per key
+ * - Key validation before use
+ * - Periodic key health checks
+ * - Secure key masking in logs
  */
 
 import { injectable, unmanaged } from 'inversify';
@@ -9,12 +18,12 @@ import { EventEmitter } from 'events';
 /**
  * Supported AI providers
  */
-export type AIProvider = 'openai' | 'anthropic' | 'zai';
+export type AIProvider = 'openai' | 'anthropic' | 'zai' | 'groq' | 'deepseek' | 'openrouter';
 
 /**
  * Key status
  */
-export type KeyStatus = 'active' | 'rate_limited' | 'error' | 'exhausted';
+export type KeyStatus = 'active' | 'rate_limited' | 'error' | 'exhausted' | 'validating';
 
 /**
  * Individual key metadata
@@ -30,6 +39,9 @@ export interface KeyMetadata {
     tokensUsed: number;
     estimatedCost: number;
     blacklistedUntil: Date | null;
+    addedAt: Date;
+    validatedAt: Date | null;
+    consecutiveErrors: number;
 }
 
 /**
@@ -91,7 +103,7 @@ export class KeyManager extends EventEmitter {
         this.loadKeysFromEnv();
     }
 
-    /**
+/**
      * Load keys from environment variables
      */
     private loadKeysFromEnv(): void {
@@ -115,16 +127,38 @@ export class KeyManager extends EventEmitter {
             zaiKeys.unshift(process.env.ZAI_API_KEY);
         }
         this.registerKeys('zai', zaiKeys);
+
+        // Groq keys
+        const groqKeys: string[] = [];
+        if (process.env.GROQ_API_KEY) {
+            groqKeys.push(process.env.GROQ_API_KEY);
+        }
+        this.registerKeys('groq', groqKeys);
+
+        // DeepSeek keys
+        const deepseekKeys: string[] = [];
+        if (process.env.DEEPSEEK_API_KEY) {
+            deepseekKeys.push(process.env.DEEPSEEK_API_KEY);
+        }
+        this.registerKeys('deepseek', deepseekKeys);
+
+        // OpenRouter keys
+        const openrouterKeys: string[] = [];
+        if (process.env.OPENROUTER_API_KEY) {
+            openrouterKeys.push(process.env.OPENROUTER_API_KEY);
+        }
+        this.registerKeys('openrouter', openrouterKeys);
     }
 
     /**
      * Register keys for a provider
      */
     private registerKeys(provider: AIProvider, keys: string[]): void {
+        const now = new Date();
         const keyMetadata: KeyMetadata[] = keys.map(key => ({
             key: key.trim(),
             provider,
-            status: 'active',
+            status: 'active' as KeyStatus,
             usageCount: 0,
             rateLimitHits: 0,
             lastUsed: null,
@@ -132,10 +166,16 @@ export class KeyManager extends EventEmitter {
             tokensUsed: 0,
             estimatedCost: 0,
             blacklistedUntil: null,
+            addedAt: now,
+            validatedAt: null,
+            consecutiveErrors: 0,
         }));
 
         this.keys.set(provider, keyMetadata);
         this.currentIndex.set(provider, 0);
+        
+        // Log key registration (masked)
+        console.log(`[KEY-MANAGER] Registered ${keys.length} key(s) for ${provider}`);
     }
 
     /**
@@ -220,13 +260,19 @@ export class KeyManager extends EventEmitter {
 
         keyMeta.status = 'error';
         keyMeta.lastError = errorMessage;
-        // Briefly blacklist on errors
-        keyMeta.blacklistedUntil = new Date(Date.now() + 10000); // 10 seconds
+        keyMeta.consecutiveErrors++;
+        
+        // Blacklist duration increases with consecutive errors
+        const blacklistDuration = Math.min(
+            10000 * Math.pow(2, keyMeta.consecutiveErrors - 1),
+            300000 // Max 5 minutes
+        );
+        keyMeta.blacklistedUntil = new Date(Date.now() + blacklistDuration);
 
-        this.emit('keyError', { provider, key: this.maskKey(key), error: errorMessage });
+        this.emit('keyError', { provider, key: this.maskKey(key), error: errorMessage, consecutiveErrors: keyMeta.consecutiveErrors });
     }
 
-    /**
+/**
      * Report successful usage and tokens consumed
      */
     reportUsage(
@@ -241,6 +287,7 @@ export class KeyManager extends EventEmitter {
         const totalTokens = tokensUsed.input + tokensUsed.output;
         keyMeta.tokensUsed += totalTokens;
         keyMeta.status = 'active';
+        keyMeta.consecutiveErrors = 0; // Reset error counter on success
 
         // Calculate cost
         if (this.config.trackCosts) {
@@ -378,7 +425,97 @@ export class KeyManager extends EventEmitter {
         for (const key of providerKeys) {
             key.blacklistedUntil = null;
             key.status = 'active';
+            key.consecutiveErrors = 0;
         }
+        
+        this.emit('providerRefreshed', provider);
+    }
+
+    /**
+     * SECURITY: Mark a key as validated
+     */
+    markKeyValidated(provider: AIProvider, key: string): void {
+        const keyMeta = this.findKey(provider, key);
+        if (!keyMeta) return;
+        
+        keyMeta.validatedAt = new Date();
+        keyMeta.consecutiveErrors = 0;
+        keyMeta.status = 'active';
+    }
+
+    /**
+     * SECURITY: Check if key needs re-validation
+     */
+    needsValidation(keyMeta: KeyMetadata): boolean {
+        if (!keyMeta.validatedAt) return true;
+        if (keyMeta.consecutiveErrors >= 3) return true;
+        
+        // Re-validate every 24 hours
+        const hoursSinceValidation = (Date.now() - keyMeta.validatedAt.getTime()) / (1000 * 60 * 60);
+        return hoursSinceValidation >= 24;
+    }
+
+    /**
+     * SECURITY: Get health status of all keys
+     */
+    getHealthStatus(): {
+        healthy: number;
+        degraded: number;
+        unhealthy: number;
+        total: number;
+    } {
+        let healthy = 0;
+        let degraded = 0;
+        let unhealthy = 0;
+
+        for (const keys of this.keys.values()) {
+            for (const key of keys) {
+                if (key.status === 'active' && !key.blacklistedUntil && key.consecutiveErrors === 0) {
+                    healthy++;
+                } else if (key.status === 'rate_limited' || key.consecutiveErrors > 0) {
+                    degraded++;
+                } else {
+                    unhealthy++;
+                }
+            }
+        }
+
+        return {
+            healthy,
+            degraded,
+            unhealthy,
+            total: healthy + degraded + unhealthy,
+        };
+    }
+
+    /**
+     * SECURITY: Rotate all keys (useful after security incident)
+     */
+    async rotateAllKeys(newKeys: Partial<Record<AIProvider, string[]>>): Promise<void> {
+        for (const [provider, keys] of Object.entries(newKeys)) {
+            if (keys && keys.length > 0) {
+                this.registerKeys(provider as AIProvider, keys);
+            }
+        }
+        
+        this.emit('keysRotated', Object.keys(newKeys));
+    }
+
+    /**
+     * SECURITY: Disable a specific key permanently
+     */
+    disableKey(provider: AIProvider, keySubstring: string): boolean {
+        const providerKeys = this.keys.get(provider);
+        if (!providerKeys) return false;
+
+        const keyMeta = providerKeys.find(k => k.key.includes(keySubstring));
+        if (!keyMeta) return false;
+
+        keyMeta.status = 'exhausted';
+        keyMeta.blacklistedUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+        
+        this.emit('keyDisabled', { provider, key: this.maskKey(keyMeta.key) });
+        return true;
     }
 }
 

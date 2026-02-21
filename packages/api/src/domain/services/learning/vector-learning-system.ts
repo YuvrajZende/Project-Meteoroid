@@ -10,9 +10,24 @@
  * - Pattern extraction from similar successful projects
  * - Best practices and anti-patterns identification
  * - Uses FAST AI MODEL for embeddings (no OpenAI needed!)
+ * 
+ * SECURITY: All RPC calls use parameterized queries via Supabase client
  */
 
+import { z } from 'zod';
 import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
+
+// ============================================
+// SECURITY: Input Validation Schemas
+// ============================================
+
+const EmbeddingSchema = z.array(z.number().min(-1).max(1)).length(1536);
+
+const VectorSearchOptionsSchema = z.object({
+    language: z.string().max(50).optional(),
+    limit: z.number().int().min(1).max(100).default(10),
+    threshold: z.number().min(0).max(1).default(0.5)
+});
 
 // Database row types for Supabase queries
 interface CodeEmbeddingRow {
@@ -267,13 +282,23 @@ Return ONLY the array:`;
         }
 
         try {
+            // SECURITY: Validate inputs before RPC call
+            const validatedOptions = VectorSearchOptionsSchema.parse(options);
+            const validatedEmbedding = EmbeddingSchema.safeParse(embedding);
+            
+            if (!validatedEmbedding.success) {
+                console.warn('[VECTOR-LEARNING] Invalid embedding format, using fallback');
+                return this.fallbackCodeSearch(options.language, options.limit);
+            }
+
             // Try the RPC function first (requires migration 014)
+            // Supabase RPC uses parameterized queries internally - safe from SQL injection
             const { data, error } = await supabase.rpc('match_code_embeddings', {
-                query_embedding: embedding,
-                match_threshold: options.threshold,
-                match_count: options.limit,
-                filter_project_id: null, // Search all projects
-                filter_language: options.language || null
+                query_embedding: validatedEmbedding.data,
+                match_threshold: validatedOptions.threshold,
+                match_count: validatedOptions.limit,
+                filter_project_id: null,
+                filter_language: validatedOptions.language || null
             });
 
             if (error) {

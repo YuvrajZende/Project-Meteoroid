@@ -25,6 +25,7 @@ import {
 // Infrastructure
 import { getCostTracker, type CostRecord } from '../../../infrastructure/cost-tracker.js';
 import type { ChatMessage } from '../../../infrastructure/ai-client.js';
+import { broadcastFileWritten, broadcastPipelineStep } from '../../../routes/websocket.js';
 
 // Config & Middleware
 import { detectStackType, generateConstraintPrompt } from '../../../config/stack-constraints.js';
@@ -732,6 +733,15 @@ RULES:
             }
 
             console.log(`[POWER MODEL] Successfully parsed ${parsed.files.length} files`);
+            
+            // STREAMING: Broadcast each file as it's generated
+            const projectId = request.projectId || 'project';
+            for (let i = 0; i < parsed.files.length; i++) {
+                const file = parsed.files[i];
+                broadcastFileWritten(projectId, file.path, file.content.length);
+                broadcastPipelineStep(i + 1, 'generating', `Generated: ${file.path}`);
+            }
+            
             return parsed;
         } else {
             console.error('[POWER MODEL] JSON parsing failed:', parseResult.error);

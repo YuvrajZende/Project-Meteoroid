@@ -56,6 +56,26 @@ const DEPENDENCY_MAPPINGS: DependencyMapping[] = [
     { packageName: 'fastify', version: '^5.1.0', isDev: false, importPatterns: ['fastify', 'FastifyInstance'] },
     { packageName: 'express', version: '^4.18.2', isDev: false, importPatterns: ['express'] },
 
+    // NestJS Framework (CG-007)
+    { packageName: '@nestjs/core', version: '^10.3.0', isDev: false, importPatterns: [] },
+    { packageName: '@nestjs/common', version: '^10.3.0', isDev: false, importPatterns: ['@Module', '@Controller', '@Injectable', '@Get', '@Post', '@Put', '@Delete', '@Patch', '@Body', '@Param', '@Query'] },
+    { packageName: '@nestjs/platform-express', version: '^10.3.0', isDev: false, importPatterns: [] },
+    { packageName: '@nestjs/config', version: '^3.1.1', isDev: false, importPatterns: ['ConfigModule', 'ConfigService'] },
+    { packageName: '@nestjs/mongoose', version: '^10.0.2', isDev: false, importPatterns: ['@Schema', '@Prop', 'SchemaFactory', 'MongooseModule'] },
+    { packageName: '@nestjs/jwt', version: '^10.2.0', isDev: false, importPatterns: ['JwtModule', 'JwtService'] },
+    { packageName: '@nestjs/passport', version: '^10.0.3', isDev: false, importPatterns: ['PassportModule'] },
+    { packageName: '@nestjs/throttler', version: '^5.1.1', isDev: false, importPatterns: ['ThrottlerModule', '@Throttle'] },
+    { packageName: '@nestjs/swagger', version: '^7.2.0', isDev: false, importPatterns: ['@ApiTags', '@ApiOperation', '@ApiResponse', 'DocumentBuilder'] },
+    { packageName: 'mongoose', version: '^8.0.0', isDev: false, importPatterns: ['mongoose', 'Schema', 'Types', 'Model', 'Document'] },
+    { packageName: 'reflect-metadata', version: '^0.2.0', isDev: false, importPatterns: [] },
+    { packageName: 'rxjs', version: '^7.8.0', isDev: false, importPatterns: [] },
+    { packageName: 'class-validator', version: '^0.14.0', isDev: false, importPatterns: ['@IsString', '@IsNumber', '@IsBoolean', '@IsEmail', '@IsOptional', '@IsNotEmpty', '@Min', '@Max'] },
+    { packageName: 'class-transformer', version: '^0.5.1', isDev: false, importPatterns: ['@Type', '@Exclude', '@Expose', 'plainToClass'] },
+
+    // TypeORM (alternative ORM)
+    { packageName: 'typeorm', version: '^0.3.20', isDev: false, importPatterns: ['@Entity', '@Column', '@PrimaryGeneratedColumn', '@OneToMany', '@ManyToOne'] },
+    { packageName: '@nestjs/typeorm', version: '^10.0.1', isDev: false, importPatterns: ['TypeOrmModule'] },
+
     // Fastify Plugins
     { packageName: '@fastify/cors', version: '^10.0.1', isDev: false, importPatterns: ['@fastify/cors'] },
     { packageName: '@fastify/jwt', version: '^9.0.1', isDev: false, importPatterns: ['@fastify/jwt'] },
@@ -73,6 +93,9 @@ const DEPENDENCY_MAPPINGS: DependencyMapping[] = [
     { packageName: 'bcrypt', version: '^5.1.1', isDev: false, importPatterns: ['bcrypt'] },
     { packageName: '@types/bcrypt', version: '^5.0.2', isDev: true, importPatterns: [] },
     { packageName: 'jsonwebtoken', version: '^9.0.2', isDev: false, importPatterns: ['jsonwebtoken'] },
+    { packageName: 'passport', version: '^0.7.0', isDev: false, importPatterns: ['passport'] },
+    { packageName: 'passport-jwt', version: '^4.0.1', isDev: false, importPatterns: ['passport-jwt', 'JwtStrategy'] },
+    { packageName: 'passport-local', version: '^1.0.0', isDev: false, importPatterns: ['passport-local', 'LocalStrategy'] },
 
     // Validation
     { packageName: 'zod', version: '^3.23.8', isDev: false, importPatterns: ['zod'] },
@@ -87,10 +110,13 @@ const DEPENDENCY_MAPPINGS: DependencyMapping[] = [
     { packageName: 'typescript', version: '^5.7.2', isDev: true, importPatterns: [] },
     { packageName: '@types/node', version: '^22.10.2', isDev: true, importPatterns: [] },
     { packageName: 'tsx', version: '^4.19.2', isDev: true, importPatterns: [] },
+    { packageName: '@nestjs/cli', version: '^10.3.0', isDev: true, importPatterns: [] },
+    { packageName: '@types/express', version: '^4.17.21', isDev: true, importPatterns: [] },
 
     // Testing
     { packageName: 'jest', version: '^29.7.0', isDev: true, importPatterns: ['jest', 'describe', 'expect'] },
     { packageName: '@types/jest', version: '^29.5.14', isDev: true, importPatterns: [] },
+    { packageName: '@nestjs/testing', version: '^10.3.0', isDev: true, importPatterns: [] },
 ];
 
 // ============================================
@@ -126,6 +152,48 @@ export class DependencyRegistry {
     analyzeCode(code: string, filePath: string): string[] {
         const detected: string[] = [];
 
+        const framework = this.detectFramework(code);
+        if (framework === 'nestjs') {
+            const nestjsDeps = [
+                '@nestjs/core', '@nestjs/common', '@nestjs/platform-express',
+                'reflect-metadata', 'rxjs'
+            ];
+            for (const dep of nestjsDeps) {
+                const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === dep);
+                if (mapping) {
+                    detected.push(dep);
+                    this.registerDependency(dep, mapping.version, mapping.isDev, filePath);
+                }
+            }
+            if (code.includes('@Schema') || code.includes('@Prop') || code.includes('SchemaFactory') || code.includes('MongooseModule')) {
+                const mongooseDeps = ['@nestjs/mongoose', 'mongoose'];
+                for (const dep of mongooseDeps) {
+                    const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === dep);
+                    if (mapping) {
+                        detected.push(dep);
+                        this.registerDependency(dep, mapping.version, mapping.isDev, filePath);
+                    }
+                }
+            }
+            if (code.includes('ConfigModule') || code.includes('ConfigService')) {
+                const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === '@nestjs/config');
+                if (mapping) {
+                    detected.push('@nestjs/config');
+                    this.registerDependency('@nestjs/config', mapping.version, mapping.isDev, filePath);
+                }
+            }
+            if (code.includes('@IsString') || code.includes('@IsNumber') || code.includes('@IsEmail') || code.includes('@IsOptional')) {
+                const validatorDeps = ['class-validator', 'class-transformer'];
+                for (const dep of validatorDeps) {
+                    const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === dep);
+                    if (mapping) {
+                        detected.push(dep);
+                        this.registerDependency(dep, mapping.version, mapping.isDev, filePath);
+                    }
+                }
+            }
+        }
+
         for (const mapping of DEPENDENCY_MAPPINGS) {
             for (const pattern of mapping.importPatterns) {
                 if (code.includes(pattern)) {
@@ -140,24 +208,70 @@ export class DependencyRegistry {
     }
 
     /**
+     * Detect framework from code content (CG-007)
+     */
+    detectFramework(code: string): 'nestjs' | 'fastify' | 'express' | 'typeorm' | 'unknown' {
+        if (code.includes('@Module') || code.includes('@Controller') || code.includes('@Injectable')) {
+            return 'nestjs';
+        }
+        if (code.includes('@Schema') || code.includes('SchemaFactory') || code.includes('MongooseModule')) {
+            return 'nestjs';
+        }
+        if (code.includes('NestFactory') || code.includes('@nestjs/')) {
+            return 'nestjs';
+        }
+        if (code.includes('@Entity') || code.includes('@Column') || code.includes('TypeOrmModule')) {
+            return 'typeorm';
+        }
+        if (code.includes('FastifyInstance') || code.includes("from 'fastify'")) {
+            return 'fastify';
+        }
+        if (code.includes("from 'express'") || code.includes('express.Router') || code.includes('Router()')) {
+            return 'express';
+        }
+        return 'unknown';
+    }
+
+    /**
      * Analyze multiple files and aggregate dependencies
      */
     analyzeProject(files: Map<string, string>): DependencyAnalysis {
         const allDetected = new Set<string>();
+        let detectedFramework: string = 'unknown';
 
         for (const [path, content] of files.entries()) {
             const detected = this.analyzeCode(content, path);
             detected.forEach(d => allDetected.add(d));
+            
+            const framework = this.detectFramework(content);
+            if (framework !== 'unknown') {
+                detectedFramework = framework;
+            }
         }
 
-        // Always include base dependencies for TypeScript
-        const baseDeps = ['typescript', '@types/node', 'tsx', 'dotenv'];
-        baseDeps.forEach(d => {
-            const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === d);
-            if (mapping) {
-                this.registerDependency(mapping.packageName, mapping.version, mapping.isDev, 'base');
-            }
-        });
+        if (detectedFramework === 'nestjs') {
+            const nestjsBaseDeps = [
+                '@nestjs/core', '@nestjs/common', '@nestjs/platform-express',
+                '@nestjs/config', 'reflect-metadata', 'rxjs',
+                'typescript', '@types/node', '@nestjs/cli'
+            ];
+            nestjsBaseDeps.forEach(d => {
+                const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === d);
+                if (mapping) {
+                    this.registerDependency(mapping.packageName, mapping.version, mapping.isDev, 'nestjs-base');
+                }
+            });
+        } else {
+            const baseDeps = ['typescript', '@types/node', 'tsx', 'dotenv'];
+            baseDeps.forEach(d => {
+                const mapping = DEPENDENCY_MAPPINGS.find(m => m.packageName === d);
+                if (mapping) {
+                    this.registerDependency(mapping.packageName, mapping.version, mapping.isDev, 'base');
+                }
+            });
+        }
+
+        console.log(`[DEPENDENCY-REGISTRY] Detected framework: ${detectedFramework}`);
 
         return {
             detected: Array.from(allDetected),
@@ -196,6 +310,22 @@ export class DependencyRegistry {
                 packageName: '@fastify/cors',
                 reason: 'CORS support for APIs',
                 priority: 'required',
+            });
+        }
+
+        if (detected.includes('@nestjs/core') && !detected.includes('@nestjs/config')) {
+            recommendations.push({
+                packageName: '@nestjs/config',
+                reason: 'Configuration management for NestJS',
+                priority: 'recommended',
+            });
+        }
+
+        if (detected.includes('@nestjs/mongoose') && !detected.includes('@nestjs/swagger')) {
+            recommendations.push({
+                packageName: '@nestjs/swagger',
+                reason: 'Auto-generated API documentation',
+                priority: 'optional',
             });
         }
 

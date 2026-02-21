@@ -467,10 +467,6 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         // Placeholder implementation that logs the operation
         app.log.info({ name: validation.data.name }, 'API key generation requested (database integration pending)');
 
-        // Generate a placeholder API key for demonstration
-        const apiKeyPrefix = `lo_${Math.random().toString(36).substring(2, 8)}`;
-        const placeholderKey = `${apiKeyPrefix}${'_'.repeat(32)}`; // Placeholder format
-
         return reply.status(501).send({
             success: false,
             error: 'API key management requires database integration',

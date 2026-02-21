@@ -23,6 +23,7 @@ import { servicesRoutes } from './services/index.js';
 import { connectionsRoutes } from './connections/index.js';
 import { contextRoutes } from './context.js';
 import { phase26Routes } from './phase26.js';
+import { registerPluginRoutes } from './plugins.js';
 
 /**
  * Register all routes to the Fastify instance
@@ -86,6 +87,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // Phase 26: Project Validation & Dependencies routes
     await phase26Routes(app);
 
+    // Phase 28: Plugin Registry routes
+    await registerPluginRoutes(app);
+
     app.log.info('[ROUTES] All routes registered successfully');
 }
 
@@ -110,4 +114,5 @@ export {
     servicesRoutes,
     connectionsRoutes,
     phase26Routes,
+    registerPluginRoutes,
 };

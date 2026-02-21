@@ -9,8 +9,6 @@
  * - Determining execution strategy
  */
 
-import type { OrchestrationInput } from './orchestration.interface.js';
-
 export interface PlanningRequest {
     /** User's original prompt */
     prompt: string;

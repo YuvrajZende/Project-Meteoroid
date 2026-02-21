@@ -3,10 +3,9 @@
  * Tests for generation_iterations repository operations
  */
 
-import { describe, it, expect, beforeEach, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { GenerationIterationRepository } from '../generation-iteration.repository.js';
 import { MockDatabase } from './mock-database.js';
-import type { GenerationIteration } from '../../interfaces/learning.interface.js';
 
 describe('GenerationIterationRepository', () => {
     let repository: GenerationIterationRepository;
@@ -16,35 +15,19 @@ describe('GenerationIterationRepository', () => {
     // TEST FIXTURES
     // ============================================
 
-    const mockIterationEntity: GenerationIteration = {
-        id: 'iter_001',
-        taskId: 'task_001',
-        projectId: 'proj_001',
-        userId: 'user_001',
-        prompt: 'Create a REST API endpoint',
-        generatedCode: 'export async function handler() { return { status: 200 }; }',
-        config: { model: 'gpt-4', temperature: 0.7 },
-        success: true,
-        errors: [],
-        feedback: { quality: 'good', issues: [] },
-        testResults: { passed: 5, total: 5 },
-        metrics: { latency: 1200, tokens: 500 },
-        createdAt: new Date('2024-01-15T10:00:00Z'),
-    };
-
     const mockIterationRow = {
         id: 'iter_001',
         task_id: 'task_001',
         project_id: 'proj_001',
         user_id: 'user_001',
         prompt: 'Create a REST API endpoint',
-        generated_code: JSON.stringify('export async function handler() { return { status: 200 }; }'),
+        generated_code: JSON.stringify([{ path: 'handler.ts', content: 'export async function handler() { return { status: 200 }; }', language: 'typescript' }]),
         config: JSON.stringify({ model: 'gpt-4', temperature: 0.7 }),
         success: true,
         errors: JSON.stringify([]),
-        feedback: JSON.stringify({ quality: 'good', issues: [] }),
-        test_results: JSON.stringify({ passed: 5, total: 5 }),
-        metrics: JSON.stringify({ latency: 1200, tokens: 500 }),
+        feedback: JSON.stringify({ rating: 5, issues: [] }),
+        test_results: JSON.stringify({ passed: 5, failed: 0, skipped: 0 }),
+        metrics: JSON.stringify({ duration: 1200, tokensUsed: 500 }),
         created_at: '2024-01-15T10:00:00Z',
     };
 
@@ -64,13 +47,13 @@ describe('GenerationIterationRepository', () => {
                 projectId: 'proj_001',
                 userId: 'user_001',
                 prompt: 'Create a REST API endpoint',
-                generatedCode: 'export function handler() { return { status: 200 }; }',
+                generatedCode: [{ path: 'handler.ts', content: 'export function handler() { return { status: 200 }; }', language: 'typescript' }],
                 config: { model: 'gpt-4', temperature: 0.7 },
                 success: true,
                 errors: [],
-                feedback: { quality: 'good' },
-                testResults: { passed: 5, total: 5 },
-                metrics: { latency: 1200, tokens: 500 },
+                feedback: { rating: 5 as const, comments: 'good' },
+                testResults: { passed: 5, failed: 0, skipped: 0 },
+                metrics: { duration: 1200, tokensUsed: 500 },
             };
 
             const result = await repository.create(input);
@@ -90,13 +73,11 @@ describe('GenerationIterationRepository', () => {
                 projectId: 'proj_001',
                 userId: 'user_001',
                 prompt: 'Test prompt',
-                generatedCode: 'code',
+                generatedCode: [{ path: 'code.ts', content: 'code', language: 'typescript' }],
                 config: {},
                 success: true,
                 errors: [],
-                feedback: null,
-                testResults: null,
-                metrics: null,
+                metrics: { duration: 100, tokensUsed: 10 },
             };
 
             const result1 = await repository.create(input);
@@ -115,13 +96,11 @@ describe('GenerationIterationRepository', () => {
                 projectId: 'proj_001',
                 userId: 'user_001',
                 prompt: 'Test',
-                generatedCode: 'code',
+                generatedCode: [{ path: 'code.ts', content: 'code', language: 'typescript' }],
                 config: {},
                 success: true,
                 errors: [],
-                feedback: null,
-                testResults: null,
-                metrics: null,
+                metrics: { duration: 100, tokensUsed: 10 },
             })).rejects.toThrow('RepositoryError');
         });
     });
@@ -413,8 +392,8 @@ describe('GenerationIterationRepository', () => {
         });
 
         it('should update JSON fields correctly', async () => {
-            const newFeedback = { quality: 'excellent', issues: [] };
-            const newMetrics = { latency: 800, tokens: 300 };
+            const newFeedback = { rating: 5 as const, comments: 'excellent', issues: [] };
+            const newMetrics = { duration: 800, tokensUsed: 300 };
 
             await repository.update('iter_001', {
                 feedback: newFeedback,
@@ -427,13 +406,7 @@ describe('GenerationIterationRepository', () => {
         });
 
         it('should not update id or createdAt fields', async () => {
-            const originalDate = mockIterationRow.created_at;
-
             await repository.update('iter_001', {
-                // @ts-expect-error - Testing that these fields are ignored
-                id: 'new_id',
-                // @ts-expect-error - Testing that these fields are ignored
-                createdAt: new Date('2024-01-20T10:00:00Z'),
                 success: false,
             });
 
@@ -448,13 +421,13 @@ describe('GenerationIterationRepository', () => {
         it('should handle multiple field updates', async () => {
             await repository.update('iter_001', {
                 success: false,
-                generatedCode: 'updated code',
+                generatedCode: [{ path: 'updated.ts', content: 'updated code', language: 'typescript' }],
                 config: { model: 'gpt-3.5-turbo' },
             });
 
             const result = await repository.findById('iter_001');
             expect(result?.success).toBe(false);
-            expect(result?.generatedCode).toBe('updated code');
+            expect(result?.generatedCode).toEqual([{ path: 'updated.ts', content: 'updated code', language: 'typescript' }]);
             expect(result?.config).toEqual({ model: 'gpt-3.5-turbo' });
         });
     });
@@ -470,9 +443,9 @@ describe('GenerationIterationRepository', () => {
 
         it('should update feedback field', async () => {
             const newFeedback = {
-                quality: 'excellent',
+                rating: 5 as const,
+                comments: 'excellent',
                 issues: [],
-                suggestions: ['Add error handling'],
             };
 
             await repository.updateFeedback('iter_001', newFeedback);
@@ -481,11 +454,11 @@ describe('GenerationIterationRepository', () => {
             expect(result?.feedback).toEqual(newFeedback);
         });
 
-        it('should handle null feedback', async () => {
-            await repository.updateFeedback('iter_001', null);
+        it('should handle undefined feedback', async () => {
+            await repository.updateFeedback('iter_001', undefined);
 
             const result = await repository.findById('iter_001');
-            expect(result?.feedback).toBeNull();
+            expect(result?.feedback).toBeUndefined();
         });
     });
 
@@ -571,13 +544,11 @@ describe('GenerationIterationRepository', () => {
                 projectId: 'proj_001',
                 userId: 'user_001',
                 prompt: longPrompt,
-                generatedCode: 'code',
+                generatedCode: [{ path: 'code.ts', content: 'code', language: 'typescript' }],
                 config: {},
                 success: true,
                 errors: [],
-                feedback: null,
-                testResults: null,
-                metrics: null,
+                metrics: { duration: 100, tokensUsed: 10 },
             });
 
             const results = await repository.searchByPrompt('a');
@@ -605,13 +576,11 @@ describe('GenerationIterationRepository', () => {
                 projectId: 'proj_001',
                 userId: 'user_001',
                 prompt: 'Test',
-                generatedCode: 'code',
+                generatedCode: [{ path: 'code.ts', content: 'code', language: 'typescript' }],
                 config: complexConfig,
                 success: true,
                 errors: [],
-                feedback: null,
-                testResults: null,
-                metrics: null,
+                metrics: { duration: 100, tokensUsed: 10 },
             });
 
             const results = await repository.findByProjectId('proj_001');

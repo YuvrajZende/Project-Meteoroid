@@ -34,7 +34,23 @@ type chatResultMsg struct {
 type bootTickMsg time.Time
 type pipelineTickMsg time.Time
 
-// --- Boot phases ---
+// SSE messages for real-time updates
+type sseConnectedMsg struct{}
+type sseDisconnectedMsg struct{}
+type ssePipelineStepMsg struct {
+	event api.PipelineStepEvent
+}
+type sseTaskUpdateMsg struct {
+	event api.TaskUpdateEvent
+}
+type sseFileWrittenMsg struct {
+	event api.FileWrittenEvent
+}
+type sseAgentProgressMsg struct {
+	event api.AgentProgressEvent
+}
+
+// --- Boot ---
 
 type bootPhase int
 
@@ -64,6 +80,41 @@ var pipelinePhases = []string{
 	"Generating code", "Parsing & validating", "Assembling output",
 }
 
+// --- Context Tree ---
+
+type ContextNode struct {
+	Label    string
+	Tag      string
+	Size     string
+	Summary  string
+	Children []ContextNode
+}
+
+func dummyContextTree() []ContextNode {
+	return []ContextNode{
+		{Label: "Intent Analysis", Tag: "INTENT", Size: "1.2 KB",
+			Summary: "AI classified this as a code generation request.\nLanguage: TypeScript | Framework: Fastify | Confidence: 95%"},
+		{Label: "Vector Learning Context", Tag: "VECTOR", Size: "3.8 KB",
+			Summary: "5 similar projects matched from knowledge base.\n10 best practices loaded for REST API patterns."},
+		{Label: "Active Plugin Context", Tag: "PLUGINS", Size: "0.9 KB",
+			Summary: "Injecting connection patterns and auth middleware config.",
+			Children: []ContextNode{
+				{Label: "Supabase", Tag: "db", Size: "0.5 KB", Summary: "PostgreSQL connection, row-level security, realtime."},
+				{Label: "JWT Auth", Tag: "sec", Size: "0.4 KB", Summary: "Token signing, verification, refresh rotation."},
+			}},
+		{Label: "Agent Selection & Execution", Tag: "AGENTS", Size: "0.4 KB",
+			Summary: "Selected: CodeGenerator, FileWriter, TestRunner\n3 agents queued for sequential pipeline execution."},
+		{Label: "Generated Output", Tag: "OUTPUT", Size: "12.6 KB",
+			Summary: "3 files generated across routes, models, middleware.",
+			Children: []ContextNode{
+				{Label: "src/routes/users.ts", Tag: "file", Size: "4.2 KB", Summary: "CRUD endpoints with Zod validation and error handling."},
+				{Label: "src/models/user.ts", Tag: "file", Size: "2.1 KB", Summary: "Supabase schema with TypeScript interfaces and types."},
+				{Label: "src/middleware/auth.ts", Tag: "file", Size: "1.8 KB", Summary: "JWT verification and role-based access control guard."},
+				{Label: "tests/users.test.ts", Tag: "file", Size: "3.9 KB", Summary: "Integration tests for all user CRUD operations."},
+			}},
+	}
+}
+
 // --- ChatEntry ---
 
 type ChatEntry struct {
@@ -78,6 +129,7 @@ type ChatEntry struct {
 type Model struct {
 	cfg    *config.Config
 	client *api.Client
+	sse    *api.SSEClient
 	width  int
 	height int
 	ready  bool
@@ -90,13 +142,14 @@ type Model struct {
 	bootStep bootPhase
 	bootDots int
 
-	activeView string // "chat","plugins","context","history"
+	activeView string
 
 	history       []ChatEntry
 	loading       bool
 	pipelinePhase int
 	pipelineMsg   string
 	connected     bool
+	sseConnected  bool
 	serverVersion string
 	startTime     time.Time
 	inputMode     string
@@ -105,12 +158,24 @@ type Model struct {
 	pluginCatIdx   int
 	pluginItemIdx  int
 	enabledPlugins map[string]bool
+	pluginConfigs  map[string]map[string]string
+
+	// Config mode: entering credentials for a plugin
+	configMode     bool
+	configFieldIdx int
 
 	lastResponse *api.ExecuteResponse
+	contextTree  []ContextNode
 
 	store      *Store
 	sessions   []SavedSession
 	historyIdx int
+
+	// Real-time updates from SSE
+	filesWritten  []string
+	currentTaskID string
+	pipelineSteps []string
+	agentProgress map[string]int
 }
 
 func NewModel(cfg *config.Config) Model {
@@ -129,20 +194,97 @@ func NewModel(cfg *config.Config) Model {
 	s.Style = lipgloss.NewStyle().Foreground(theme.Purple)
 
 	st := newStore()
+	configs, enabled := st.LoadPluginConfigs()
+
+	// Initialize SSE client
+	sseClient := api.NewSSEClient(cfg.SSEBaseURL)
+
 	return Model{
 		cfg: cfg, client: api.NewClient(cfg.APIBaseURL, cfg.APIPort),
+		sse:   sseClient,
 		input: ti, spinner: s, startTime: time.Now(),
 		inputMode: "execute", booting: true, bootStep: bootLogo,
 		activeView: "chat", catalog: defaultCatalog(),
-		enabledPlugins: make(map[string]bool),
-		store:          st, sessions: st.Load(),
+		enabledPlugins: enabled, pluginConfigs: configs,
+		store: st, sessions: st.LoadSessions(),
+		contextTree:   dummyContextTree(),
+		filesWritten:  []string{},
+		pipelineSteps: []string{},
+		agentProgress: make(map[string]int),
 	}
 }
 
-// --- Init ---
-
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, textinput.Blink, bootTick())
+	return tea.Batch(
+		m.spinner.Tick,
+		textinput.Blink,
+		bootTick(),
+		connectSSE(m.sse),
+		m.subscribeToSSE(),
+	)
+}
+
+// subscribeToSSE creates a command that forwards SSE events to BubbleTea
+func (m Model) subscribeToSSE() tea.Cmd {
+	return func() tea.Msg {
+		// Wait for SSE connection
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+}
+
+// waitForSSEEvents returns commands that wait for each SSE channel
+func (m Model) waitForSSEEvents() []tea.Cmd {
+	return []tea.Cmd{
+		m.waitForPipelineStep(),
+		m.waitForTaskUpdate(),
+		m.waitForFileWritten(),
+	}
+}
+
+func (m Model) waitForPipelineStep() tea.Cmd {
+	return func() tea.Msg {
+		evt, ok := <-m.sse.PipelineStepChan
+		if !ok {
+			return nil
+		}
+		return ssePipelineStepMsg{event: evt}
+	}
+}
+
+func (m Model) waitForTaskUpdate() tea.Cmd {
+	return func() tea.Msg {
+		evt, ok := <-m.sse.TaskUpdateChan
+		if !ok {
+			return nil
+		}
+		return sseTaskUpdateMsg{event: evt}
+	}
+}
+
+func (m Model) waitForFileWritten() tea.Cmd {
+	return func() tea.Msg {
+		evt, ok := <-m.sse.FileWrittenChan
+		if !ok {
+			return nil
+		}
+		return sseFileWrittenMsg{event: evt}
+	}
+}
+
+func connectSSE(sse *api.SSEClient) tea.Cmd {
+	return func() tea.Msg {
+		if err := sse.ConnectToAll(); err != nil {
+			return nil
+		}
+		return sseConnectedMsg{}
+	}
+}
+
+func (m *Model) listenForSSEEvents() tea.Cmd {
+	return func() tea.Msg {
+		return nil
+	}
 }
 
 func bootTick() tea.Cmd {
@@ -172,7 +314,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setupLayout()
 			return m, checkHealth(m.client)
 		}
-		switch msg.String() {
+
+		key := msg.String()
+
+		// ---- Plugin config mode: input is for credential fields ----
+		if m.configMode {
+			switch key {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "esc":
+				m.exitConfigMode()
+				m.refreshContent()
+				return m, nil
+			case "enter":
+				m.saveCurrentField()
+				return m, nil
+			}
+			// Regular chars fall through to textinput below
+			break
+		}
+
+		// ---- Global keys ----
+		switch key {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "tab":
@@ -183,8 +346,66 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cycleView(-1)
 			m.refreshContent()
 			return m, nil
-		default:
-			return m.handleViewKey(msg)
+		}
+
+		// ---- Non-chat views consume all keys ----
+		switch m.activeView {
+		case "plugins":
+			return m.keysPlugins(msg)
+		case "context":
+			if key == "esc" {
+				m.activeView = "chat"
+				m.refreshContent()
+			}
+			return m, nil
+		case "history":
+			return m.keysHistory(msg)
+		}
+
+		// ---- Chat view: specific keys only, rest falls to textinput ----
+		switch key {
+		case "esc":
+			if !m.loading {
+				return m, tea.Quit
+			}
+		case "ctrl+t":
+			if m.inputMode == "execute" {
+				m.inputMode = "chat"
+				m.input.Placeholder = "Ask a question..."
+			} else {
+				m.inputMode = "execute"
+				m.input.Placeholder = "Describe what you want to build..."
+			}
+			return m, nil
+		case "ctrl+s":
+			if len(m.history) > 0 {
+				m.store.SaveSession(m.history)
+				m.sessions = m.store.LoadSessions()
+				m.addEntry("system", "Session saved to history", nil)
+				m.refreshContent()
+			}
+			return m, nil
+		case "enter":
+			if m.loading {
+				return m, nil
+			}
+			text := strings.TrimSpace(m.input.Value())
+			if text == "" {
+				return m, nil
+			}
+			m.addEntry("user", text, nil)
+			m.input.SetValue("")
+			m.loading = true
+			m.pipelinePhase = 0
+			m.pipelineMsg = pipelinePhases[0]
+			m.refreshContent()
+			var cmd tea.Cmd
+			if m.inputMode == "execute" {
+				cmd = executeTask(m.client, text, m.enabledPlugins, m.catalog, m.pluginConfigs)
+			} else {
+				cmd = chatDirect(m.client, text)
+			}
+			return m, tea.Batch(cmd, pipelineTick())
 		}
 
 	case bootTickMsg:
@@ -225,6 +446,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addEntry("error", msg.err.Error(), nil)
 		} else {
 			m.lastResponse = msg.resp
+			m.buildContextTree(msg.resp)
 			m.processExecuteResponse(msg.resp)
 		}
 		m.refreshContent()
@@ -242,13 +464,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.refreshContent()
 
+	// SSE event handlers
+	case sseConnectedMsg:
+		m.sseConnected = true
+		m.addEntry("system", "🔌 SSE connected - real-time updates enabled", nil)
+		// Start listening for events after connection
+		cmds = append(cmds, m.waitForSSEEvents()...)
+		m.refreshContent()
+
+	case sseTaskUpdateMsg:
+		m.handleTaskUpdate(msg.event)
+		cmds = append(cmds, m.waitForTaskUpdate()) // Continue listening
+		m.refreshContent()
+
+	case sseFileWrittenMsg:
+		m.filesWritten = append(m.filesWritten, msg.event.FilePath)
+		m.pipelineMsg = fmt.Sprintf("📝 %s", msg.event.FilePath)
+		cmds = append(cmds, m.waitForFileWritten()) // Continue listening
+		m.refreshContent()
+
+	case sseAgentProgressMsg:
+		m.agentProgress[msg.event.AgentID] = msg.event.Progress
+		m.refreshContent()
+
+	case ssePipelineStepMsg:
+		m.pipelineSteps = append(m.pipelineSteps, fmt.Sprintf("[%d] %s: %s", msg.event.StepNumber, msg.event.Phase, msg.event.Message))
+		m.pipelineMsg = msg.event.Message
+		// Add to history for visibility
+		if len(m.pipelineSteps) <= 20 || msg.event.Phase == "finalize" {
+			m.addEntry("system", fmt.Sprintf("→ %s", msg.event.Message), nil)
+		}
+		cmds = append(cmds, m.waitForPipelineStep()) // Continue listening
+		m.refreshContent()
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
-	if m.activeView == "chat" && !m.booting && !m.loading {
+	// Textinput active in: chat view OR plugin config mode
+	inputActive := !m.booting && ((m.activeView == "chat" && !m.loading) || m.configMode)
+	if inputActive {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		cmds = append(cmds, cmd)
@@ -261,9 +518,93 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// --- Config mode ---
+
+func (m *Model) enterConfigMode() {
+	key := fmt.Sprintf("%d:%d", m.pluginCatIdx, m.pluginItemIdx)
+	plugin := m.catalog[m.pluginCatIdx].Plugins[m.pluginItemIdx]
+
+	if len(plugin.Fields) == 0 {
+		// No config needed, just toggle
+		m.enabledPlugins[key] = !m.enabledPlugins[key]
+		m.store.SavePluginConfigs(m.pluginConfigs, m.enabledPlugins)
+		m.refreshContent()
+		return
+	}
+
+	m.configMode = true
+	m.configFieldIdx = 0
+
+	// Pre-fill if previously configured
+	field := plugin.Fields[0]
+	existing := ""
+	if cfg, ok := m.pluginConfigs[key]; ok {
+		existing = cfg[field.Key]
+	}
+
+	m.input.SetValue(existing)
+	m.input.Prompt = " CONFIG > "
+	m.input.Placeholder = field.Label + "..."
+	if field.Secret {
+		m.input.EchoMode = textinput.EchoPassword
+	} else {
+		m.input.EchoMode = textinput.EchoNormal
+	}
+	m.input.Focus()
+	m.refreshContent()
+}
+
+func (m *Model) saveCurrentField() {
+	key := fmt.Sprintf("%d:%d", m.pluginCatIdx, m.pluginItemIdx)
+	plugin := m.catalog[m.pluginCatIdx].Plugins[m.pluginItemIdx]
+
+	if m.pluginConfigs[key] == nil {
+		m.pluginConfigs[key] = make(map[string]string)
+	}
+
+	field := plugin.Fields[m.configFieldIdx]
+	m.pluginConfigs[key][field.Key] = m.input.Value()
+
+	m.configFieldIdx++
+
+	if m.configFieldIdx >= len(plugin.Fields) {
+		// All fields done — enable the plugin
+		m.enabledPlugins[key] = true
+		m.store.SavePluginConfigs(m.pluginConfigs, m.enabledPlugins)
+		m.exitConfigMode()
+		m.addEntry("system", fmt.Sprintf("Plugin configured: %s", plugin.Name), nil)
+		m.refreshContent()
+		return
+	}
+
+	// Next field
+	nextField := plugin.Fields[m.configFieldIdx]
+	existing := m.pluginConfigs[key][nextField.Key]
+	m.input.SetValue(existing)
+	m.input.Placeholder = nextField.Label + "..."
+	if nextField.Secret {
+		m.input.EchoMode = textinput.EchoPassword
+	} else {
+		m.input.EchoMode = textinput.EchoNormal
+	}
+	m.refreshContent()
+}
+
+func (m *Model) exitConfigMode() {
+	m.configMode = false
+	m.configFieldIdx = 0
+	m.input.SetValue("")
+	m.input.Prompt = " > "
+	m.input.Placeholder = "Describe what you want to build..."
+	m.input.EchoMode = textinput.EchoNormal
+}
+
 // --- View routing ---
 
 func (m *Model) cycleView(dir int) {
+	if m.configMode {
+		m.exitConfigMode()
+	}
 	views := []string{"chat", "plugins", "context", "history"}
 	for i, v := range views {
 		if v == m.activeView {
@@ -272,70 +613,6 @@ func (m *Model) cycleView(dir int) {
 		}
 	}
 }
-
-func (m Model) handleViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.activeView {
-	case "chat":
-		return m.keysChat(msg)
-	case "plugins":
-		return m.keysPlugins(msg)
-	case "context":
-		return m.keysContext(msg)
-	case "history":
-		return m.keysHistory(msg)
-	}
-	return m, nil
-}
-
-// --- Chat keys ---
-
-func (m Model) keysChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		if !m.loading {
-			return m, tea.Quit
-		}
-	case "ctrl+t":
-		if m.inputMode == "execute" {
-			m.inputMode = "chat"
-			m.input.Placeholder = "Ask a question..."
-		} else {
-			m.inputMode = "execute"
-			m.input.Placeholder = "Describe what you want to build..."
-		}
-	case "ctrl+s":
-		if len(m.history) > 0 {
-			m.store.Save(m.history)
-			m.sessions = m.store.Load()
-			m.addEntry("system", "Session saved to history", nil)
-			m.refreshContent()
-		}
-	case "enter":
-		if m.loading {
-			return m, nil
-		}
-		text := strings.TrimSpace(m.input.Value())
-		if text == "" {
-			return m, nil
-		}
-		m.addEntry("user", text, nil)
-		m.input.SetValue("")
-		m.loading = true
-		m.pipelinePhase = 0
-		m.pipelineMsg = pipelinePhases[0]
-		m.refreshContent()
-		var cmd tea.Cmd
-		if m.inputMode == "execute" {
-			cmd = executeTask(m.client, text, m.enabledPlugins, m.catalog)
-		} else {
-			cmd = chatDirect(m.client, text)
-		}
-		return m, tea.Batch(cmd, pipelineTick())
-	}
-	return m, nil
-}
-
-// --- Plugin keys ---
 
 func (m Model) keysPlugins(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -369,23 +646,18 @@ func (m Model) keysPlugins(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case " ", "enter":
 		key := fmt.Sprintf("%d:%d", m.pluginCatIdx, m.pluginItemIdx)
-		m.enabledPlugins[key] = !m.enabledPlugins[key]
-		m.refreshContent()
+		if m.enabledPlugins[key] {
+			// Already enabled — toggle off
+			m.enabledPlugins[key] = false
+			m.store.SavePluginConfigs(m.pluginConfigs, m.enabledPlugins)
+			m.refreshContent()
+		} else {
+			// Enable — enter config mode if fields exist
+			m.enterConfigMode()
+		}
 	}
 	return m, nil
 }
-
-// --- Context keys ---
-
-func (m Model) keysContext(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "esc" {
-		m.activeView = "chat"
-		m.refreshContent()
-	}
-	return m, nil
-}
-
-// --- History keys ---
 
 func (m Model) keysHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -403,7 +675,7 @@ func (m Model) keysHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshContent()
 		}
 	case "enter":
-		if m.historyIdx < len(m.sessions) {
+		if len(m.sessions) > 0 && m.historyIdx < len(m.sessions) {
 			sess := m.sessions[m.historyIdx]
 			m.history = sess.Entries
 			m.activeView = "chat"
@@ -411,9 +683,9 @@ func (m Model) keysHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshContent()
 		}
 	case "d":
-		if m.historyIdx < len(m.sessions) {
-			m.store.Delete(m.historyIdx)
-			m.sessions = m.store.Load()
+		if len(m.sessions) > 0 && m.historyIdx < len(m.sessions) {
+			m.store.DeleteSession(m.historyIdx)
+			m.sessions = m.store.LoadSessions()
 			if m.historyIdx >= len(m.sessions) && m.historyIdx > 0 {
 				m.historyIdx--
 			}
@@ -445,6 +717,93 @@ func (m *Model) setupLayout() {
 	m.refreshContent()
 }
 
+// --- Context tree builder ---
+
+func (m *Model) buildContextTree(resp *api.ExecuteResponse) {
+	if resp == nil {
+		return
+	}
+
+	// Phase 28: Prefer backend-provided context tree
+	if len(resp.ContextTree) > 0 {
+		var nodes []ContextNode
+		for _, n := range resp.ContextTree {
+			nodes = append(nodes, apiNodeToContextNode(n))
+		}
+		m.contextTree = nodes
+		return
+	}
+
+	// Fallback: build locally (for older backends)
+	var nodes []ContextNode
+	if resp.IntentAnalysis != nil {
+		ia := resp.IntentAnalysis
+		nodes = append(nodes, ContextNode{
+			Label: "Intent Analysis", Tag: "INTENT", Size: "~1 KB",
+			Summary: fmt.Sprintf("Intent: %s | %s/%s | %.0f%%\n%s",
+				ia.Intent, ia.Language, ia.Framework, ia.Confidence*100, ia.Reasoning),
+		})
+	}
+	if resp.VectorUsed {
+		nodes = append(nodes, ContextNode{
+			Label: "Vector Learning Context", Tag: "VECTOR", Size: "~4 KB",
+			Summary: "Vector learning was applied.\nSimilar projects and best practices injected.",
+		})
+	}
+	if resp.PluginCount > 0 {
+		nodes = append(nodes, ContextNode{
+			Label: "Active Plugin Context", Tag: "PLUGINS",
+			Size:    fmt.Sprintf("~%.1f KB", float64(resp.PluginCount)*0.3),
+			Summary: fmt.Sprintf("%d plugins: %s", resp.PluginCount, strings.Join(resp.PluginsUsed, ", ")),
+		})
+	}
+	if len(resp.AgentsExecuted) > 0 {
+		nodes = append(nodes, ContextNode{
+			Label: "Agent Execution", Tag: "AGENTS", Size: "~0.5 KB",
+			Summary: fmt.Sprintf("Agents: %s\n%d agents executed.",
+				strings.Join(resp.AgentsExecuted, ", "), len(resp.AgentsExecuted)),
+		})
+	}
+	if len(resp.GeneratedCode) > 0 {
+		var codeChildren []ContextNode
+		totalSize := 0
+		for _, c := range resp.GeneratedCode {
+			sz := len(c.Code)
+			totalSize += sz
+			s := c.Explanation
+			if len(s) > 80 {
+				s = s[:77] + "..."
+			}
+			codeChildren = append(codeChildren, ContextNode{
+				Label: c.Subtask, Tag: "file", Size: fmt.Sprintf("%.1f KB", float64(sz)/1024), Summary: s,
+			})
+		}
+		nodes = append(nodes, ContextNode{
+			Label: "Generated Output", Tag: "OUTPUT",
+			Size:     fmt.Sprintf("%.1f KB", float64(totalSize)/1024),
+			Summary:  fmt.Sprintf("%d files generated.", len(resp.GeneratedCode)),
+			Children: codeChildren,
+		})
+	}
+	if len(nodes) > 0 {
+		m.contextTree = nodes
+	}
+}
+
+// apiNodeToContextNode converts a backend ContextTreeNode to a TUI ContextNode
+func apiNodeToContextNode(n api.ContextTreeNode) ContextNode {
+	node := ContextNode{
+		Label:   n.Label,
+		Tag:     n.Tag,
+		Size:    n.Size,
+		Summary: n.Summary,
+	}
+	for _, child := range n.Children {
+		node.Children = append(node.Children, apiNodeToContextNode(child))
+	}
+	return node
+}
+
 // --- Helpers ---
 
 func (m *Model) addEntry(role, content string, meta map[string]string) {
@@ -474,9 +833,6 @@ func (m *Model) processExecuteResponse(resp *api.ExecuteResponse) {
 	}
 	parts = append(parts, fmt.Sprintf("Task: %s | Steps: %d | Duration: %.1fs",
 		resp.TaskID, resp.Steps, resp.TotalDuration/1000))
-	if len(resp.AgentsExecuted) > 0 {
-		parts = append(parts, "Agents: "+strings.Join(resp.AgentsExecuted, ", "))
-	}
 	m.addEntry("pipeline", strings.Join(parts, "\n"), nil)
 	for _, c := range resp.GeneratedCode {
 		meta := map[string]string{}
@@ -497,8 +853,6 @@ func (m *Model) processExecuteResponse(resp *api.ExecuteResponse) {
 	}
 	if resp.Success {
 		m.addEntry("system", "Generation completed successfully", nil)
-	} else {
-		m.addEntry("error", "Generation failed", nil)
 	}
 }
 
@@ -514,22 +868,41 @@ func checkHealth(client *api.Client) tea.Cmd {
 	}
 }
 
-func executeTask(client *api.Client, prompt string, enabled map[string]bool, catalog []PluginCategory) tea.Cmd {
+// executeTask sends structured plugin configs and prompt to the backend
+func executeTask(client *api.Client, prompt string, enabled map[string]bool, catalog []PluginCategory, configs map[string]map[string]string) tea.Cmd {
 	return func() tea.Msg {
-		// Build tech stack from enabled plugins
 		var stack []string
+		var pluginItems []api.PluginConfigItem
+
 		for key := range enabled {
 			if !enabled[key] {
 				continue
 			}
 			var ci, pi int
 			fmt.Sscanf(key, "%d:%d", &ci, &pi)
-			if ci < len(catalog) && pi < len(catalog[ci].Plugins) {
-				stack = append(stack, catalog[ci].Plugins[pi].Name)
+			if ci >= len(catalog) || pi >= len(catalog[ci].Plugins) {
+				continue
 			}
+			p := catalog[ci].Plugins[pi]
+			catName := catalog[ci].Name
+			stack = append(stack, p.Name)
+
+			// Build structured plugin config for backend
+			pluginCfg := api.PluginConfigItem{
+				Name:     p.Name,
+				Category: catName,
+				Config:   make(map[string]string),
+			}
+			if cfg, ok := configs[key]; ok {
+				for k, v := range cfg {
+					pluginCfg.Config[k] = v
+				}
+			}
+			pluginItems = append(pluginItems, pluginCfg)
 		}
+
 		req := &api.ExecuteRequest{
-			Prompt: prompt,
+			Prompt: prompt, // Clean prompt — backend handles plugin context injection
 			Config: &api.ExecuteConfig{
 				UseAIThinking: true, UseContextManager: true,
 				UseAgentMonitor: true, UseMCPHub: true, MaxSubtasks: 3,
@@ -537,6 +910,9 @@ func executeTask(client *api.Client, prompt string, enabled map[string]bool, cat
 		}
 		if len(stack) > 0 {
 			req.Context = &api.ExecuteContext{TechStack: stack}
+		}
+		if len(pluginItems) > 0 {
+			req.PluginConfig = pluginItems
 		}
 		resp, err := client.Execute(req)
 		if err != nil {
@@ -553,5 +929,27 @@ func chatDirect(client *api.Client, message string) tea.Cmd {
 			return chatResultMsg{err: err}
 		}
 		return chatResultMsg{resp: resp}
+	}
+}
+
+// handleTaskUpdate processes real-time task updates from SSE
+func (m *Model) handleTaskUpdate(event api.TaskUpdateEvent) {
+	switch event.Status {
+	case "running":
+		m.currentTaskID = event.TaskID
+		if event.Message != "" {
+			m.pipelineMsg = event.Message
+		}
+	case "progress":
+		m.pipelinePhase = event.Progress
+		if event.Message != "" {
+			m.pipelineMsg = event.Message
+		}
+	case "completed":
+		m.loading = false
+		m.addEntry("system", fmt.Sprintf("✅ Task completed: %s", event.TaskID), nil)
+	case "failed":
+		m.loading = false
+		m.addEntry("error", fmt.Sprintf("Task failed: %s", event.Message), nil)
 	}
 }

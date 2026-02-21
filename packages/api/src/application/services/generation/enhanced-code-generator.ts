@@ -15,7 +15,7 @@
  * - Code validation
  */
 
-import { injectable, unmanaged } from 'inversify';
+import { injectable } from 'inversify';
 import { CodePostProcessor, getCodePostProcessor } from '../validation/code-postprocessor.js';
 import { createProjectScaffold, type ScaffoldConfig } from '../../../domain/services/architecture/project-scaffold.js';
 import { TestGenerator, createTestGenerator } from '../../../services/test-generator.js';

@@ -2,14 +2,49 @@
  * Rate Limiting Plugin Configuration
  * Configures request rate limiting with Redis backend
  * Falls back to in-memory storage if Redis is not available
+ * 
+ * SECURITY FEATURES:
+ * - Redis-backed distributed rate limiting (prevents bypass via multiple instances)
+ * - Tiered limits: stricter for auth/orchestration, relaxed for health
+ * - IP + User ID based rate limiting
+ * - Rate limit headers for client awareness
  */
 
 import rateLimit from '@fastify/rate-limit';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { env } from '../config/index.js';
 import Redis from 'ioredis';
 
 let redisClient: Redis | null = null;
+
+// ============================================
+// SECURITY: Tiered Rate Limit Configuration
+// ============================================
+
+const RATE_LIMIT_TIERS = {
+    auth: {
+        max: 10,
+        timeWindow: 60000,
+        description: 'Authentication routes - prevents brute force'
+    },
+    orchestrator: {
+        max: 20,
+        timeWindow: 60000,
+        description: 'AI orchestration - expensive operations'
+    },
+    api: {
+        max: 100,
+        timeWindow: 60000,
+        description: 'Standard API routes'
+    },
+    read: {
+        max: 200,
+        timeWindow: 60000,
+        description: 'Read-only routes'
+    },
+} as const;
+
+export type RateLimitTier = keyof typeof RATE_LIMIT_TIERS;
 
 // Initialize Redis client if configured
 async function getRedisClient(): Promise<Redis | null> {
@@ -48,9 +83,9 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
         timeWindow: env.RATE_LIMIT_WINDOW_MS,
 
         // Custom key generator (by IP + User ID if authenticated)
-        keyGenerator: (request) => {
+        keyGenerator: (request: FastifyRequest) => {
             // Use user ID if available, otherwise use IP
-            const userId = (request as { userId?: string }).userId;
+            const userId = request.userId || (request.authUser?.id);
             const ip = request.ip;
             return userId ? `user:${userId}` : `ip:${ip}`;
         },
@@ -96,4 +131,33 @@ export async function closeRateLimitRedis(): Promise<void> {
         await redisClient.quit();
         redisClient = null;
     }
+}
+
+// ============================================
+// SECURITY: Helper to create tiered rate limiters
+// ============================================
+
+export function createTieredRateLimiter(tier: RateLimitTier) {
+    const config = RATE_LIMIT_TIERS[tier];
+    return {
+        max: config.max,
+        timeWindow: config.timeWindow,
+    };
+}
+
+// ============================================
+// SECURITY: Route-specific rate limit middleware
+// ============================================
+
+export function getRouteTier(path: string): RateLimitTier {
+    if (path.includes('/auth/') || path.includes('/login') || path.includes('/signup')) {
+        return 'auth';
+    }
+    if (path.includes('/orchestrator/')) {
+        return 'orchestrator';
+    }
+    if (path.startsWith('/api/v1/projects') || path.startsWith('/api/v1/tasks')) {
+        return 'api';
+    }
+    return 'read';
 }

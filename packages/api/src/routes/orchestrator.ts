@@ -3,10 +3,18 @@
  * API endpoints for REAL AI-powered orchestration
  * 
  * Uses IntegratedOrchestrator for all code generation
+ * 
+ * SECURITY: All orchestration endpoints require authentication
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+
+// Security: Authentication middleware
+import { authenticate } from '../middleware/auth-middleware.js';
+
+// Real-time updates
+import { broadcastPipelineStep } from './websocket.js';
 
 // Main orchestrator - IntegratedOrchestrator (the one that works!)
 import {
@@ -23,6 +31,9 @@ import {
     getThinkingEngine,
     getArchitectureBlueprintGenerator,
 } from '../services/index.js';
+
+// Phase 28: Plugin Registry
+import { getPluginRegistry, type PluginConfig } from '../domain/services/plugins/index.js';
 
 // ============================================
 // SCHEMAS
@@ -46,6 +57,13 @@ const ExecuteTaskSchema = z.object({
         techStack: z.array(z.string()).optional(),
         existingCode: z.string().optional(),
     }).optional(),
+    /** Phase 28: Plugin configurations with credentials */
+    pluginConfig: z.array(z.object({
+        pluginId: z.string().optional(),
+        name: z.string(),
+        category: z.string(),
+        config: z.record(z.string(), z.string()),
+    })).optional(),
 });
 
 const ChatSchema = z.object({
@@ -75,8 +93,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/execute - Execute REAL AI orchestration
+     * SECURITY: Requires authentication
      */
     app.post('/api/v1/orchestrator/execute', {
+        preHandler: authenticate({ required: false }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Execute AI-powered orchestration',
@@ -142,25 +162,76 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
         // Generate task ID
         const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const projectId = body.projectId || `project-${Date.now()}`;
+        
+        // Extract project name from prompt for meaningful folder name
+        let projectName = 'project';
+        
+        // Try to extract project name from common patterns
+        const namePatterns = [
+            /(?:make|create|build|develop)\s+(?:an?\s+)?(?:analysis\s+)?system\s+(?:for\s+)?(?:my\s+)?(?:project\s+)?(\w+)/i,
+            /(?:for\s+)?(?:project\s+)?(\w+)/i,
+            /(?:called|named)\s+(\w+)/i,
+        ];
+        
+        for (const pattern of namePatterns) {
+            const match = body.prompt.match(pattern);
+            if (match && match[1]) {
+                projectName = match[1].toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                break;
+            }
+        }
+        
+        const projectId = body.projectId || `${projectName}-${Date.now()}`;
         const userId = body.userId || (request as any).user?.id || 'anonymous';
 
         app.log.info(`[ORCHESTRATOR] Executing task: ${taskId}`);
         app.log.info(`[ORCHESTRATOR] Prompt: ${body.prompt.substring(0, 100)}...`);
 
         // ============================================
+        // PHASE 28: PLUGIN CONTEXT INJECTION
+        // ============================================
+        const pluginRegistry = getPluginRegistry();
+        let pluginPromptSection = '';
+        const pluginConfigs: PluginConfig[] = (body.pluginConfig || []) as PluginConfig[];
+
+        if (pluginConfigs.length > 0) {
+            // Validate all plugin configs
+            const validation = pluginRegistry.validateAllConfigs(pluginConfigs);
+            if (!validation.valid) {
+                const allErrors = validation.results.flatMap(r => r.errors);
+                app.log.warn(`[PLUGINS] Config validation warnings: ${allErrors.join(', ')}`);
+            }
+
+            // Build structured context for AI
+            const pluginContext = pluginRegistry.buildPluginContext(pluginConfigs);
+            pluginPromptSection = pluginContext.systemPromptSection;
+
+            app.log.info(`[PLUGINS] ${pluginConfigs.length} plugins active: ${pluginContext.techStack.join(', ')}`);
+            app.log.info(`[PLUGINS] Packages: ${Object.values(pluginContext.packages).flat().join(', ')}`);
+            app.log.info(`[PLUGINS] Env vars: ${Object.keys(pluginContext.envVars).join(', ')}`);
+        }
+
+        // ============================================
         // PHASE 22: AI-DRIVEN INTELLIGENCE
         // ============================================
         const { getAIIntentAnalyzer, getVectorLearningSystem } = await import('../services/index.js');
 
+        // Enhance prompt with plugin context BEFORE intent analysis
+        const enhancedPrompt = pluginPromptSection
+            ? `${pluginPromptSection}\n\nUser request: ${body.prompt}`
+            : body.prompt;
+
         // Use AI to determine intent and best language/framework
         const aiIntent = getAIIntentAnalyzer();
-        const intentAnalysis = await aiIntent.analyze(body.prompt, {
+        const intentAnalysis = await aiIntent.analyze(enhancedPrompt, {
             hasExistingProject: !!body.projectId
         });
 
         app.log.info(`[AI-INTENT] Detected: ${intentAnalysis.intent} | ${intentAnalysis.language}/${intentAnalysis.framework}`);
         app.log.info(`[AI-INTENT] Reasoning: ${intentAnalysis.reasoning} (${(intentAnalysis.confidence * 100).toFixed(0)}% confidence)`);
+        
+        // REAL-TIME: Broadcast intent analysis to TUI
+        broadcastPipelineStep(1, 'intent', `Detected: ${intentAnalysis.intent} | ${intentAnalysis.language}/${intentAnalysis.framework}`);
 
         // Handle QUESTION intent - don't generate code, just answer
         if (intentAnalysis.intent === 'QUESTION') {
@@ -229,7 +300,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
             if (vectorContext && vectorContext.length > 50) {
                 app.log.info(`[VECTOR-LEARNING] Injected ${learningContext.similarProjects.length} similar projects, ${learningContext.bestPractices.length} best practices`);
-                // Extend context with vector learning data
+                broadcastPipelineStep(2, 'vector-learning', `Found ${learningContext.similarProjects.length} similar projects, ${learningContext.bestPractices.length} best practices`);
                 (context as Record<string, unknown>).vectorLearningContext = vectorContext;
             }
         } catch (error: unknown) {
@@ -237,17 +308,28 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             app.log.warn(`[VECTOR-LEARNING] Could not build context: ${errorMsg}`);
         }
 
+        // Build enhanced prompt with plugin context
+        const orchestratorPrompt = pluginPromptSection
+            ? `${pluginPromptSection}\n\n${body.prompt}`
+            : body.prompt;
+
+        // Merge plugin tech stack with context tech stack
+        const mergedTechStack = [
+            ...(context.techStack || []),
+            ...pluginConfigs.map(p => p.name),
+        ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
+
         // Execute orchestration using IntegratedOrchestrator
         const result = await orchestrator.orchestrate(
             {
                 taskId,
                 userId,
                 projectId,
-                prompt: body.prompt,
+                prompt: orchestratorPrompt,
                 context: {
                     language: context.language,
                     framework: context.framework,
-                    techStack: context.techStack,
+                    techStack: mergedTechStack,
                     existingCode: context.existingCode,
                 },
             },
@@ -257,6 +339,26 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         );
 
         app.log.info(`[ORCHESTRATOR] Task ${taskId} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+
+        // Phase 28: Build context tree for TUI visualization
+        const contextTree = pluginRegistry.buildResponseContextTree({
+            prompt: body.prompt,
+            intentAnalysis: {
+                intent: intentAnalysis.intent,
+                language: intentAnalysis.language,
+                framework: intentAnalysis.framework,
+                confidence: intentAnalysis.confidence,
+                reasoning: intentAnalysis.reasoning,
+            },
+            vectorUsed: !!vectorContext,
+            pluginConfigs,
+            agentsExecuted: result.agentsExecuted || [],
+            generatedCode: (result.generatedCode || []).map(g => ({
+                subtask: g.subtask,
+                code: g.code,
+                explanation: g.explanation,
+            })),
+        });
 
         // Return the IntegratedOrchestrator response format
         return reply.send({
@@ -276,6 +378,11 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 reasoning: intentAnalysis.reasoning,
             },
             vectorLearningUsed: !!vectorContext,
+            // Phase 28: Plugin awareness
+            pluginsUsed: pluginConfigs.map(p => p.name),
+            pluginCount: pluginConfigs.length,
+            // Phase 28: Structured context tree for TUI
+            contextTree,
             // Pass through any errors
             errors: result.errors,
         });
@@ -283,8 +390,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/chat - Direct AI chat
+     * SECURITY: Optional authentication (rate limited for anonymous)
      */
     app.post('/api/v1/orchestrator/chat', {
+        preHandler: authenticate({ required: false }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Direct AI Chat',
@@ -337,6 +446,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * GET /api/v1/orchestrator/status - Get orchestrator status
+     * SECURITY: Public endpoint (no auth required)
      */
     app.get('/api/v1/orchestrator/status', {
         schema: {
@@ -443,8 +553,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/think - Trigger thinking analysis (local + AI)
+     * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/think', {
+        preHandler: authenticate({ required: false }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Analyze task with thinking engine',
@@ -513,6 +625,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * GET /api/v1/orchestrator/context/:projectId - Get project context
      */
     app.get('/api/v1/orchestrator/context/:projectId', {
+        preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Get project context',
@@ -542,12 +655,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Params: { projectId: string },
-        Querystring: { userId?: string }
-    }>, reply: FastifyReply) => {
-        const { projectId } = request.params;
-        const userId = request.query.userId || (request as any).user?.id || 'anonymous';
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const { projectId } = request.params as { projectId: string };
+        const query = request.query as { userId?: string };
+        const userId = query.userId || (request as any).user?.id || 'anonymous';
         const contextManager = getContextManager();
 
         const context = contextManager.getContext(projectId, userId);
@@ -563,8 +674,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/agents/:agentId/execute - Execute specific agent
+     * SECURITY: Requires authentication
      */
     app.post('/api/v1/orchestrator/agents/:agentId/execute', {
+        preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Execute specific agent',
@@ -585,12 +698,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Params: { agentId: string },
-        Body: { task: string; context?: Record<string, unknown>; priority?: number }
-    }>, reply: FastifyReply) => {
-        const { agentId } = request.params;
-        const { task, context, priority } = request.body;
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const { agentId } = request.params as { agentId: string };
+        const body = request.body as { task: string; context?: Record<string, unknown>; priority?: number };
+        const { task, context, priority } = body;
 
         const registry = getAgentRegistry();
         const agent = registry.getById(agentId);
@@ -631,9 +742,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/blueprint - Generate ASCII Architecture Blueprint (Phase 20)
-     * Test the fast model's ASCII diagram generation
+     * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/blueprint', {
+        preHandler: authenticate({ required: false }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Generate ASCII Architecture Blueprint',
@@ -664,8 +776,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Body: {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = request.body as {
             prompt: string;
             projectName?: string;
             framework?: string;
@@ -674,8 +786,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             includeAuth?: boolean;
             includeDatabase?: boolean;
             includeMonitoring?: boolean;
-        }
-    }>, reply: FastifyReply) => {
+        };
         const {
             prompt,
             projectName = 'MyProject',
@@ -685,7 +796,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             includeAuth = true,
             includeDatabase = true,
             includeMonitoring = false,
-        } = request.body;
+        } = body;
         const startTime = Date.now();
 
         try {
@@ -751,8 +862,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
     /**
      * POST /api/v1/orchestrator/generate - Full Multi-Model Pipeline (Phase 20)
      * Uses fast model for analysis + blueprint, then power model for code generation
+     * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/generate', {
+        preHandler: authenticate({ required: false }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Full Multi-Model Code Generation',
@@ -775,15 +888,14 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Body: {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = request.body as {
             prompt: string;
             taskId?: string;
             projectId?: string;
             context?: { techStack?: string[]; framework?: string; language?: string };
-        }
-    }>, reply: FastifyReply) => {
-        const { prompt, taskId, projectId, context } = request.body;
+        };
+        const { prompt, taskId, projectId, context } = body;
 
         try {
             const multiModel = getMultiModelOrchestrator();
@@ -830,7 +942,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * GET /api/v1/orchestrator/learning/stats - Get AI Learning Statistics
-     * Check how many iterations, patterns, and embeddings have been stored
+     * SECURITY: Public endpoint (read-only statistics)
      */
     app.get('/api/v1/orchestrator/learning/stats', {
         schema: {
@@ -980,8 +1092,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/generate-interactive - Check user's services and generate code or ask questions
+     * SECURITY: Requires authentication (userId must match authenticated user)
      */
     app.post('/api/v1/orchestrator/generate-interactive', {
+        preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator', 'Service Integration'],
             summary: 'Interactive Code Generation with Service Selection',
@@ -1006,14 +1120,13 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Body: {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = request.body as {
             prompt: string;
             userId: string;
             projectId?: string;
-        }
-    }>, reply: FastifyReply) => {
-        const { prompt, userId, projectId } = request.body;
+        };
+        const { prompt, userId, projectId } = body;
 
         try {
             // Import interactive selector
@@ -1089,8 +1202,10 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
 
     /**
      * POST /api/v1/orchestrator/generate-interactive/submit - Process answers and generate code
+     * SECURITY: Requires authentication
      */
     app.post('/api/v1/orchestrator/generate-interactive/submit', {
+        preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator', 'Service Integration'],
             summary: 'Submit Service Selection Answers',
@@ -1117,15 +1232,14 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 },
             },
         },
-    }, async (request: FastifyRequest<{
-        Body: {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        const body = request.body as {
             prompt: string;
             userId: string;
             answers: Record<string, string>;
             projectId?: string;
-        }
-    }>, reply: FastifyReply) => {
-        const { prompt, userId, answers, projectId } = request.body;
+        };
+        const { prompt, userId, answers, projectId } = body;
 
         try {
             // Import services

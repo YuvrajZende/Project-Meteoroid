@@ -31,3 +31,32 @@ export {
     type GenerationResult as MultiModelGenerationResult,
     type ContextAnalysis,
 } from './multi-model-orchestrator.js';
+
+// ============================================
+// REFACTORED SERVICES (ARCH-001)
+// ============================================
+
+export {
+    OrchestrationContextService,
+    OrchestrationGenerationService,
+    OrchestrationFileService,
+    type ContextResult,
+    type CodeGenerationRequest,
+    type CodeGenerationResult,
+    type FileToWrite,
+    type FileProcessingResult,
+} from './services/index.js';
+
+export type {
+    MultiModelResult,
+    GeneratedFile,
+    TokenCost,
+    ArchitectureBlueprint,
+    AgentExecutionRecord,
+    TokenUsage,
+    OrchestrationMetrics,
+    QualityAssessmentResult,
+    LearningMetrics,
+    CostSummary,
+    DatabaseSaveResult,
+} from './services/index.js';

@@ -195,6 +195,22 @@ export * from '../domain/services/agents/index.js';
 export * from '../domain/services/security/index.js';
 
 // ============================================
+// PLUGINS - Plugin registry & validation (Phase 28)
+// ============================================
+export {
+    PluginRegistryService,
+    getPluginRegistry,
+    type PluginDefinition,
+    type PluginCategory as PluginCategoryType,
+    type PluginCredentialField,
+    type PluginConfig,
+    type PluginValidationResult,
+    type PluginConnectionTestResult,
+    type ContextTreeNode,
+    type PluginContextResult,
+} from '../domain/services/plugins/index.js';
+
+// ============================================
 // UTILITY SERVICES
 // ============================================
 

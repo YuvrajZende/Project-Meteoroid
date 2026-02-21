@@ -16,7 +16,7 @@ type SavedSession struct {
 	Entries   []ChatEntry `json:"entries"`
 }
 
-// Store handles chat history persistence
+// Store handles persistence
 type Store struct {
 	dir string
 }
@@ -28,12 +28,10 @@ func newStore() *Store {
 	return &Store{dir: dir}
 }
 
-func (s *Store) path() string {
-	return filepath.Join(s.dir, "sessions.json")
-}
+// --- Sessions ---
 
-func (s *Store) Save(entries []ChatEntry) error {
-	sessions := s.Load()
+func (s *Store) SaveSession(entries []ChatEntry) error {
+	sessions := s.LoadSessions()
 	preview := ""
 	for _, e := range entries {
 		if e.Role == "user" {
@@ -48,11 +46,8 @@ func (s *Store) Save(entries []ChatEntry) error {
 		preview = "(empty session)"
 	}
 	sess := SavedSession{
-		ID:        time.Now().Format("20060102-150405"),
-		Timestamp: time.Now(),
-		Preview:   preview,
-		Count:     len(entries),
-		Entries:   entries,
+		ID: time.Now().Format("20060102-150405"), Timestamp: time.Now(),
+		Preview: preview, Count: len(entries), Entries: entries,
 	}
 	sessions = append([]SavedSession{sess}, sessions...)
 	if len(sessions) > 50 {
@@ -62,11 +57,11 @@ func (s *Store) Save(entries []ChatEntry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path(), data, 0644)
+	return os.WriteFile(filepath.Join(s.dir, "sessions.json"), data, 0644)
 }
 
-func (s *Store) Load() []SavedSession {
-	data, err := os.ReadFile(s.path())
+func (s *Store) LoadSessions() []SavedSession {
+	data, err := os.ReadFile(filepath.Join(s.dir, "sessions.json"))
 	if err != nil {
 		return nil
 	}
@@ -75,12 +70,45 @@ func (s *Store) Load() []SavedSession {
 	return sessions
 }
 
-func (s *Store) Delete(idx int) {
-	sessions := s.Load()
+func (s *Store) DeleteSession(idx int) {
+	sessions := s.LoadSessions()
 	if idx < 0 || idx >= len(sessions) {
 		return
 	}
 	sessions = append(sessions[:idx], sessions[idx+1:]...)
 	data, _ := json.MarshalIndent(sessions, "", "  ")
-	os.WriteFile(s.path(), data, 0644)
+	os.WriteFile(filepath.Join(s.dir, "sessions.json"), data, 0644)
+}
+
+// --- Plugin configs ---
+
+func (s *Store) SavePluginConfigs(configs map[string]map[string]string, enabled map[string]bool) error {
+	payload := map[string]interface{}{
+		"configs": configs,
+		"enabled": enabled,
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(s.dir, "plugins.json"), data, 0644)
+}
+
+func (s *Store) LoadPluginConfigs() (map[string]map[string]string, map[string]bool) {
+	data, err := os.ReadFile(filepath.Join(s.dir, "plugins.json"))
+	if err != nil {
+		return make(map[string]map[string]string), make(map[string]bool)
+	}
+	var payload struct {
+		Configs map[string]map[string]string `json:"configs"`
+		Enabled map[string]bool              `json:"enabled"`
+	}
+	json.Unmarshal(data, &payload)
+	if payload.Configs == nil {
+		payload.Configs = make(map[string]map[string]string)
+	}
+	if payload.Enabled == nil {
+		payload.Enabled = make(map[string]bool)
+	}
+	return payload.Configs, payload.Enabled
 }

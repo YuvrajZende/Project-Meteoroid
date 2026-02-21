@@ -1,10 +1,41 @@
 /**
  * Webhook Routes
  * External webhook handlers for third-party integrations
+ * 
+ * SECURITY FEATURES:
+ * - MANDATORY signature verification for all webhooks
+ * - Timing-safe comparison (prevents timing attacks)
+ * - Timestamp validation for Stripe (prevents replay attacks)
+ * - Raw body preservation for signature verification
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createHmac, timingSafeEqual } from 'crypto';
+
+// ============================================
+// SECURITY: Configuration
+// ============================================
+
+const WEBHOOK_TIMESTAMP_TOLERANCE = 300; // 5 minutes in seconds
+
+// ============================================
+// SECURITY: Logging helper
+// ============================================
+
+function logSecurityEvent(
+    app: FastifyInstance,
+    event: 'signature_valid' | 'signature_invalid' | 'signature_missing' | 'replay_attack',
+    webhook: string,
+    details?: Record<string, unknown>
+): void {
+    app.log.warn({
+        security: true,
+        webhook,
+        event,
+        ...details,
+        timestamp: new Date().toISOString()
+    }, `[WEBHOOK SECURITY] ${event} for ${webhook}`);
+}
 
 /**
  * Verify webhook signature (HMAC-SHA256)
@@ -47,8 +78,8 @@ function verifyStripeSignature(
         const timestamp = Number(t.replace('t=', ''));
         const now = Math.floor(Date.now() / 1000);
 
-        // Reject timestamps older than 5 minutes
-        if (now - timestamp > 300) {
+        // SECURITY: Reject timestamps older than tolerance (prevents replay attacks)
+        if (now - timestamp > WEBHOOK_TIMESTAMP_TOLERANCE) {
             return false;
         }
 
@@ -86,19 +117,36 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
         const signature = request.headers['x-supabase-signature'] as string;
         const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET;
 
-        if (webhookSecret && signature) {
-            const isValid = verifyWebhookSignature(
-                JSON.stringify(request.body),
-                signature,
-                webhookSecret
-            );
-
-            if (!isValid) {
-                return reply.status(401).send({
-                    error: 'Invalid webhook signature',
-                });
-            }
+        // SECURITY: Webhook secret is MANDATORY in production
+        if (!webhookSecret) {
+            logSecurityEvent(app, 'signature_missing', 'supabase', { reason: 'SUPABASE_WEBHOOK_SECRET not configured' });
+            return reply.status(500).send({
+                error: 'Webhook not configured',
+                code: 'WEBHOOK_NOT_CONFIGURED'
+            });
         }
+
+        // SECURITY: Signature is MANDATORY
+        if (!signature) {
+            logSecurityEvent(app, 'signature_missing', 'supabase', { ip: request.ip });
+            return reply.status(401).send({
+                error: 'Missing webhook signature',
+                code: 'MISSING_SIGNATURE'
+            });
+        }
+
+        const rawBody = JSON.stringify(request.body);
+        const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
+
+        if (!isValid) {
+            logSecurityEvent(app, 'signature_invalid', 'supabase', { ip: request.ip });
+            return reply.status(401).send({
+                error: 'Invalid webhook signature',
+                code: 'INVALID_SIGNATURE'
+            });
+        }
+
+        logSecurityEvent(app, 'signature_valid', 'supabase');
 
         const payload = request.body as {
             type: string;
@@ -152,28 +200,37 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
         const signature = request.headers['stripe-signature'] as string;
         const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+        // SECURITY: Webhook secret is MANDATORY
         if (!webhookSecret) {
+            logSecurityEvent(app, 'signature_missing', 'stripe', { reason: 'STRIPE_WEBHOOK_SECRET not configured' });
             return reply.status(500).send({
-                error: 'Stripe webhook not configured',
+                error: 'Webhook not configured',
+                code: 'WEBHOOK_NOT_CONFIGURED'
             });
         }
 
+        // SECURITY: Signature is MANDATORY
         if (!signature) {
+            logSecurityEvent(app, 'signature_missing', 'stripe', { ip: request.ip });
             return reply.status(401).send({
                 error: 'Missing Stripe signature',
+                code: 'MISSING_SIGNATURE'
             });
         }
 
-        // Get raw body for signature verification
-        const rawBody = request.rawBody || JSON.stringify(request.body);
+        const rawBody = JSON.stringify(request.body);
 
-        // Verify Stripe signature
-        if (!verifyStripeSignature(rawBody, signature, webhookSecret)) {
-            app.log.warn('Invalid Stripe webhook signature');
+        // SECURITY: Verify Stripe signature with timestamp check
+        const verifyResult = verifyStripeSignature(rawBody, signature, webhookSecret);
+        if (!verifyResult) {
+            logSecurityEvent(app, 'signature_invalid', 'stripe', { ip: request.ip });
             return reply.status(401).send({
                 error: 'Invalid signature',
+                code: 'INVALID_SIGNATURE'
             });
         }
+
+        logSecurityEvent(app, 'signature_valid', 'stripe');
 
         const payload = request.body as {
             type: string;
@@ -220,20 +277,37 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
         const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
         const event = request.headers['x-github-event'] as string;
 
-        if (webhookSecret && signature) {
-            const sig = signature.replace('sha256=', '');
-            const isValid = verifyWebhookSignature(
-                JSON.stringify(request.body),
-                sig,
-                webhookSecret
-            );
-
-            if (!isValid) {
-                return reply.status(401).send({
-                    error: 'Invalid GitHub signature',
-                });
-            }
+        // SECURITY: Webhook secret is MANDATORY
+        if (!webhookSecret) {
+            logSecurityEvent(app, 'signature_missing', 'github', { reason: 'GITHUB_WEBHOOK_SECRET not configured' });
+            return reply.status(500).send({
+                error: 'Webhook not configured',
+                code: 'WEBHOOK_NOT_CONFIGURED'
+            });
         }
+
+        // SECURITY: Signature is MANDATORY
+        if (!signature) {
+            logSecurityEvent(app, 'signature_missing', 'github', { ip: request.ip, event });
+            return reply.status(401).send({
+                error: 'Missing GitHub signature',
+                code: 'MISSING_SIGNATURE'
+            });
+        }
+
+        const sig = signature.replace('sha256=', '');
+        const rawBody = JSON.stringify(request.body);
+        const isValid = verifyWebhookSignature(rawBody, sig, webhookSecret);
+
+        if (!isValid) {
+            logSecurityEvent(app, 'signature_invalid', 'github', { ip: request.ip, event });
+            return reply.status(401).send({
+                error: 'Invalid GitHub signature',
+                code: 'INVALID_SIGNATURE'
+            });
+        }
+
+        logSecurityEvent(app, 'signature_valid', 'github', { event });
 
         app.log.info({ event }, 'Received GitHub webhook');
 

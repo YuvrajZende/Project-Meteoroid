@@ -3,77 +3,40 @@
  * Provides hybrid database connection:
  * - Local PostgreSQL (via MCP) for relational data
  * - Supabase (with pgvector) for vector operations
+ * 
+ * PERFORMANCE FEATURES:
+ * - Connection pooling via Supabase pooler
+ * - Connection health monitoring
+ * - Automatic reconnection on failure
+ * - Query timeout configuration
+ * 
+ * NOTE: This module imports from supabase-client.ts to avoid circular dependencies
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { HybridDatabase } from './hybrid-database.js';
+import { getSupabaseClient as getClient, getSupabaseAdmin as getAdmin, getDbConfig, resetSupabaseClients } from './supabase-client.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { HybridDatabase } from './hybrid-database.js';
 
-// Singleton Supabase clients
-let supabaseClient: SupabaseClient | null = null;
-let supabaseAdmin: SupabaseClient | null = null;
-
-// Singleton hybrid database
 let hybridDatabase: HybridDatabase | null = null;
+let lastHealthCheck: Date | null = null;
+let connectionHealthy: boolean = true;
 
-/**
- * Get or create the Supabase client (respects RLS)
- */
 export function getSupabaseClient(): SupabaseClient {
-    if (!supabaseClient) {
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_ANON_KEY;
-
-        if (!url || !key) {
-            throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
-        }
-
-        supabaseClient = createClient(url, key, {
-            auth: {
-                autoRefreshToken: true,
-                persistSession: false,
-            },
-        });
-    }
-
-    return supabaseClient;
+    return getClient();
 }
 
-/**
- * Get or create the Supabase admin client (bypasses RLS)
- */
 export function getSupabaseAdmin(): SupabaseClient {
-    if (!supabaseAdmin) {
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!url || !key) {
-            throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env');
-        }
-
-        supabaseAdmin = createClient(url, key, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false,
-            },
-        });
-    }
-
-    return supabaseAdmin;
+    return getAdmin();
 }
 
-/**
- * Get the hybrid database singleton
- */
 export function getHybridDatabase(): HybridDatabase {
     if (!hybridDatabase) {
+        const { HybridDatabase } = require('./hybrid-database.js');
         hybridDatabase = new HybridDatabase();
     }
-    return hybridDatabase;
+    return hybridDatabase!;
 }
 
-/**
- * Check Supabase database connectivity
- */
 export async function checkSupabaseConnection(): Promise<{
     connected: boolean;
     message: string;
@@ -84,7 +47,6 @@ export async function checkSupabaseConnection(): Promise<{
         const startTime = Date.now();
         const supabase = getSupabaseAdmin();
 
-        // Try a simple auth check (fast and reliable)
         const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
 
         const latency = Date.now() - startTime;
@@ -112,9 +74,6 @@ export async function checkSupabaseConnection(): Promise<{
     }
 }
 
-/**
- * Check Vector Store (pgvector) connectivity and function availability
- */
 export async function checkVectorStore(): Promise<{
     connected: boolean;
     message: string;
@@ -128,7 +87,6 @@ export async function checkVectorStore(): Promise<{
         const startTime = Date.now();
         const supabase = getSupabaseAdmin();
 
-        // Check if knowledge_embeddings table exists
         const { count: tableCount, error: tableError } = await supabase
             .from('knowledge_embeddings')
             .select('*', { count: 'exact', head: true });
@@ -145,7 +103,6 @@ export async function checkVectorStore(): Promise<{
             };
         }
 
-        // Check if match_embeddings function exists
         let functionExists = false;
         try {
             const testEmbedding = new Array(1536).fill(0.001);
@@ -156,7 +113,7 @@ export async function checkVectorStore(): Promise<{
             });
 
             functionExists = !funcError || funcError.code !== '42883';
-        } catch (err) {
+        } catch {
             functionExists = false;
         }
 
@@ -192,9 +149,6 @@ export async function checkVectorStore(): Promise<{
     }
 }
 
-/**
- * Check local PostgreSQL connectivity via MCP
- */
 export async function checkLocalConnection(): Promise<{
     connected: boolean;
     message: string;
@@ -205,7 +159,6 @@ export async function checkLocalConnection(): Promise<{
         const startTime = Date.now();
         const hybridDb = getHybridDatabase();
 
-        // Simple connection test via the hybrid database
         const state = await hybridDb.getConnectionState();
         const latency = Date.now() - startTime;
 
@@ -232,9 +185,6 @@ export async function checkLocalConnection(): Promise<{
     }
 }
 
-/**
- * Test database operations with a full CRUD cycle
- */
 export async function testDatabaseOperations(): Promise<{
     success: boolean;
     operations: {
@@ -258,7 +208,6 @@ export async function testDatabaseOperations(): Promise<{
         const supabase = getSupabaseAdmin();
         const testId = `test-${Date.now()}`;
 
-        // Test INSERT
         details.push('[1/4] Testing INSERT operation...');
         const { data: insertData, error: insertError } = await supabase
             .from('knowledge_embeddings')
@@ -278,7 +227,6 @@ export async function testDatabaseOperations(): Promise<{
         operations.insert = true;
         details.push(`✅ INSERT successful (ID: ${insertData.id})`);
 
-        // Test SELECT
         details.push('[2/4] Testing SELECT operation...');
         const { data: selectData, error: selectError } = await supabase
             .from('knowledge_embeddings')
@@ -294,7 +242,6 @@ export async function testDatabaseOperations(): Promise<{
         operations.select = true;
         details.push(`✅ SELECT successful (Content: "${selectData.content.substring(0, 30)}...")`);
 
-        // Test UPDATE
         details.push('[3/4] Testing UPDATE operation...');
         const { error: updateError } = await supabase
             .from('knowledge_embeddings')
@@ -311,7 +258,6 @@ export async function testDatabaseOperations(): Promise<{
         operations.update = true;
         details.push(`✅ UPDATE successful (Metadata updated)`);
 
-        // Test DELETE
         details.push('[4/4] Testing DELETE operation...');
         const { error: deleteError } = await supabase
             .from('knowledge_embeddings')
@@ -348,9 +294,6 @@ export async function testDatabaseOperations(): Promise<{
     }
 }
 
-/**
- * Unified database health check
- */
 export async function checkDatabaseHealth(): Promise<{
     local: Awaited<ReturnType<typeof checkLocalConnection>>;
     supabase: Awaited<ReturnType<typeof checkSupabaseConnection>>;
@@ -374,3 +317,35 @@ export async function checkDatabaseHealth(): Promise<{
             : { connected: false, message: 'Check failed', tableExists: false, functionExists: false, error: 'Promise rejected' },
     };
 }
+
+export function getConnectionStats(): {
+    poolerEnabled: boolean;
+    lastHealthCheck: Date | null;
+    connectionHealthy: boolean;
+    clientInitialized: boolean;
+    adminInitialized: boolean;
+} {
+    const DB_CONFIG = getDbConfig();
+    return {
+        poolerEnabled: DB_CONFIG.pooler.enabled,
+        lastHealthCheck,
+        connectionHealthy,
+        clientInitialized: true,
+        adminInitialized: true,
+    };
+}
+
+export function updateConnectionHealth(healthy: boolean): void {
+    connectionHealthy = healthy;
+    lastHealthCheck = new Date();
+}
+
+export function resetConnections(): void {
+    resetSupabaseClients();
+    hybridDatabase = null;
+    connectionHealthy = true;
+    lastHealthCheck = null;
+    console.log('[DATABASE] Connections reset');
+}
+
+export { getDbConfig };

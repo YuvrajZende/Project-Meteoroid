@@ -11,16 +11,12 @@
  * Replaces the planning logic from the monolithic IntegratedOrchestrator.
  */
 
-import { injectable, inject } from 'inversify';
-import { TYPES } from '../../../di/types.js';
+import { injectable } from 'inversify';
 import type { IPlanningService, PlanningRequest, PlanningResult, Subtask, ComplexityAnalysis } from '../../../interfaces/planning.interface.js';
-import type { IContextManager } from '../../../interfaces/context.interface.js';
 
 @injectable()
 export class PlanningService implements IPlanningService {
-    constructor(
-        @inject(TYPES.ContextManager) private contextManager?: IContextManager
-    ) {}
+    constructor() {}
 
     /**
      * Analyze a request and create a comprehensive plan
@@ -116,9 +112,8 @@ export class PlanningService implements IPlanningService {
     /**
      * Break down a request into subtasks
      */
-    async createSubtasks(request: PlanningRequest, complexity: ComplexityAnalysis): Promise<Subtask[]> {
+    async createSubtasks(_request: PlanningRequest, complexity: ComplexityAnalysis): Promise<Subtask[]> {
         const subtasks: Subtask[] = [];
-        const prompt = request.prompt.toLowerCase();
 
         // Task 1: Setup/Configuration (if needed)
         if (complexity.factors.hasDatabaseOperations || complexity.factors.hasAuthentication) {

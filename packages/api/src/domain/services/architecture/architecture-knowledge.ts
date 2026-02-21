@@ -226,9 +226,9 @@ export class ArchitectureKnowledgeService {
             `Language: ${language}`,
             `Framework: ${framework}`,
             `Features: ${features.join(', ')}`,
-            `Routes: ${blueprint.routes.map(r => `${r.method} ${r.path}`).join(', ')}`,
-            `Tables: ${blueprint.database.tables.map(t => t.name).join(', ')}`,
-            `Services: ${blueprint.services.map(s => s.name).join(', ')}`,
+            `Routes: ${(blueprint.routes || []).map(r => `${r.method} ${r.path}`).join(', ')}`,
+            `Tables: ${(blueprint.database?.tables || []).map(t => t.name).join(', ')}`,
+            `Services: ${(blueprint.services || []).map(s => s.name).join(', ')}`,
         ];
 
         return parts.join('\n');

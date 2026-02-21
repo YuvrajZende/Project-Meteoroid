@@ -124,7 +124,7 @@ export class Logger {
     /**
      * Add ANSI colors to log level
      */
-    private colorizeLevel(level: string, logLevel: LogLevel): string {
+    private colorizeLevel(level: string, _logLevel: LogLevel): string {
         const colors = {
             ERROR: '\x1b[31m', // Red
             WARN: '\x1b[33m',  // Yellow

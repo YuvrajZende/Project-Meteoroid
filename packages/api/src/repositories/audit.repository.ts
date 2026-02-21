@@ -267,7 +267,6 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
 
             const actionsByType: Record<string, number> = {};
             let totalActions = 0;
-            const uniqueUserIds = new Set<string>();
 
             for (const row of results) {
                 actionsByType[row.action] = Number(row.count);

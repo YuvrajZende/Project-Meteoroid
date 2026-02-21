@@ -68,21 +68,17 @@ export class LearningService implements ILearningService {
     private readonly testingIterationRepo: ITestingIterationRepository;
     private readonly learnedPatternRepo: ILearnedPatternRepository;
 
-    // Legacy fallback (can be removed once fully migrated)
-    private readonly _database?: IDatabase;
-
     constructor(
         @inject(TYPES.GenerationIterationRepository) generationIterationRepo: IGenerationIterationRepository,
         @inject(TYPES.TestingIterationRepository) testingIterationRepo: ITestingIterationRepository,
         @inject(TYPES.LearnedPatternRepository) learnedPatternRepo: ILearnedPatternRepository,
-        @inject(TYPES.Database) @optional() database?: IDatabase,
+        @inject(TYPES.Database) @optional() _database?: IDatabase,
         @inject(TYPES.VectorStore) @optional() vectorStore?: IVectorStore,
         @unmanaged() config?: Partial<LearningConfig>
     ) {
         this.generationIterationRepo = generationIterationRepo;
         this.testingIterationRepo = testingIterationRepo;
         this.learnedPatternRepo = learnedPatternRepo;
-        this._database = database;
 
         this.config = {
             enabled: config?.enabled ?? true,

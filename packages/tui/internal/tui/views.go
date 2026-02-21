@@ -26,8 +26,7 @@ func (m Model) View() string {
 	s.WriteString(m.viewTabs())
 	s.WriteString("\n")
 	s.WriteString(dimLine(m.width))
-	s.WriteString("\n")
-	s.WriteString(" ")
+	s.WriteString("\n ")
 	s.WriteString(m.viewport.View())
 	s.WriteString("\n")
 
@@ -38,14 +37,14 @@ func (m Model) View() string {
 	}
 	s.WriteString("\n")
 
-	if m.activeView == "chat" {
+	// Input row
+	if m.activeView == "chat" || m.configMode {
 		s.WriteString(m.viewInput())
 	} else {
 		s.WriteString(m.viewNavHints())
 	}
 	s.WriteString("\n")
 	s.WriteString(m.viewStatus())
-
 	return s.String()
 }
 
@@ -87,15 +86,13 @@ func (m Model) viewBoot() string {
 		}
 	}
 	out = append(out, "")
-
 	if m.bootStep >= bootSub {
 		sub := "AI-Powered Code Generation Terminal"
-		styled := lipgloss.NewStyle().Foreground(theme.Slate).Render(sub)
 		pad := (w - len(sub)) / 2
 		if pad < 0 {
 			pad = 0
 		}
-		out = append(out, strings.Repeat(" ", pad)+styled)
+		out = append(out, strings.Repeat(" ", pad)+lipgloss.NewStyle().Foreground(theme.Slate).Render(sub))
 	} else {
 		out = append(out, "")
 	}
@@ -107,17 +104,15 @@ func (m Model) viewBoot() string {
 			out = append(out, "")
 			continue
 		}
-		isCurrent := m.bootStep == phase
 		var line string
-		if isCurrent {
+		if m.bootStep == phase {
 			dots := strings.Repeat(".", m.bootDots)
-			icon := lipgloss.NewStyle().Foreground(theme.Cyan).Render(">>")
-			text := lipgloss.NewStyle().Foreground(theme.Slate).Render("  " + step)
-			line = icon + text + lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(dots)
+			line = lipgloss.NewStyle().Foreground(theme.Cyan).Render(">>") +
+				lipgloss.NewStyle().Foreground(theme.Slate).Render("  "+step) +
+				lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(dots)
 		} else {
-			icon := lipgloss.NewStyle().Foreground(theme.Teal).Render("OK")
-			text := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("  " + step)
-			line = icon + text
+			line = lipgloss.NewStyle().Foreground(theme.Teal).Render("OK") +
+				lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("  "+step)
 		}
 		pad := (w - len(step) - 6) / 2
 		if pad < 4 {
@@ -125,7 +120,6 @@ func (m Model) viewBoot() string {
 		}
 		out = append(out, strings.Repeat(" ", pad)+line)
 	}
-
 	if m.bootStep >= bootReady {
 		out = append(out, "")
 		r := "--- ALL SYSTEMS READY ---"
@@ -149,15 +143,14 @@ func (m Model) viewHeader() string {
 		conn = lipgloss.NewStyle().Foreground(theme.Rose).Render("[disconnected] ")
 	}
 	left := logo + tag
-	right := conn
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(conn)
 	if gap < 1 {
 		gap = 1
 	}
-	return left + strings.Repeat(" ", gap) + right
+	return left + strings.Repeat(" ", gap) + conn
 }
 
-// --- Tab bar ---
+// --- Tabs ---
 
 func (m Model) viewTabs() string {
 	tabs := []struct{ key, label string }{
@@ -166,11 +159,9 @@ func (m Model) viewTabs() string {
 	var parts []string
 	for _, t := range tabs {
 		if t.key == m.activeView {
-			parts = append(parts, lipgloss.NewStyle().
-				Foreground(theme.Purple).Bold(true).Render(" ["+t.label+"] "))
+			parts = append(parts, lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render(" ["+t.label+"] "))
 		} else {
-			parts = append(parts, lipgloss.NewStyle().
-				Foreground(theme.DarkSlate).Render("  "+t.label+"  "))
+			parts = append(parts, lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("  "+t.label+"  "))
 		}
 	}
 	return "  " + strings.Join(parts, "")
@@ -179,30 +170,53 @@ func (m Model) viewTabs() string {
 // --- Pipeline ---
 
 func (m Model) viewPipeline() string {
-	total := len(pipelinePhases)
-	cur := m.pipelinePhase
-	if cur >= total {
-		cur = total - 1
-	}
-	var bar strings.Builder
-	for i := 0; i < total; i++ {
-		if i < cur {
-			bar.WriteString(lipgloss.NewStyle().Foreground(theme.Teal).Render("--"))
-		} else if i == cur {
-			bar.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("--"))
-		} else {
-			bar.WriteString(lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("--"))
+	var s strings.Builder
+
+	// Show current phase prominently
+	s.WriteString(" " + m.spinner.View() + " ")
+	s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render(m.pipelineMsg))
+	s.WriteString("\n")
+
+	// Show recent pipeline steps from backend
+	if len(m.pipelineSteps) > 0 {
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("  Recent: "))
+		start := len(m.pipelineSteps) - 3
+		if start < 0 {
+			start = 0
+		}
+		for i := start; i < len(m.pipelineSteps); i++ {
+			if i > start {
+				s.WriteString(lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(" → "))
+			}
+			s.WriteString(lipgloss.NewStyle().Foreground(theme.Slate).Render(m.pipelineSteps[i]))
 		}
 	}
-	label := m.spinner.View() + " " +
-		lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render(m.pipelineMsg) +
-		lipgloss.NewStyle().Foreground(theme.Dim).Render(fmt.Sprintf(" [%d/%d]", cur+1, total))
-	return " " + bar.String() + "  " + label
+
+	// Show files written count
+	if len(m.filesWritten) > 0 {
+		s.WriteString("\n")
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.Teal).Render(
+			fmt.Sprintf("  📁 %d files written", len(m.filesWritten))))
+	}
+
+	// Show SSE connection status
+	if m.sseConnected {
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.Teal).Render(" • SSE ●"))
+	} else {
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.Rose).Render(" • SSE ○"))
+	}
+
+	return s.String()
 }
 
 // --- Input ---
 
 func (m Model) viewInput() string {
+	if m.configMode {
+		badge := lipgloss.NewStyle().Foreground(lipgloss.Color("#0F172A")).
+			Background(theme.Amber).Padding(0, 1).Bold(true).Render("CONFIG")
+		return " " + badge + m.input.View()
+	}
 	var badge string
 	if m.inputMode == "execute" {
 		badge = lipgloss.NewStyle().Foreground(lipgloss.Color("#0F172A")).
@@ -214,36 +228,39 @@ func (m Model) viewInput() string {
 	return " " + badge + m.input.View()
 }
 
-// --- Nav hints for non-chat views ---
+// --- Nav hints ---
 
 func (m Model) viewNavHints() string {
 	var hint string
 	switch m.activeView {
 	case "plugins":
-		hint = "  arrows navigate | space toggle | esc back to chat"
+		hint = "  arrows navigate | enter/space configure | esc back"
 	case "context":
-		hint = "  scroll to view | esc back to chat"
+		hint = "  scroll to view context tree | esc back"
 	case "history":
 		hint = "  up/down select | enter load | d delete | esc back"
 	}
 	return lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(hint)
 }
 
-// --- Status bar ---
+// --- Status ---
 
 func (m Model) viewStatus() string {
-	leftParts := "  ctrl+t mode | ctrl+s save | tab views | esc quit"
-	left := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(leftParts)
+	left := "  ctrl+t mode | ctrl+s save | tab views | esc quit"
+	if m.configMode {
+		left = "  enter confirm | esc cancel config"
+	}
+	leftStyled := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(left)
 	uptime := time.Since(m.startTime).Round(time.Second)
 	right := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(fmt.Sprintf("uptime %s  ", uptime))
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	gap := m.width - lipgloss.Width(leftStyled) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}
-	return left + strings.Repeat(" ", gap) + right
+	return leftStyled + strings.Repeat(" ", gap) + right
 }
 
-// --- Content refresh ---
+// --- Viewport content ---
 
 func (m *Model) refreshContent() {
 	if !m.ready {
@@ -256,13 +273,15 @@ func (m *Model) refreshContent() {
 	case "plugins":
 		m.viewport.SetContent(m.renderPlugins())
 	case "context":
-		m.viewport.SetContent(m.renderContext())
+		m.viewport.SetContent(m.renderContextTree())
 	case "history":
 		m.viewport.SetContent(m.renderHistoryList())
 	}
 }
 
-// --- Chat content ---
+// ===================================================================
+// Chat
+// ===================================================================
 
 func (m Model) renderChat() string {
 	if len(m.history) == 0 {
@@ -270,7 +289,7 @@ func (m Model) renderChat() string {
 	}
 	var b strings.Builder
 	for i, e := range m.history {
-		b.WriteString(renderEntry(e, m.width))
+		b.WriteString(renderEntry(e))
 		if i < len(m.history)-1 {
 			b.WriteString("\n")
 		}
@@ -282,97 +301,102 @@ func (m Model) renderWelcome() string {
 	title := lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("Welcome to Meteoroid")
 	return strings.Join([]string{
 		"", " " + title, "",
-		dim("  Type a prompt and press Enter to start."),
-		dim("  Use Ctrl+T to switch between BUILD and CHAT modes."),
-		dim("  Press Tab to navigate between views."),
-		"",
-		dim("  BUILD  Full AI orchestration pipeline"),
-		dim("  CHAT   Direct AI conversation"),
+		sdim("  Type a prompt and press Enter to start."),
+		sdim("  Use Ctrl+T to switch between BUILD and CHAT modes."),
+		sdim("  Press Tab to navigate between views."), "",
+		sdim("  BUILD  Full AI orchestration pipeline"),
+		sdim("  CHAT   Direct AI conversation"),
 	}, "\n")
 }
 
-func renderEntry(e ChatEntry, w int) string {
+func renderEntry(e ChatEntry) string {
 	ts := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(e.Timestamp.Format("15:04:05"))
 	switch e.Role {
 	case "user":
-		lbl := lipgloss.NewStyle().Foreground(theme.Cyan).Bold(true).Render("> You")
-		txt := lipgloss.NewStyle().Foreground(theme.White).Render(e.Content)
-		return fmt.Sprintf(" %s %s\n   %s", ts, lbl, txt)
+		return fmt.Sprintf(" %s %s\n   %s", ts,
+			lipgloss.NewStyle().Foreground(theme.Cyan).Bold(true).Render("> You"),
+			lipgloss.NewStyle().Foreground(theme.White).Render(e.Content))
 	case "assistant":
-		lbl := lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("* Meteoroid")
-		txt := lipgloss.NewStyle().Foreground(theme.White).Render(e.Content)
 		meta := fmtMeta(e.Meta)
-		return fmt.Sprintf(" %s %s\n   %s%s", ts, lbl, txt, meta)
+		return fmt.Sprintf(" %s %s\n   %s%s", ts,
+			lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("* Meteoroid"),
+			lipgloss.NewStyle().Foreground(theme.White).Render(e.Content), meta)
 	case "code":
-		lbl := lipgloss.NewStyle().Foreground(theme.Teal).Bold(true).Render("* Code")
 		hdr := ""
 		if e.Meta != nil && e.Meta["subtask"] != "" {
 			hdr = "\n   " + lipgloss.NewStyle().Foreground(theme.Cyan).Render(e.Meta["subtask"])
 		}
-		code := lipgloss.NewStyle().Foreground(theme.Teal).Render(e.Content)
-		return fmt.Sprintf(" %s %s%s\n   %s", ts, lbl, hdr, code)
+		return fmt.Sprintf(" %s %s%s\n   %s", ts,
+			lipgloss.NewStyle().Foreground(theme.Teal).Bold(true).Render("* Code"), hdr,
+			lipgloss.NewStyle().Foreground(theme.Teal).Render(e.Content))
 	case "system":
-		lbl := lipgloss.NewStyle().Foreground(theme.Amber).Bold(true).Render("* System")
-		return fmt.Sprintf(" %s %s  %s", ts, lbl, lipgloss.NewStyle().Foreground(theme.Amber).Render(e.Content))
+		return fmt.Sprintf(" %s %s  %s", ts,
+			lipgloss.NewStyle().Foreground(theme.Amber).Bold(true).Render("* System"),
+			lipgloss.NewStyle().Foreground(theme.Amber).Render(e.Content))
 	case "error":
-		lbl := lipgloss.NewStyle().Foreground(theme.Rose).Bold(true).Render("! Error")
-		return fmt.Sprintf(" %s %s  %s", ts, lbl, lipgloss.NewStyle().Foreground(theme.Rose).Render(e.Content))
+		return fmt.Sprintf(" %s %s  %s", ts,
+			lipgloss.NewStyle().Foreground(theme.Rose).Bold(true).Render("! Error"),
+			lipgloss.NewStyle().Foreground(theme.Rose).Render(e.Content))
 	case "pipeline":
-		lbl := lipgloss.NewStyle().Foreground(theme.Indigo).Bold(true).Render("> Pipeline")
 		lines := strings.Split(e.Content, "\n")
 		var r []string
 		for _, l := range lines {
 			r = append(r, lipgloss.NewStyle().Foreground(theme.Slate).Render(l))
 		}
-		return fmt.Sprintf(" %s %s\n   %s", ts, lbl, strings.Join(r, "\n   "))
+		return fmt.Sprintf(" %s %s\n   %s", ts,
+			lipgloss.NewStyle().Foreground(theme.Indigo).Bold(true).Render("> Pipeline"),
+			strings.Join(r, "\n   "))
 	}
 	return "  " + e.Content
 }
 
-// --- Plugins content ---
+// ===================================================================
+// Plugins (with config panel)
+// ===================================================================
 
 func (m Model) renderPlugins() string {
 	var s strings.Builder
 	s.WriteString("\n")
 	s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  Plugin Manager"))
 	s.WriteString("\n")
-	s.WriteString(dim("  Select plugins to include in your tech stack context"))
+	s.WriteString(sdim("  Select and configure plugins for your tech stack"))
 	s.WriteString("\n\n")
 
 	// Category tabs
 	for i, cat := range m.catalog {
-		name := cat.Name
 		if i == m.pluginCatIdx {
-			s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  [" + name + "]"))
+			s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  [" + cat.Name + "]"))
 		} else {
-			s.WriteString(lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("   " + name + " "))
+			s.WriteString(lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("   " + cat.Name + " "))
 		}
 	}
 	s.WriteString("\n")
-	s.WriteString(dim("  " + strings.Repeat("-", 60)))
+	s.WriteString(sdim("  " + strings.Repeat("-", 60)))
 	s.WriteString("\n\n")
 
-	// Items for active category
+	// Plugin list
 	if m.pluginCatIdx < len(m.catalog) {
 		cat := m.catalog[m.pluginCatIdx]
 		for i, p := range cat.Plugins {
 			key := fmt.Sprintf("%d:%d", m.pluginCatIdx, i)
 			enabled := m.enabledPlugins[key]
+			isSelected := i == m.pluginItemIdx
 
+			// Cursor
 			cursor := "  "
-			if i == m.pluginItemIdx {
+			if isSelected {
 				cursor = lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("> ")
 			}
 
-			check := "[ ]"
+			// Checkbox
+			check := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("[ ]")
 			if enabled {
 				check = lipgloss.NewStyle().Foreground(theme.Teal).Render("[x]")
-			} else {
-				check = lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("[ ]")
 			}
 
-			name := p.Name
-			if i == m.pluginItemIdx {
+			// Name
+			var name string
+			if isSelected {
 				name = lipgloss.NewStyle().Foreground(theme.White).Bold(true).Render(p.Name)
 			} else if enabled {
 				name = lipgloss.NewStyle().Foreground(theme.Teal).Render(p.Name)
@@ -380,109 +404,87 @@ func (m Model) renderPlugins() string {
 				name = lipgloss.NewStyle().Foreground(theme.Slate).Render(p.Name)
 			}
 
-			desc := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(p.Desc)
-
-			// Pad name to 20 chars for alignment
-			rawName := p.Name
-			pad := 20 - len(rawName)
+			pad := 20 - len(p.Name)
 			if pad < 1 {
 				pad = 1
 			}
 
-			s.WriteString(fmt.Sprintf("  %s %s %s%s%s\n", cursor, check, name, strings.Repeat(" ", pad), desc))
+			// Description + config indicator
+			desc := p.Desc
+			if enabled && len(p.Fields) > 0 {
+				desc += " (configured)"
+			} else if len(p.Fields) > 0 {
+				desc += " (needs config)"
+			}
+			descStyled := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(desc)
+
+			s.WriteString(fmt.Sprintf("  %s %s %s%s%s\n", cursor, check, name, strings.Repeat(" ", pad), descStyled))
+
+			// Show config details for selected enabled plugin
+			if isSelected && enabled && len(p.Fields) > 0 {
+				cfg := m.pluginConfigs[key]
+				for _, f := range p.Fields {
+					val := ""
+					if cfg != nil {
+						val = cfg[f.Key]
+					}
+					display := val
+					if f.Secret && val != "" {
+						display = strings.Repeat("*", 8)
+					}
+					if display == "" {
+						display = "(not set)"
+					}
+					fieldLabel := lipgloss.NewStyle().Foreground(theme.Dim).Render("        " + f.Label + ": ")
+					fieldVal := lipgloss.NewStyle().Foreground(theme.Slate).Render(display)
+					s.WriteString(fieldLabel + fieldVal + "\n")
+				}
+			}
 		}
 	}
 
-	// Enabled summary
-	s.WriteString("\n")
-	var enabled []string
-	for key, on := range m.enabledPlugins {
-		if !on {
-			continue
-		}
-		var ci, pi int
-		fmt.Sscanf(key, "%d:%d", &ci, &pi)
-		if ci < len(m.catalog) && pi < len(m.catalog[ci].Plugins) {
-			enabled = append(enabled, m.catalog[ci].Plugins[pi].Name)
-		}
-	}
-	if len(enabled) > 0 {
-		s.WriteString(dim("  Active: "))
-		s.WriteString(lipgloss.NewStyle().Foreground(theme.Teal).Render(strings.Join(enabled, ", ")))
-	} else {
-		s.WriteString(dim("  No plugins enabled"))
-	}
-
-	return s.String()
-}
-
-// --- Context content ---
-
-func (m Model) renderContext() string {
-	var s strings.Builder
-	s.WriteString("\n")
-	s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  Context Inspector"))
-	s.WriteString("\n")
-	s.WriteString(dim("  Shows the context built from your last prompt"))
-	s.WriteString("\n\n")
-
-	if m.lastResponse == nil {
-		s.WriteString(dim("  No context available yet. Send a prompt in Chat view first."))
-		return s.String()
-	}
-
-	r := m.lastResponse
-
-	// Intent
-	if r.IntentAnalysis != nil {
-		s.WriteString(section("  Intent Analysis"))
-		s.WriteString(field("    Intent", r.IntentAnalysis.Intent))
-		s.WriteString(field("    Language", r.IntentAnalysis.Language))
-		s.WriteString(field("    Framework", r.IntentAnalysis.Framework))
-		s.WriteString(field("    Confidence", fmt.Sprintf("%.0f%%", r.IntentAnalysis.Confidence*100)))
-		if r.IntentAnalysis.Reasoning != "" {
-			s.WriteString(field("    Reasoning", r.IntentAnalysis.Reasoning))
-		}
+	// Config mode indicator
+	if m.configMode && m.pluginCatIdx < len(m.catalog) {
+		plugin := m.catalog[m.pluginCatIdx].Plugins[m.pluginItemIdx]
 		s.WriteString("\n")
-	}
-
-	// Pipeline info
-	s.WriteString(section("  Pipeline Summary"))
-	s.WriteString(field("    Task ID", r.TaskID))
-	s.WriteString(field("    Success", fmt.Sprintf("%v", r.Success)))
-	s.WriteString(field("    Steps", fmt.Sprintf("%d", r.Steps)))
-	s.WriteString(field("    Duration", fmt.Sprintf("%.1fs", r.TotalDuration/1000)))
-	s.WriteString(field("    Vector Learning", fmt.Sprintf("%v", r.VectorUsed)))
-	s.WriteString("\n")
-
-	// Agents
-	if len(r.AgentsExecuted) > 0 {
-		s.WriteString(section("  Agents Executed"))
-		for _, a := range r.AgentsExecuted {
-			s.WriteString("    " + lipgloss.NewStyle().Foreground(theme.Cyan).Render("- "+a) + "\n")
-		}
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.Amber).Bold(true).Render("  Configuring: ") +
+			lipgloss.NewStyle().Foreground(theme.White).Bold(true).Render(plugin.Name))
 		s.WriteString("\n")
-	}
 
-	// Generated files
-	if len(r.GeneratedCode) > 0 {
-		s.WriteString(section("  Generated Files"))
-		for i, c := range r.GeneratedCode {
-			label := fmt.Sprintf("    %d. ", i+1)
-			if c.Subtask != "" {
-				label += c.Subtask
+		for i, f := range plugin.Fields {
+			key := fmt.Sprintf("%d:%d", m.pluginCatIdx, m.pluginItemIdx)
+			val := ""
+			if cfg := m.pluginConfigs[key]; cfg != nil {
+				val = cfg[f.Key]
+			}
+
+			indicator := "  "
+			if i == m.configFieldIdx {
+				indicator = lipgloss.NewStyle().Foreground(theme.Amber).Render(">>")
+			} else if i < m.configFieldIdx {
+				indicator = lipgloss.NewStyle().Foreground(theme.Teal).Render("OK")
+			}
+
+			label := lipgloss.NewStyle().Foreground(theme.Slate).Render(f.Label + ": ")
+			var valueStr string
+			if i < m.configFieldIdx {
+				if f.Secret {
+					valueStr = lipgloss.NewStyle().Foreground(theme.Teal).Render(strings.Repeat("*", 8))
+				} else if val != "" {
+					valueStr = lipgloss.NewStyle().Foreground(theme.Teal).Render(val)
+				}
+			} else if i == m.configFieldIdx {
+				valueStr = lipgloss.NewStyle().Foreground(theme.Amber).Render("(type below and press Enter)")
 			} else {
-				label += "(unnamed)"
+				valueStr = lipgloss.NewStyle().Foreground(theme.DarkSlate).Render("(pending)")
 			}
-			if c.Agent != "" {
-				label += " [" + c.Agent + "]"
-			}
-			s.WriteString(lipgloss.NewStyle().Foreground(theme.Slate).Render(label) + "\n")
+
+			s.WriteString(fmt.Sprintf("  %s %s%s\n", indicator, label, valueStr))
 		}
-		s.WriteString("\n")
 	}
 
-	// Enabled plugins
+	// Active plugins summary
+	s.WriteString("\n")
 	var active []string
 	for key, on := range m.enabledPlugins {
 		if !on {
@@ -495,72 +497,189 @@ func (m Model) renderContext() string {
 		}
 	}
 	if len(active) > 0 {
-		s.WriteString(section("  Active Plugins"))
-		for _, p := range active {
-			s.WriteString("    " + lipgloss.NewStyle().Foreground(theme.Teal).Render("[x] "+p) + "\n")
-		}
+		s.WriteString(sdim("  Active: "))
+		s.WriteString(lipgloss.NewStyle().Foreground(theme.Teal).Render(strings.Join(active, ", ")))
+	} else {
+		s.WriteString(sdim("  No plugins enabled"))
 	}
-
 	return s.String()
 }
 
-// --- History list ---
+// ===================================================================
+// Context Tree
+// ===================================================================
+
+func (m Model) renderContextTree() string {
+	var s strings.Builder
+	s.WriteString("\n")
+	s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  Context Tree"))
+	s.WriteString("\n")
+	s.WriteString(sdim("  Branching view of context built for the current prompt"))
+	s.WriteString("\n\n")
+
+	if len(m.contextTree) == 0 {
+		s.WriteString(sdim("  No context available. Send a prompt first."))
+		return s.String()
+	}
+
+	prompt := "(last prompt)"
+	for i := len(m.history) - 1; i >= 0; i-- {
+		if m.history[i].Role == "user" {
+			prompt = m.history[i].Content
+			if len(prompt) > 60 {
+				prompt = prompt[:57] + "..."
+			}
+			break
+		}
+	}
+	s.WriteString(fmt.Sprintf("  %s %s\n",
+		lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("[ROOT]"),
+		lipgloss.NewStyle().Foreground(theme.White).Bold(true).Render(prompt)))
+
+	for i, node := range m.contextTree {
+		isLast := i == len(m.contextTree)-1
+		s.WriteString(renderTreeNode(node, "  ", isLast, m.width))
+	}
+
+	s.WriteString("\n")
+	s.WriteString(sdim(fmt.Sprintf("  Total context: %d nodes | %s estimated",
+		countNodes(m.contextTree), sumTreeSize(m.contextTree))))
+	return s.String()
+}
+
+func renderTreeNode(node ContextNode, prefix string, isLast bool, maxW int) string {
+	var s strings.Builder
+	connector := "|-- "
+	childPrefix := "|   "
+	if isLast {
+		connector = "+-- "
+		childPrefix = "    "
+	}
+	connStyled := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(connector)
+	cpStyled := lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(childPrefix)
+
+	tagColor := theme.Indigo
+	switch node.Tag {
+	case "INTENT":
+		tagColor = theme.Cyan
+	case "VECTOR":
+		tagColor = theme.Violet
+	case "PLUGINS":
+		tagColor = theme.Purple
+	case "AGENTS":
+		tagColor = theme.Amber
+	case "OUTPUT":
+		tagColor = theme.Teal
+	case "file":
+		tagColor = theme.Teal
+	case "db", "Database":
+		tagColor = theme.Cyan
+	case "sec", "Security":
+		tagColor = theme.Rose
+	}
+
+	tag := lipgloss.NewStyle().Foreground(tagColor).Bold(true).Render("[" + node.Tag + "]")
+	label := lipgloss.NewStyle().Foreground(theme.White).Render(" " + node.Label)
+	size := lipgloss.NewStyle().Foreground(theme.Dim).Render(node.Size)
+
+	mainWidth := lipgloss.Width(tag) + lipgloss.Width(label) + lipgloss.Width(size)
+	rightPad := maxW - len(prefix) - 4 - mainWidth - 2
+	if rightPad < 2 {
+		rightPad = 2
+	}
+
+	s.WriteString(prefix + connStyled + tag + label + strings.Repeat(" ", rightPad) + size + "\n")
+
+	if node.Summary != "" {
+		for _, line := range strings.Split(node.Summary, "\n") {
+			s.WriteString(prefix + cpStyled + lipgloss.NewStyle().Foreground(theme.Slate).Render(line) + "\n")
+		}
+	}
+	for j, child := range node.Children {
+		s.WriteString(renderTreeNode(child, prefix+childPrefix, j == len(node.Children)-1, maxW))
+	}
+	return s.String()
+}
+
+func sumTreeSize(nodes []ContextNode) string {
+	total := 0.0
+	for _, n := range nodes {
+		total += parseSize(n.Size)
+		for _, c := range n.Children {
+			total += parseSize(c.Size)
+		}
+	}
+	if total >= 1024 {
+		return fmt.Sprintf("%.1f MB", total/1024)
+	}
+	return fmt.Sprintf("%.1f KB", total)
+}
+
+func parseSize(s string) float64 {
+	var val float64
+	if strings.Contains(s, "~") {
+		fmt.Sscanf(s, "~%f", &val)
+	} else {
+		fmt.Sscanf(s, "%f", &val)
+	}
+	return val
+}
+
+func countNodes(nodes []ContextNode) int {
+	count := len(nodes)
+	for _, n := range nodes {
+		count += countNodes(n.Children)
+	}
+	return count
+}
+
+// ===================================================================
+// History
+// ===================================================================
 
 func (m Model) renderHistoryList() string {
 	var s strings.Builder
 	s.WriteString("\n")
 	s.WriteString(lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("  Chat History"))
 	s.WriteString("\n")
-	s.WriteString(dim("  Saved sessions (Ctrl+S in chat to save)"))
+	s.WriteString(sdim("  Saved sessions (Ctrl+S in chat to save)"))
 	s.WriteString("\n\n")
 
 	if len(m.sessions) == 0 {
-		s.WriteString(dim("  No saved sessions yet."))
+		s.WriteString(sdim("  No saved sessions yet."))
 		return s.String()
 	}
-
 	for i, sess := range m.sessions {
 		cursor := "  "
 		if i == m.historyIdx {
 			cursor = lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("> ")
 		}
-
 		ts := sess.Timestamp.Format("2006-01-02 15:04")
-		var tsStyled, preview, count string
 		if i == m.historyIdx {
-			tsStyled = lipgloss.NewStyle().Foreground(theme.Cyan).Render(ts)
-			preview = lipgloss.NewStyle().Foreground(theme.White).Render(sess.Preview)
-			count = lipgloss.NewStyle().Foreground(theme.Dim).Render(fmt.Sprintf(" (%d msgs)", sess.Count))
+			s.WriteString(fmt.Sprintf("  %s %s  %s%s\n", cursor,
+				lipgloss.NewStyle().Foreground(theme.Cyan).Render(ts),
+				lipgloss.NewStyle().Foreground(theme.White).Render(sess.Preview),
+				lipgloss.NewStyle().Foreground(theme.Dim).Render(fmt.Sprintf(" (%d msgs)", sess.Count))))
 		} else {
-			tsStyled = lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(ts)
-			preview = lipgloss.NewStyle().Foreground(theme.Slate).Render(sess.Preview)
-			count = lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(fmt.Sprintf(" (%d msgs)", sess.Count))
+			s.WriteString(fmt.Sprintf("  %s %s  %s%s\n", cursor,
+				lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(ts),
+				lipgloss.NewStyle().Foreground(theme.Slate).Render(sess.Preview),
+				lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(fmt.Sprintf(" (%d msgs)", sess.Count))))
 		}
-
-		s.WriteString(fmt.Sprintf("  %s %s  %s%s\n", cursor, tsStyled, preview, count))
 	}
-
 	return s.String()
 }
 
-// --- Helpers ---
+// ===================================================================
+// Helpers
+// ===================================================================
 
 func dimLine(w int) string {
 	return lipgloss.NewStyle().Foreground(theme.DarkSlate).Render(strings.Repeat("-", w))
 }
 
-func dim(s string) string {
+func sdim(s string) string {
 	return lipgloss.NewStyle().Foreground(theme.Slate).Render(s)
-}
-
-func section(title string) string {
-	return lipgloss.NewStyle().Foreground(theme.Indigo).Bold(true).Render(title) + "\n"
-}
-
-func field(label, value string) string {
-	l := lipgloss.NewStyle().Foreground(theme.Dim).Render(label + ": ")
-	v := lipgloss.NewStyle().Foreground(theme.White).Render(value)
-	return l + v + "\n"
 }
 
 func center(styled, raw string, w int) string {

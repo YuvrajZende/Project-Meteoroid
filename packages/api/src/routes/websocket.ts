@@ -318,3 +318,40 @@ export function broadcastGlobal(event: string, data?: unknown): void {
         timestamp: new Date().toISOString(),
     });
 }
+
+/**
+ * Broadcast file written event (for streaming file generation)
+ */
+export function broadcastFileWritten(projectId: string, filePath: string, size: number): void {
+    sseManager.broadcast('*', 'fileWritten', {
+        projectId,
+        filePath,
+        size,
+        timestamp: new Date().toISOString(),
+    });
+}
+
+/**
+ * Broadcast pipeline step event
+ */
+export function broadcastPipelineStep(stepNumber: number, phase: string, message: string): void {
+    sseManager.broadcast('*', 'pipelineStep', {
+        stepNumber,
+        phase,
+        message,
+        timestamp: new Date().toISOString(),
+    });
+}
+
+/**
+ * Broadcast generation progress
+ */
+export function broadcastGenerationProgress(taskId: string, progress: number, message: string): void {
+    sseManager.broadcast('*', 'taskUpdate', {
+        taskId,
+        status: 'generating',
+        progress,
+        message,
+        timestamp: new Date().toISOString(),
+    });
+}

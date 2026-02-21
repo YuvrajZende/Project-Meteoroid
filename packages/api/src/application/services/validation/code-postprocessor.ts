@@ -174,11 +174,19 @@ export class CodePostProcessor {
             // Step 5: Generate connected entry point (TypeScript only)
             entryPoint = this.generateEntryPoint(files, projectName);
 
-            // Step 6: Validate TypeScript syntax (basic check)
-            for (const file of files) {
+            // Step 6: Validate TypeScript syntax (basic check) and fix
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const syntaxErrors = this.validateTypescriptSyntax(file.content);
                 if (syntaxErrors.length > 0) {
-                    warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                    // Try to fix the syntax issues
+                    const fixResult = this.tryFixUnbalancedSyntax(file.content);
+                    if (fixResult.fixed) {
+                        files[i] = { ...file, content: fixResult.content };
+                        console.log(`[SYNTAX-FIX] ${file.path}: ${fixResult.fixes.join(', ')}`);
+                    } else {
+                        warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                    }
                 }
             }
 
@@ -190,11 +198,19 @@ export class CodePostProcessor {
             console.log(`[CODE-POSTPROCESSOR] Processing Python project`);
 
             // Validate Python syntax for all .py files
-            for (const file of files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 if (file.path.endsWith('.py')) {
                     const syntaxErrors = this.validatePythonSyntax(file.content);
                     if (syntaxErrors.length > 0) {
-                        warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                        // Try to fix the syntax issues
+                        const fixResult = this.tryFixUnbalancedSyntax(file.content);
+                        if (fixResult.fixed) {
+                            files[i] = { ...file, content: fixResult.content };
+                            console.log(`[SYNTAX-FIX] ${file.path}: ${fixResult.fixes.join(', ')}`);
+                        } else {
+                            warnings.push(`${file.path}: ${syntaxErrors.join(', ')}`);
+                        }
                     }
                 }
             }

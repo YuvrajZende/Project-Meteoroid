@@ -15,7 +15,6 @@ import { injectable, inject } from 'inversify';
 import { TYPES } from '../../../di/types.js';
 import type { IGenerationService, GenerationRequest, GenerationResult } from '../../../interfaces/generation.interface.js';
 import type { ICodeGenerator, CodeGenerationRequest } from '../../../interfaces/generator.interface.js';
-import type { IAIClient } from '../../../interfaces/generator.interface.js';
 import type { Subtask } from '../../../interfaces/planning.interface.js';
 
 @injectable()
@@ -29,8 +28,7 @@ export class GenerationService implements IGenerationService {
     };
 
     constructor(
-        @inject(TYPES.CodeGenerator) private codeGenerator?: ICodeGenerator,
-        @inject(TYPES.AIClient) private readonly _aiClient?: IAIClient
+        @inject(TYPES.CodeGenerator) private codeGenerator?: ICodeGenerator
     ) { }
 
     /**

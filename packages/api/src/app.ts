@@ -29,7 +29,7 @@ export async function createApp(): Promise<FastifyInstance> {
     initSentry();
 
     // Initialize DI Container (Phase 1: Dependency Injection)
-    const diContainer = initDIContainer();
+    initDIContainer();
 
     // Initialize Fastify with configuration - QUIET logger during startup
     const app = Fastify({
@@ -51,7 +51,8 @@ export async function createApp(): Promise<FastifyInstance> {
         genReqId: () => crypto.randomUUID(),
         trustProxy: isProduction,
         disableRequestLogging: true, // Disable noisy request logs during startup
-        bodyLimit: 10 * 1024 * 1024,
+        // SECURITY: Body size limits
+        bodyLimit: 10 * 1024 * 1024, // 10MB global limit
     });
 
     // Register core components silently

@@ -16,9 +16,9 @@ describe('LearnedPatternRepository', () => {
     // TEST FIXTURES
     // ============================================
 
-    const mockPatternEntity: LearnedPattern = {
+    const _mockPatternEntity: LearnedPattern = {
         id: 'pattern_001',
-        patternType: 'code-structure',
+        patternType: 'success',
         description: 'Common REST API controller pattern',
         example: 'export async function handler(req, res) { ... }',
         context: 'Used in Fastify route handlers',
@@ -31,7 +31,7 @@ describe('LearnedPatternRepository', () => {
 
     const mockPatternRow = {
         id: 'pattern_001',
-        pattern_type: 'code-structure',
+        pattern_type: 'success',
         description: 'Common REST API controller pattern',
         example: 'export async function handler(req, res) { ... }',
         context: 'Used in Fastify route handlers',
@@ -54,7 +54,7 @@ describe('LearnedPatternRepository', () => {
     describe('create', () => {
         it('should create a new learned pattern', async () => {
             const input = {
-                patternType: 'code-structure' as const,
+                patternType: 'success' as const,
                 description: 'Common REST API pattern',
                 example: 'export function handler() {}',
                 context: 'Used in API routes',
@@ -67,7 +67,7 @@ describe('LearnedPatternRepository', () => {
 
             expect(result).toBeDefined();
             expect(result.id).toMatch(/^pattern_\d+_\w+$/);
-            expect(result.patternType).toBe('code-structure');
+            expect(result.patternType).toBe('success');
             expect(result.description).toBe('Common REST API pattern');
             expect(result.frequency).toBe(10);
             expect(result.confidence).toBe(0.85);
@@ -77,7 +77,7 @@ describe('LearnedPatternRepository', () => {
 
         it('should generate unique IDs for each pattern', async () => {
             const input = {
-                patternType: 'code-structure' as const,
+                patternType: 'success' as const,
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -96,7 +96,7 @@ describe('LearnedPatternRepository', () => {
             const beforeCreate = new Date();
 
             const result = await repository.create({
-                patternType: 'code-structure' as const,
+                patternType: 'success' as const,
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -115,15 +115,9 @@ describe('LearnedPatternRepository', () => {
 
         it('should handle all pattern types', async () => {
             const patternTypes: LearnedPattern['patternType'][] = [
-                'code-structure',
-                'error-handling',
-                'testing-pattern',
-                'api-design',
-                'optimization',
-                'security-pattern',
-                'data-validation',
-                'integration-pattern',
-                'other',
+                'success',
+                'failure',
+                'warning',
             ];
 
             for (const patternType of patternTypes) {
@@ -141,20 +135,20 @@ describe('LearnedPatternRepository', () => {
             }
         });
 
-        it('should handle null optional fields', async () => {
+        it('should handle optional fields', async () => {
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Test',
-                example: null,
-                context: null,
+                example: 'test example',
+                context: 'test context',
                 frequency: 1,
                 confidence: 0.5,
-                relatedPrompts: null,
+                relatedPrompts: [],
             });
 
-            expect(result.example).toBeNull();
-            expect(result.context).toBeNull();
-            expect(result.relatedPrompts).toBeNull();
+            expect(result.example).toBe('test example');
+            expect(result.context).toBe('test context');
+            expect(result.relatedPrompts).toEqual([]);
         });
 
         it('should handle errors during creation', async () => {
@@ -163,7 +157,7 @@ describe('LearnedPatternRepository', () => {
             const badRepo = new LearnedPatternRepository(badDb);
 
             await expect(badRepo.create({
-                patternType: 'other',
+                patternType: 'success',
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -186,7 +180,7 @@ describe('LearnedPatternRepository', () => {
 
             expect(result).toBeDefined();
             expect(result?.id).toBe('pattern_001');
-            expect(result?.patternType).toBe('code-structure');
+            expect(result?.patternType).toBe('success');
             expect(result?.description).toBe('Common REST API controller pattern');
             expect(result?.frequency).toBe(15);
             expect(result?.confidence).toBe(0.92);
@@ -230,36 +224,36 @@ describe('LearnedPatternRepository', () => {
         beforeEach(() => {
             mockDb.seed('learned_patterns', [
                 mockPatternRow,
-                { ...mockPatternRow, id: 'pattern_002', pattern_type: 'code-structure', frequency: 20 },
-                { ...mockPatternRow, id: 'pattern_003', pattern_type: 'error-handling', frequency: 10 },
-                { ...mockPatternRow, id: 'pattern_004', pattern_type: 'code-structure', frequency: 5 },
+                { ...mockPatternRow, id: 'pattern_002', pattern_type: 'success', frequency: 20 },
+                { ...mockPatternRow, id: 'pattern_003', pattern_type: 'failure', frequency: 10 },
+                { ...mockPatternRow, id: 'pattern_004', pattern_type: 'success', frequency: 5 },
             ]);
         });
 
         it('should find patterns by type ordered by frequency DESC', async () => {
-            const results = await repository.findByPatternType('code-structure');
+            const results = await repository.findByPatternType('success');
 
             expect(results).toHaveLength(3);
-            expect(results.every(r => r.patternType === 'code-structure')).toBe(true);
+            expect(results.every(r => r.patternType === 'success')).toBe(true);
             expect(results[0].id).toBe('pattern_002'); // frequency 20
             expect(results[1].id).toBe('pattern_001'); // frequency 15
             expect(results[2].id).toBe('pattern_004'); // frequency 5
         });
 
         it('should return empty array for non-existent pattern type', async () => {
-            const results = await repository.findByPatternType('optimization');
+            const results = await repository.findByPatternType('warning');
 
             expect(results).toEqual([]);
         });
 
         it('should order by frequency DESC, then confidence DESC', async () => {
             mockDb.seed('learned_patterns', [
-                { ...mockPatternRow, id: 'pattern_001', pattern_type: 'code-structure', frequency: 10, confidence: 0.9 },
-                { ...mockPatternRow, id: 'pattern_002', pattern_type: 'code-structure', frequency: 10, confidence: 0.95 },
-                { ...mockPatternRow, id: 'pattern_003', pattern_type: 'code-structure', frequency: 5, confidence: 1.0 },
+                { ...mockPatternRow, id: 'pattern_001', pattern_type: 'success', frequency: 10, confidence: 0.9 },
+                { ...mockPatternRow, id: 'pattern_002', pattern_type: 'success', frequency: 10, confidence: 0.95 },
+                { ...mockPatternRow, id: 'pattern_003', pattern_type: 'success', frequency: 5, confidence: 1.0 },
             ]);
 
-            const results = await repository.findByPatternType('code-structure');
+            const results = await repository.findByPatternType('success');
 
             // Same frequency, higher confidence first
             expect(results[0].id).toBe('pattern_002');
@@ -269,15 +263,9 @@ describe('LearnedPatternRepository', () => {
 
         it('should handle all pattern types', async () => {
             const patternTypes: LearnedPattern['patternType'][] = [
-                'code-structure',
-                'error-handling',
-                'testing-pattern',
-                'api-design',
-                'optimization',
-                'security-pattern',
-                'data-validation',
-                'integration-pattern',
-                'other',
+                'success',
+                'failure',
+                'warning',
             ];
 
             for (const patternType of patternTypes) {

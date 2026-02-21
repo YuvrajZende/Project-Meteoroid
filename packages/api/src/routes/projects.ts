@@ -5,16 +5,9 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { authenticate, getAuthUser } from '../middleware/auth-middleware.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 import type { AuthenticatedUser } from '../middleware/auth-middleware.js';
 import AdmZip from 'adm-zip';
-
-// Extend FastifyRequest type for authenticated routes
-declare module 'fastify' {
-    interface FastifyRequest {
-        authUser?: AuthenticatedUser;
-    }
-}
 
 // Validation schemas
 const createProjectSchema = z.object({

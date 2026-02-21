@@ -3,6 +3,11 @@
  * Week 2: Repository Layer - Day 11
  *
  * Handles all database operations for tasks
+ * 
+ * PERFORMANCE FEATURES:
+ * - Batch loading of tasks by project IDs (prevents N+1)
+ * - Single query with aggregations for statistics
+ * - Optimized queries for dashboard data
  */
 
 import { injectable, inject } from 'inversify';
@@ -14,6 +19,25 @@ import type {
     QueryOptions,
 } from '../interfaces/repository.interface.js';
 import { BaseRepository } from './base.repository.js';
+
+// ============================================
+// PERFORMANCE: Extended types for eager loading
+// ============================================
+
+export interface TaskWithProject extends Task {
+    project?: {
+        id: string;
+        name: string;
+        status: string;
+    };
+}
+
+export interface TaskStats {
+    total: number;
+    byStatus: Map<Task['status'], number>;
+    byType: Map<Task['type'], number>;
+    avgDuration: number | null;
+}
 
 @injectable()
 export class TaskRepository extends BaseRepository implements ITaskRepository {
@@ -328,5 +352,182 @@ export class TaskRepository extends BaseRepository implements ITaskRepository {
      */
     private generateId(): string {
         return crypto.randomUUID();
+    }
+
+    // ============================================
+    // PERFORMANCE: N+1 Query Prevention Methods
+    // ============================================
+
+    /**
+     * PERFORMANCE: Find tasks by multiple project IDs in a single query
+     * Prevents N+1 when loading tasks for multiple projects
+     */
+    async findByProjectIds(projectIds: string[], options?: QueryOptions): Promise<Map<string, Task[]>> {
+        if (projectIds.length === 0) return new Map();
+
+        try {
+            const orderBy = this.buildOrderBy(options);
+            const limit = options?.limit || 100;
+
+            const results = await this.query<any>(
+                `SELECT * FROM tasks
+                 WHERE project_id = ANY($projectIds)
+                 ${orderBy}
+                 LIMIT $limit`,
+                { projectIds, limit }
+            );
+
+            const tasksByProject = new Map<string, Task[]>();
+            
+            for (const row of results) {
+                const task = this.rowToEntity<Task>(row);
+                const projectId = task.projectId;
+                
+                if (!tasksByProject.has(projectId)) {
+                    tasksByProject.set(projectId, []);
+                }
+                tasksByProject.get(projectId)!.push(task);
+            }
+
+            // Add empty arrays for projects with no tasks
+            for (const id of projectIds) {
+                if (!tasksByProject.has(id)) {
+                    tasksByProject.set(id, []);
+                }
+            }
+
+            return tasksByProject;
+        } catch (error) {
+            this.handleError(error, 'findByProjectIds');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Get recent tasks with project info in single query
+     * Prevents N+1 for dashboard task list
+     */
+    async getRecentWithProject(userId: string, limit: number): Promise<TaskWithProject[]> {
+        try {
+            const results = await this.query<any>(
+                `SELECT 
+                    t.*,
+                    jsonb_build_object(
+                        'id', p.id,
+                        'name', p.name,
+                        'status', p.status
+                    ) as project
+                FROM tasks t
+                INNER JOIN projects p ON p.id = t.project_id
+                WHERE t.user_id = $userId
+                ORDER BY t.updated_at DESC
+                LIMIT $limit`,
+                { userId, limit }
+            );
+
+            return results.map(r => ({
+                ...this.rowToEntity<Task>(r),
+                project: r.project,
+            }));
+        } catch (error) {
+            this.handleError(error, 'getRecentWithProject');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Get comprehensive task statistics in a single query
+     * Replaces multiple count queries
+     */
+    async getStats(userId: string): Promise<TaskStats> {
+        try {
+            const results = await this.query<{
+                total: bigint;
+                status: Task['status'] | null;
+                type: Task['type'] | null;
+                avg_duration: number | null;
+            }>(
+                `SELECT 
+                    COUNT(*) as total,
+                    status,
+                    type,
+                    AVG(EXTRACT(EPOCH FROM (completed_at - started_at))) as avg_duration
+                FROM tasks
+                WHERE user_id = $userId
+                GROUP BY GROUPING SETS ((status), (type), ())
+                WITH ROLLUP`,
+                { userId }
+            );
+
+            let total = 0;
+            const byStatus = new Map<Task['status'], number>();
+            const byType = new Map<Task['type'], number>();
+            let avgDuration: number | null = null;
+
+            for (const row of results) {
+                if (row.status && !row.type) {
+                    byStatus.set(row.status, Number(row.total));
+                } else if (row.type && !row.status) {
+                    byType.set(row.type, Number(row.total));
+                } else if (!row.status && !row.type) {
+                    total = Number(row.total);
+                    avgDuration = row.avg_duration;
+                }
+            }
+
+            return { total, byStatus, byType, avgDuration };
+        } catch (error) {
+            this.handleError(error, 'getStats');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Batch update task statuses
+     * More efficient than individual updates
+     */
+    async batchUpdateStatus(updates: Array<{ id: string; status: Task['status'] }>): Promise<void> {
+        if (updates.length === 0) return;
+
+        try {
+            // Use a single query with CASE for batch update
+            const ids = updates.map(u => u.id);
+            const statusCases = updates
+                .map((_, i) => `WHEN id = $id${i} THEN $status${i}`)
+                .join(' ');
+
+            const params: Record<string, unknown> = {};
+            updates.forEach((u, i) => {
+                params[`id${i}`] = u.id;
+                params[`status${i}`] = u.status;
+            });
+            params['ids'] = ids;
+
+            await this.query(
+                `UPDATE tasks 
+                 SET 
+                     status = CASE ${statusCases} END,
+                     updated_at = $updatedAt
+                 WHERE id = ANY($ids)`,
+                { ...params, updatedAt: this.now().toISOString() }
+            );
+        } catch (error) {
+            this.handleError(error, 'batchUpdateStatus');
+        }
+    }
+
+    /**
+     * PERFORMANCE: Find tasks by IDs in a single query
+     */
+    async findByIds(ids: string[]): Promise<Task[]> {
+        if (ids.length === 0) return [];
+
+        try {
+            const results = await this.query<any>(
+                `SELECT * FROM tasks WHERE id = ANY($ids)`,
+                { ids }
+            );
+
+            return results.map(r => this.rowToEntity<Task>(r));
+        } catch (error) {
+            this.handleError(error, 'findByIds');
+        }
     }
 }

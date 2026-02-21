@@ -1,6 +1,10 @@
 /**
  * FileWriter Service
  * Writes generated code to actual files on disk
+ * 
+ * PERFORMANCE FEATURES:
+ * - Real-time SSE notifications for each file written
+ * - Streaming file writes (files appear as they're generated)
  *
  * Output structure:
  * output/
@@ -14,6 +18,7 @@
 import { injectable, unmanaged } from 'inversify';
 import fs from 'fs/promises';
 import path from 'path';
+import { broadcastFileWritten, broadcastPipelineStep } from '../routes/websocket.js';
 
 // ============================================
 // TYPES
@@ -36,6 +41,7 @@ export interface FileWriterConfig {
     outputDir: string;     // Base output directory
     createPackageJson: boolean;
     createTsConfig: boolean;
+    broadcastEvents: boolean; // Enable SSE broadcasts
 }
 
 // ============================================
@@ -130,6 +136,7 @@ export class FileWriterService {
             outputDir: config?.outputDir || defaultOutputDir,
             createPackageJson: config?.createPackageJson ?? true,
             createTsConfig: config?.createTsConfig ?? true,
+            broadcastEvents: config?.broadcastEvents ?? true,
         };
     }
 
@@ -212,8 +219,9 @@ export class FileWriterService {
                 }
             }
 
-            // Write generated files
-            for (const file of files) {
+            // Write generated files with real-time SSE notifications
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 try {
                     // Normalize path (ensure it's under src/ if no src prefix)
                     let filePath = file.path;
@@ -231,6 +239,12 @@ export class FileWriterService {
                     await fs.writeFile(fullPath, file.content, 'utf-8');
                     filesWritten.push(filePath);
                     console.log(`[FILE-WRITER] ✅ Created ${filePath}`);
+
+                    // REAL-TIME: Broadcast file written event for TUI
+                    if (this.config.broadcastEvents) {
+                        broadcastFileWritten(projectId, filePath, file.content.length);
+                        broadcastPipelineStep(i + 1, 'file_write', `Writing ${filePath}`);
+                    }
 
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -263,11 +277,45 @@ export class FileWriterService {
     }
 
     /**
-     * Write a single file
+     * Write a single file with SSE broadcast
      */
     async writeFile(projectId: string, file: GeneratedFile): Promise<boolean> {
         const result = await this.writeProject(projectId, [file], { includeScaffold: false });
         return result.success;
+    }
+
+    /**
+     * Write a single file immediately with real-time notification
+     * Call this during generation for streaming file writes
+     */
+    async writeFileImmediate(projectId: string, file: GeneratedFile): Promise<boolean> {
+        try {
+            let filePath = file.path;
+            if (!filePath.startsWith('src/') && !filePath.includes('/')) {
+                filePath = `src/${filePath}`;
+            }
+
+            const projectPath = path.join(this.config.outputDir, projectId);
+            const fullPath = path.join(projectPath, filePath);
+            const dir = path.dirname(fullPath);
+
+            // Create directory if needed
+            await fs.mkdir(dir, { recursive: true });
+
+            // Write file
+            await fs.writeFile(fullPath, file.content, 'utf-8');
+            console.log(`[FILE-WRITER] ✅ Created ${filePath}`);
+
+            // REAL-TIME: Broadcast immediately
+            if (this.config.broadcastEvents) {
+                broadcastFileWritten(projectId, filePath, file.content.length);
+            }
+
+            return true;
+        } catch (error) {
+            console.error(`[FILE-WRITER] ❌ Failed to write ${file.path}:`, error);
+            return false;
+        }
     }
 
     /**
