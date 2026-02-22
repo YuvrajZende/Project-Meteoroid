@@ -1,112 +1,244 @@
-# 🚀 LOVEABLE Backend Orchestrator
+# LOVEABLE Backend Orchestrator
 
-A powerful AI-driven multi-agent backend orchestrator that generates production-ready TypeScript code using LangChain/LangGraph and specialized agents.
+**AI-Powered Multi-Agent Code Generation Platform**
 
-## 📋 Table of Contents
+---
+
+## Executive Summary
+
+LOVEABLE is an enterprise-grade backend orchestration platform that leverages specialized AI agents to automatically generate production-ready backend code. The system uses a sophisticated multi-model pipeline combining fast analysis models with powerful code generation models to deliver complete, runnable backend solutions from natural language prompts.
+
+---
+
+## Table of Contents
 
 - [Overview](#overview)
-- [Architecture](#architecture)
-- [Agents](#agents)
+- [Key Features](#key-features)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
 - [Quick Start](#quick-start)
-- [Commands Reference](#commands-reference)
-- [Configuration](#configuration)
-- [Environment Variables](#environment-variables)
+- [API Documentation](#api-documentation)
+- [Agents & Capabilities](#agents--capabilities)
 - [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Performance](#performance)
 - [Testing](#testing)
+- [Deployment](#deployment)
+- [Team](#team)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
-## 🎯 Overview
+## Overview
 
-The LOVEABLE Backend Orchestrator is a sophisticated multi-agent AI system that coordinates 12 specialized agents to generate complete backend solutions. It features:
+### Problem Statement
 
-- **🧠 Brain Core**: Central nervous system that coordinates all subsystems
-- **💭 Thinking Engine**: Decision-making with reasoning and confidence scoring
-- **📋 Task Manager**: Breaks down complex requests into executable tasks
-- **💾 Redis Checkpointing**: State persistence for long-running workflows
-- **🔍 Context Window**: Maintains relevant context for agents
-- **📚 Knowledge Base**: Stores and retrieves generated code for reference
+Building production-ready backend systems requires:
+- Deep knowledge of multiple frameworks and patterns
+- Consistent implementation of security best practices
+- Proper database schema design and migrations
+- Comprehensive API documentation
+- Monitoring, logging, and error handling
+- CI/CD pipeline configuration
+
+This typically takes weeks of development time and requires expertise across multiple domains.
+
+### Solution
+
+LOVEABLE automates backend development through:
+- **Multi-Agent Orchestration**: Specialized agents handle different aspects (auth, database, API, security)
+- **AI-Powered Generation**: Uses state-of-the-art LLMs for intelligent code generation
+- **Blueprint Enforcement**: Ensures generated code follows architectural patterns
+- **Quality Assurance**: Automated verification and syntax fixing
+- **Learning System**: Vector-based learning from past generations
 
 ---
 
-## 🏗 Architecture
+## Key Features
+
+### Core Capabilities
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Multi-Model Pipeline | Fast analysis + powerful code generation | Complete |
+| Multi-Language Support | TypeScript, Python, Go, Rust, Java | Complete |
+| Framework Detection | Auto-detects NestJS, Express, FastAPI, Django | Complete |
+| Vector Learning | Learns from successful generations | Complete |
+| Blueprint Enforcement | Ensures complete, runnable output | Complete |
+| Auto-Deploy | Netlify/Vercel integration | Complete |
+| Real-time Preview | Live code preview via WebSocket | Complete |
+| TUI Interface | Terminal-based user interface | Complete |
+
+### Security Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| JWT Authentication | Supabase-backed authentication | Complete |
+| Rate Limiting | Redis-backed tiered limits | Complete |
+| Security Headers | CSP, HSTS, Permissions-Policy | Complete |
+| API Key Rotation | Automatic key management | Complete |
+| Webhook Verification | Mandatory signature verification | Complete |
+| Request Size Limits | Tiered by route type | Complete |
+
+---
+
+## System Architecture
+
+### High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      BRAIN CORE                              │
-│  (Central Nervous System - Coordinates Everything)          │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Thinking   │  │    Task     │  │   Redis     │         │
-│  │   Engine    │  │   Manager   │  │ Checkpoint  │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                              │
-├─────────────────────────────────────────────────────────────┤
-│                    AGENT ECOSYSTEM                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  TIER 1 (Core)      TIER 2 (Specialized)   TIER 3 (Support) │
-│  ┌──────────┐       ┌──────────┐           ┌──────────┐     │
-│  │ AuthAgent│       │SecurityAgt│           │MonitorAgt│     │
-│  │ DBAgent  │       │QueueAgent │           │TestAgent │     │
-│  │ APIAgent │       │CICDAgent  │           │InfraAgent│     │
-│  └──────────┘       └──────────┘           └──────────┘     │
-│                                                              │
-│  TIER 4 (Special)                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │CodegenAgt│  │MicroSvcAgt│  │EmailAgent│                  │
-│  └──────────┘  └──────────┘  └──────────┘                  │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           LOVEABLE BACKEND PLATFORM                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐    ┌─────────────────────────────────────────────────┐    │
+│  │   Client    │    │              API GATEWAY (Fastify)               │    │
+│  │  (Web/TUI)  │───▶│  /api/v1/orchestrator  /api/v1/codegen          │    │
+│  └─────────────┘    │  /api/v1/auth          /api/v1/preview          │    │
+│                     │  /api/v1/projects      /api/v1/context           │    │
+│                     └─────────────────────────────────────────────────┘    │
+│                                        │                                     │
+│                     ┌──────────────────▼──────────────────┐                │
+│                     │       INTEGRATED ORCHESTRATOR        │                │
+│                     │  ┌─────────────────────────────────┐ │                │
+│                     │  │    Orchestration Services       │ │                │
+│                     │  │  • ContextService               │ │                │
+│                     │  │  • AnalysisService              │ │                │
+│                     │  │  • GenerationService            │ │                │
+│                     │  │  • FileService                  │ │                │
+│                     │  │  • QualityService               │ │                │
+│                     │  │  • PersistenceService           │ │                │
+│                     │  └─────────────────────────────────┘ │                │
+│                     └──────────────────┬──────────────────┘                │
+│                                        │                                     │
+│  ┌─────────────────────────────────────┼─────────────────────────────────┐ │
+│  │                         AI PIPELINE                                   │ │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────────┐ │ │
+│  │  │  Fast Model   │─▶│ Architecture  │─▶│    Power Model            │ │ │
+│  │  │  (Analysis)   │  │   Blueprint   │  │    (Code Generation)      │ │ │
+│  │  │   Groq LLM    │  │   Generator   │  │       Z.AI GLM-4          │ │ │
+│  │  └───────────────┘  └───────────────┘  └───────────────────────────┘ │ │
+│  └─────────────────────────────────────┬─────────────────────────────────┘ │
+│                                        │                                     │
+│  ┌─────────────────────────────────────┼─────────────────────────────────┐ │
+│  │                    GENERATION PIPELINE                                │ │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐ │ │
+│  │  │ Deduplicate │▶│   Inject    │▶│   Import    │▶│     Final       │ │ │
+│  │  │   Files     │ │  Decorators │ │   Resolve   │ │  Verification   │ │ │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘ │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                         DATA LAYER                                     │ │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │ │
+│  │  │  Supabase   │  │    Redis    │  │   Vector    │  │  File       │  │ │
+│  │  │  (Postgres) │  │   (Cache)   │  │   Store     │  │  Storage    │  │ │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    MULTI-AGENT SYSTEM                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  TIER 1: Core Agents          TIER 2: Specialized Agents        │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │  AuthAgent   │             │   SecurityAgent      │          │
+│  │  • JWT/OAuth │             │   • SAST/DAST        │          │
+│  │  • RBAC/ABAC │             │   • Threat Detection │          │
+│  │  • MFA       │             │   • WAF Rules        │          │
+│  └──────────────┘             └──────────────────────┘          │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │ DatabaseAgent│             │    QueueAgent        │          │
+│  │  • Schema    │             │   • BullMQ           │          │
+│  │  • Migrations│             │   • Job Scheduling   │          │
+│  │  • Seeding   │             │   • Event Queue      │          │
+│  └──────────────┘             └──────────────────────┘          │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │   APIAgent   │             │    CICDAgent         │          │
+│  │  • REST      │             │   • GitHub Actions   │          │
+│  │  • GraphQL   │             │   • Docker/K8s       │          │
+│  │  • tRPC      │             │   • Deployments      │          │
+│  └──────────────┘             └──────────────────────┘          │
+│                                                                  │
+│  TIER 3: Support Agents       TIER 4: Special Purpose           │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │MonitorAgent  │             │   CodegenAgent       │          │
+│  │  • APM       │             │   • Scaffolding      │          │
+│  │  • Sentry    │             │   • Templates        │          │
+│  │  • Metrics   │             │   • Boilerplate      │          │
+│  └──────────────┘             └──────────────────────┘          │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │  TestAgent   │             │ MicroserviceAgent    │          │
+│  │  • Vitest    │             │   • Service Mesh     │          │
+│  │  • Playwright│             │   • gRPC             │          │
+│  │  • Coverage  │             │   • Event-Driven     │          │
+│  └──────────────┘             └──────────────────────┘          │
+│  ┌──────────────┐             ┌──────────────────────┐          │
+│  │ InfraAgent   │             │    EmailAgent        │          │
+│  │  • Terraform │             │   • Resend           │          │
+│  │  • Docker    │             │   • Nodemailer       │          │
+│  │  • Cloud     │             │   • Templates        │          │
+│  └──────────────┘             └──────────────────────┘          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🤖 Agents
+## Technology Stack
 
-### Tier 1: Core Agents
+### Backend
 
-| Agent | Owner | Capabilities |
-|-------|-------|--------------|
-| **AuthAgent** | Person1 | Clerk, JWT, OAuth, RBAC, ABAC/Cerbos, MFA, Sessions, Password Security, Rate Limiting |
-| **DBAgent** | Person2 | Prisma, Drizzle, TypeORM, Migrations, Seeding |
-| **APIAgent** | Person3 | REST, GraphQL, tRPC, OpenAPI, Validation |
+| Component | Technology | Version | Purpose |
+|-----------|------------|---------|---------|
+| Runtime | Node.js | 18+ | Server runtime |
+| Framework | Fastify | 5.1.0 | High-performance API server |
+| Language | TypeScript | 5.7.2 | Type-safe development |
+| Validation | Zod | 3.23.8 | Schema validation |
 
-### Tier 2: Specialized Agents
+### AI/ML
 
-| Agent | Owner | Capabilities |
-|-------|-------|--------------|
-| **SecurityAgent** | Person1 | SAST, DAST, Bot Protection, WAF, Threat Detection, API Key Management, Security Testing |
-| **QueueAgent** | Person2 | BullMQ, Redis Queues, Job Scheduling |
-| **CICDAgent** | Person3 | GitHub Actions, Docker, Kubernetes |
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Fast Model | Groq (LLaMA 3.3 70B) | Quick analysis, intent detection |
+| Power Model | Z.AI (GLM-4.6) | Code generation |
+| Vector Store | Supabase pgvector | Embedding storage & retrieval |
 
-### Tier 3: Supporting Agents
+### Data Storage
 
-| Agent | Owner | Capabilities |
-|-------|-------|--------------|
-| **MonitoringAgent** | Person1 | APM (Datadog/New Relic/Elastic), Error Tracking (Sentry), Metrics, Health Checks, Logging, Tracing, Alerting, Audit Logging |
-| **TestAgent** | Person2 | Vitest, Jest, Playwright, Unit/Integration/E2E Tests |
-| **InfraAgent** | Person3 | Terraform, Docker, Kubernetes, Cloud Providers |
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Primary Database | Supabase (PostgreSQL) | User data, projects, iterations |
+| Cache Layer | Redis (ioredis) | Rate limiting, caching, sessions |
+| Vector Store | pgvector | Semantic search, learning |
 
-### Tier 4: Special Purpose Agents
+### Infrastructure
 
-| Agent | Owner | Capabilities |
-|-------|-------|--------------|
-| **CodegenAgent** | Shared | File Generation, Scaffolding, Boilerplate |
-| **MicroserviceAgent** | Shared | Service Mesh, gRPC, Event-Driven Architecture |
-| **EmailAgent** | Shared | Resend, Nodemailer, Email Templates |
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Deployment | Docker, Kubernetes | Containerization |
+| CI/CD | GitHub Actions | Automated pipelines |
+| Monitoring | Sentry | Error tracking |
+| Logging | Pino | Structured logging |
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Prerequisites
 
 - Node.js >= 18.x
 - npm >= 9.x
-- Redis (for checkpointing and rate limiting)
-- Git
+- Redis (for caching and rate limiting)
+- Supabase account (for database and auth)
 
 ### Installation
 
@@ -121,204 +253,236 @@ npm install
 # Copy environment template
 cp .env.example .env
 
-# Edit .env with your API keys
+# Configure your API keys in .env
 ```
 
-### Run the Orchestrator
+### Environment Configuration
+
+Create a `.env` file with the following variables:
+
+```env
+# Server
+PORT=3000
+NODE_ENV=development
+
+# AI Models
+ZAI_API_KEY=your-zai-api-key
+GROQ_API_KEY=your-groq-api-key
+
+# Database (Supabase)
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# JWT
+JWT_SECRET=your-jwt-secret
+
+# Optional: Monitoring
+SENTRY_DSN=your-sentry-dsn
+```
+
+### Running the Server
 
 ```bash
-# Start the orchestrator
-npm run orchestrator
+# Development mode with hot reload
+cd packages/api
+npm run dev
 
-# Or with a specific task
-npm run orchestrator "Generate authentication with JWT and Clerk"
+# Production build
+npm run build
+npm start
+```
+
+The server will be available at `http://localhost:3000`
+
+### Using the TUI
+
+```bash
+# Run the Terminal User Interface
+./run_tui.bat    # Windows
+# or
+go run ./packages/tui/cmd/main.go    # Direct Go execution
 ```
 
 ---
 
-## 📝 Commands Reference
+## API Documentation
 
-### Core Commands
+### Base URL
 
-```bash
-# =====================================
-# INSTALLATION & SETUP
-# =====================================
-
-npm install                    # Install all dependencies
-npm run build                  # Build TypeScript to JavaScript
-npm run clean                  # Clean build artifacts
-
-# =====================================
-# RUNNING THE ORCHESTRATOR
-# =====================================
-
-npm run orchestrator           # Start interactive orchestrator
-npm run orchestrator "<task>"  # Run with specific task
-
-# Alternative execution methods
-npx ts-node packages/orchestrator/src/index.ts
-npx ts-node packages/orchestrator/src/index.ts "Your task here"
-
-# =====================================
-# TYPE CHECKING & LINTING
-# =====================================
-
-npx tsc --noEmit               # Type check without emitting
-npx tsc --noEmit --project tsconfig.json  # Full type check
-npm run lint                   # Run ESLint
-npm run lint:fix               # Fix linting issues
-
-# =====================================
-# TESTING
-# =====================================
-
-npm test                       # Run all tests
-npm run test:unit              # Run unit tests
-npm run test:integration       # Run integration tests
-npm run test:e2e               # Run end-to-end tests
-npm run test:coverage          # Run with coverage report
-
-# =====================================
-# DEVELOPMENT
-# =====================================
-
-npm run dev                    # Start development mode
-npm run watch                  # Watch mode with auto-reload
+```
+http://localhost:3000/api/v1
 ```
 
-### Agent-Specific Commands
+### Core Endpoints
+
+#### Orchestrator
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/orchestrator/execute` | Execute code generation task |
+| GET | `/orchestrator/status/:taskId` | Get task status |
+| GET | `/orchestrator/stream/:taskId` | SSE stream for real-time updates |
+
+#### Projects
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/projects` | List all projects |
+| POST | `/projects` | Create new project |
+| GET | `/projects/:id` | Get project details |
+| PUT | `/projects/:id` | Update project |
+| DELETE | `/projects/:id` | Delete project |
+
+#### Code Generation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/codegen/generate` | Generate code from prompt |
+| POST | `/codegen/enhanced` | Enhanced generation with features |
+| GET | `/codegen/templates` | List available templates |
+
+#### Context Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/context/create` | Create new context |
+| GET | `/context/:id` | Get context details |
+| PUT | `/context/:id` | Update context |
+| DELETE | `/context/:id` | Delete context |
+
+#### Health & Monitoring
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/metrics` | Prometheus metrics |
+| GET | `/benchmarks` | Performance benchmarks |
+
+### Example Request
 
 ```bash
-# =====================================
-# AUTH AGENT
-# =====================================
-
-# Generate JWT authentication
-npx ts-node -e "
-const { authAgent } = require('./agents/core/auth');
-authAgent.generateAuth({
-    provider: 'jwt',
-    features: ['jwt-auth', 'refresh-tokens', 'password-hashing']
-}).then(console.log);
-"
-
-# Generate Clerk authentication
-npx ts-node -e "
-const { authAgent } = require('./agents/core/auth');
-authAgent.generateAuth({
-    provider: 'clerk',
-    features: ['clerk-auth', 'webhooks', 'session-management']
-}).then(console.log);
-"
-
-# =====================================
-# SECURITY AGENT
-# =====================================
-
-# Generate security middleware
-npx ts-node -e "
-const { securityAgent } = require('./agents/core/security');
-securityAgent.generateSecurityMiddleware({
-    helmet: true,
-    cors: true,
-    rateLimit: true,
-    csrf: true
-}).then(console.log);
-"
-
-# Scan code for vulnerabilities
-npx ts-node -e "
-const { securityAgent } = require('./agents/core/security');
-securityAgent.analyzeCode('./src', ['sast', 'secrets']).then(console.log);
-"
-
-# Generate WAF rules
-npx ts-node -e "
-const { securityAgent } = require('./agents/core/security');
-securityAgent.generateWAFRules({ mode: 'blocking', owaspRules: true }).then(console.log);
-"
-
-# =====================================
-# MONITORING AGENT
-# =====================================
-
-# Generate full monitoring setup
-npx ts-node -e "
-const { monitoringAgent } = require('./agents/core/monitoring');
-monitoringAgent.generateMonitoringSystem({
-    apmProvider: 'datadog',
-    errorTracking: 'sentry',
-    logging: 'winston',
-    metrics: { enabled: true, provider: 'prometheus' },
-    healthChecks: { enabled: true },
-    tracing: true,
-    alerting: { enabled: true, channels: [{ type: 'slack' }] },
-    auditLogging: { enabled: true, storage: 'database', events: ['auth.login'] }
-}).then(r => console.log(JSON.stringify(r, null, 2)));
-"
-
-# Analyze existing monitoring
-npx ts-node -e "
-const { monitoringAgent } = require('./agents/core/monitoring');
-monitoringAgent.analyzeMonitoring('./src').then(console.log);
-"
-
-# Generate monitoring report
-npx ts-node -e "
-const { monitoringAgentEnhanced } = require('./agents/core/monitoring');
-monitoringAgentEnhanced.generateReport('./src').then(console.log);
-"
+# Generate a backend for a bakery system
+curl -X POST http://localhost:3000/api/v1/orchestrator/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "prompt": "Create a backend for a bakery management system with multiple outlets, inventory tracking, and order management",
+    "userId": "user-123",
+    "options": {
+      "language": "typescript",
+      "framework": "nestjs",
+      "features": ["auth", "crud", "validation"]
+    }
+  }'
 ```
 
-### Redis Commands
+### API Documentation
 
-```bash
-# =====================================
-# REDIS MANAGEMENT
-# =====================================
+Interactive API documentation is available at:
+- Swagger UI: `http://localhost:3000/docs`
+- OpenAPI Spec: `http://localhost:3000/docs/json`
 
-# Start Redis (Docker)
-docker run -d --name redis-stack -p 6379:6379 redis/redis-stack:latest
+---
 
-# Check Redis connection
-redis-cli ping
+## Agents & Capabilities
 
-# View orchestrator checkpoints
-redis-cli keys "checkpoint:*"
+### Total: 12 Agents | 62 Capabilities
 
-# Clear all checkpoints
-redis-cli del $(redis-cli keys "checkpoint:*")
+| Agent | Capabilities Count | Primary Functions |
+|-------|-------------------|-------------------|
+| AuthAgent | 8 | JWT, OAuth, RBAC, ABAC, MFA, Sessions, Password Security, Rate Limiting |
+| DatabaseAgent | 6 | Schema Design, Migrations, Seeding, Prisma, Drizzle, TypeORM |
+| APIAgent | 5 | REST, GraphQL, tRPC, OpenAPI, Validation |
+| SecurityAgent | 7 | SAST, DAST, Bot Protection, WAF, Threat Detection, API Keys, Security Testing |
+| MonitoringAgent | 8 | APM, Sentry, Metrics, Health Checks, Logging, Tracing, Alerting, Audit |
+| TestAgent | 4 | Vitest, Jest, Playwright, Coverage Reports |
+| CICDAgent | 4 | GitHub Actions, Docker, Kubernetes, Deployments |
+| QueueAgent | 3 | BullMQ, Redis Queues, Job Scheduling |
+| InfraAgent | 4 | Terraform, Docker, Cloud Providers, Infrastructure as Code |
+| CodegenAgent | 4 | File Generation, Scaffolding, Boilerplate, Templates |
+| MicroserviceAgent | 4 | Service Mesh, gRPC, Event-Driven, API Gateway |
+| EmailAgent | 3 | Resend, Nodemailer, Email Templates |
+
+---
+
+## Project Structure
+
 ```
-
-### Git Commands
-
-```bash
-# =====================================
-# GIT WORKFLOW
-# =====================================
-
-# Check status
-git status
-
-# Stage all changes
-git add .
-
-# Commit with message
-git commit -m "feat: description of changes"
-
-# Push to development branch
-git push origin Nevil-Development-Branch
-
-# Pull latest changes
-git pull origin main
+Project backend/
+├── packages/
+│   ├── api/                          # Main API server
+│   │   ├── src/
+│   │   │   ├── app.ts                # Fastify application setup
+│   │   │   ├── index.ts              # Entry point
+│   │   │   ├── routes/               # API route handlers (19 files)
+│   │   │   │   ├── orchestrator.ts   # Main orchestration endpoint
+│   │   │   │   ├── projects.ts       # Project management
+│   │   │   │   ├── tasks.ts          # Task management
+│   │   │   │   ├── auth.ts           # Authentication
+│   │   │   │   ├── webhooks.ts       # Webhook handling
+│   │   │   │   └── ...
+│   │   │   ├── application/          # Application layer
+│   │   │   │   └── services/
+│   │   │   │       ├── orchestration/    # Orchestration services
+│   │   │   │       │   ├── integrated-orchestrator.ts
+│   │   │   │       │   ├── multi-model-orchestrator.ts
+│   │   │   │       │   └── services/     # Extracted services
+│   │   │   │       │       ├── orchestration-context.service.ts
+│   │   │   │       │       ├── orchestration-analysis.service.ts
+│   │   │   │       │       ├── orchestration-generation.service.ts
+│   │   │   │       │       ├── orchestration-file.service.ts
+│   │   │   │       │       ├── orchestration-quality.service.ts
+│   │   │   │       │       └── orchestration-persistence.service.ts
+│   │   │   │       ├── generation/      # Code generation
+│   │   │   │       └── validation/      # Validation services
+│   │   │   │           ├── file-deduplicator.ts
+│   │   │   │           ├── import-resolver.ts
+│   │   │   │           ├── final-verifier.ts
+│   │   │   │           └── unified-generation-pipeline.ts
+│   │   │   ├── domain/              # Domain layer
+│   │   │   │   └── services/
+│   │   │   │       ├── architecture/    # Architecture services
+│   │   │   │       ├── context/         # Context management
+│   │   │   │       └── learning/        # Learning services
+│   │   │   ├── infrastructure/      # Infrastructure layer
+│   │   │   │   ├── database/            # Database clients
+│   │   │   │   ├── cache/               # Redis cache
+│   │   │   │   ├── key-manager.ts       # API key management
+│   │   │   │   └── file-writer.ts       # File output
+│   │   │   ├── repositories/        # Data access layer
+│   │   │   ├── middleware/          # Express middleware
+│   │   │   ├── plugins/             # Fastify plugins
+│   │   │   └── interfaces/          # TypeScript interfaces
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── database/                    # Database package
+│   │   └── migrations/              # SQL migrations
+│   ├── shared/                      # Shared utilities
+│   └── tui/                         # Terminal UI (Go)
+│       ├── cmd/main.go
+│       └── internal/
+│           ├── api/                 # API client
+│           └── tui/                 # TUI components
+├── docs/                            # Documentation
+│   ├── README.md
+│   ├── Issues/                      # Issue reports
+│   └── archive/                     # Archived docs
+├── output/                          # Generated code output
+├── .env.example                     # Environment template
+├── package.json                     # Root package.json
+├── tsconfig.json                    # TypeScript config
+└── README.md                        # This file
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-### Project Configuration (tsconfig.json)
+### TypeScript Configuration
 
 ```json
 {
@@ -329,224 +493,253 @@ git pull origin main
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "./src"
   }
 }
 ```
 
-### Agent Configuration
-
-Located in `packages/orchestrator/src/state.ts`:
+### Fastify Configuration
 
 ```typescript
-export const AGENT_REGISTRY = {
-    auth_agent: { name: "AuthAgent", owner: "Person1", tier: 1 },
-    security_agent: { name: "SecurityAgent", owner: "Person1", tier: 2 },
-    monitoring_agent: { name: "MonitoringAgent", owner: "Person1", tier: 3 },
-    // ... more agents
+// app.ts
+const app = fastify({
+  logger: {
+    level: process.env.LOG_LEVEL || 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: { colorize: true }
+    }
+  },
+  bodyLimit: 10 * 1024 * 1024, // 10MB
+  trustProxy: true
+});
+```
+
+### Rate Limiting Configuration
+
+```typescript
+// Tiered rate limits
+const rateLimits = {
+  auth: { max: 10, timeWindow: '1 minute' },
+  orchestrator: { max: 20, timeWindow: '1 minute' },
+  api: { max: 100, timeWindow: '1 minute' },
+  upload: { max: 10, timeWindow: '1 minute' }
 };
 ```
 
 ---
 
-## 🔐 Environment Variables
+## Security
 
-Create a `.env` file in the project root:
+### Security Score: 8/10
+
+| Measure | Implementation | Status |
+|---------|---------------|--------|
+| Authentication | Supabase JWT + API Keys | Complete |
+| Authorization | Role-Based Access Control | Complete |
+| Input Validation | Zod schemas on all endpoints | Complete |
+| Rate Limiting | Redis-backed, tiered limits | Complete |
+| Security Headers | Helmet (CSP, HSTS, etc.) | Complete |
+| API Key Management | Rotation, blacklisting, health | Complete |
+| Webhook Security | Mandatory signature verification | Complete |
+| Request Size Limits | Tiered by route type | Complete |
+
+### Security Headers Applied
+
+```
+Content-Security-Policy: default-src 'self'
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Permissions-Policy: accelerometer=(), camera=(), geolocation=(), microphone=()
+```
+
+---
+
+## Performance
+
+### Performance Score: 8/10
+
+| Optimization | Implementation | Status |
+|--------------|---------------|--------|
+| Connection Pooling | Supabase pooler support | Complete |
+| Caching | Redis cache layer | Complete |
+| N+1 Prevention | Batch loading, JOINs | Complete |
+| Query Optimization | 30+ database indexes | Complete |
+| Memory Management | Context cleanup, TTL | Complete |
+| Lazy Loading | Cursor-based pagination | Complete |
+
+### Database Indexes
+
+- **Projects**: 5 indexes (user, status, composite, partial)
+- **Tasks**: 10 indexes (project, user, status, type, composite)
+- **Embeddings**: 4 indexes (project, language, category)
+- **Audit Logs**: 5 indexes (user, project, action, entity)
+
+---
+
+## Testing
+
+### Test Structure
+
+```
+packages/api/src/
+├── repositories/__tests__/     # Repository unit tests
+│   ├── project.repository.test.ts
+│   ├── task.repository.test.ts
+│   ├── user.repository.test.ts
+│   └── ...
+└── tests/                      # Integration tests
+    ├── orchestrator-workflow.test.ts
+    ├── integration.test.ts
+    └── ...
+```
+
+### Running Tests
+
+```bash
+cd packages/api
+
+# Unit tests
+npm run test:unit
+
+# Integration tests
+npm run test:integration
+
+# All tests with coverage
+npm run test:coverage
+
+# E2E tests
+npm run test:e2e
+```
+
+### Current Test Coverage
+
+- Test Files: 9
+- Source Files: 196
+- Coverage: ~5.5%
+
+---
+
+## Deployment
+
+### Docker Deployment
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY dist ./dist
+EXPOSE 3000
+CMD ["node", "dist/index.js"]
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+### Environment Variables (Production)
 
 ```env
-# =====================================
-# AI MODEL CONFIGURATION
-# =====================================
-OPENAI_API_KEY=your-api-key-here
-OPENAI_BASE_URL=https://api.z.ai/api/coding/paas/v4
-MODEL_NAME=glm-4
-
-# =====================================
-# REDIS CONFIGURATION
-# =====================================
-REDIS_URL=redis://localhost:6379
-
-# =====================================
-# APM CONFIGURATION (Datadog)
-# =====================================
-DD_API_KEY=your-datadog-api-key
-DD_APP_KEY=your-datadog-app-key
-DD_ENV=development
-DD_SERVICE=loveable-backend
-DD_VERSION=1.0.0
-
-# =====================================
-# ERROR TRACKING (Sentry)
-# =====================================
-SENTRY_DSN=https://xxx@sentry.io/xxx
-SENTRY_ENVIRONMENT=development
-SENTRY_RELEASE=1.0.0
-SENTRY_TRACES_SAMPLE_RATE=0.1
-
-# =====================================
-# LOGGING
-# =====================================
+NODE_ENV=production
+PORT=3000
 LOG_LEVEL=info
-LOG_FORMAT=json
-LOG_DIR=logs
 
-# =====================================
-# METRICS
-# =====================================
-DD_AGENT_HOST=localhost
-DD_DOGSTATSD_PORT=8125
+# Use connection pooling in production
+SUPABASE_URL=your-pooler-url
+SUPABASE_SERVICE_ROLE_KEY=your-key
 
-# =====================================
-# OPENTELEMETRY
-# =====================================
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-OTEL_SERVICE_NAME=loveable-backend
+# Redis for production
+REDIS_URL=redis://production-redis:6379
 
-# =====================================
-# ALERTING
-# =====================================
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
-PAGERDUTY_API_KEY=your-pagerduty-key
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=your-email
-SMTP_PASS=your-password
-ALERT_EMAIL_TO=alerts@yourcompany.com
+# Monitoring
+SENTRY_DSN=your-sentry-dsn
 ```
 
 ---
 
-## 📂 Project Structure
+## Team
 
-```
-Project backend/
-├── agents/
-│   ├── index.ts                    # All agent exports
-│   └── core/
-│       ├── auth/
-│       │   ├── auth-agent.ts       # AuthAgent class
-│       │   ├── index.ts
-│       │   └── templates/
-│       │       ├── index.ts
-│       │       ├── password.ts     # Password security
-│       │       ├── cerbos.ts       # ABAC policies
-│       │       └── rate-limit.ts   # Rate limiting
-│       ├── security/
-│       │   ├── security-agent.ts   # SecurityAgent class
-│       │   ├── index.ts
-│       │   └── templates/
-│       │       ├── index.ts
-│       │       ├── bot-protection.ts
-│       │       ├── waf-rules.ts
-│       │       ├── threat-detection.ts
-│       │       ├── api-key-management.ts
-│       │       └── security-testing.ts
-│       └── monitoring/
-│           ├── monitoring-agent.ts
-│           ├── monitoring-agent-enhanced.ts
-│           ├── index.ts
-│           └── templates/
-│               ├── index.ts        # APM, Sentry, Health, Logging
-│               ├── metrics.ts      # Prometheus, StatsD
-│               ├── alerting.ts     # Alerts, Audit
-│               └── tracing.ts      # Distributed tracing
-├── packages/
-│   └── orchestrator/
-│       └── src/
-│           ├── index.ts            # Entry point
-│           ├── state.ts            # Graph state & registries
-│           ├── graph.ts            # LangGraph definition
-│           ├── core/
-│           │   ├── brain-core.ts
-│           │   ├── thinking-engine.ts
-│           │   ├── task-manager.ts
-│           │   ├── context-window.ts
-│           │   ├── redis-checkpointer.ts
-│           │   └── knowledge-base.ts
-│           └── nodes/
-│               ├── supervisor.ts
-│               ├── workers.ts
-│               └── output-validator.ts
-├── docs/
-│   └── Team-Work/
-├── PERSON1_TASK_LIST.md            # Task tracking
-├── README.md                       # This file
-├── package.json
-├── tsconfig.json
-└── .env
-```
+| Member | Role | Responsibilities |
+|--------|------|------------------|
+| Team Lead | Architecture | System design, code review |
+| AI/ML Engineer | AI Integration | Model selection, prompt engineering |
+| Backend Developer | Core Development | API development, database |
+| DevOps | Infrastructure | Deployment, monitoring |
 
 ---
 
-## 🧪 Testing
+## Roadmap
 
-### Testing Agents Directly
+### Completed (Phases 1-26)
 
-```bash
-# Test AuthAgent
-npx ts-node -e "
-const { authAgent } = require('./agents');
-authAgent.generateAuth({ provider: 'jwt' }).then(console.log);
-"
+- Multi-Model Pipeline
+- Tech Stack Constraints
+- Auto-Deploy Integration
+- Vector Database & Learning
+- Security Hardening
+- Service Integration
+- Context Management
+- Quality Oversight
 
-# Test SecurityAgent
-npx ts-node -e "
-const { securityAgent } = require('./agents');
-securityAgent.generateSecurityMiddleware({ helmet: true }).then(console.log);
-"
+### In Progress
 
-# Test MonitoringAgent
-npx ts-node -e "
-const { monitoringAgent } = require('./agents');
-monitoringAgent.generateMonitoringSystem({
-    apmProvider: 'datadog',
-    healthChecks: { enabled: true }
-}).then(console.log);
-"
-```
+- Increased test coverage (target: 30%)
+- Transaction support for data integrity
 
-### Testing the Orchestrator
+### Future
 
-```bash
-# Basic task
-npm run orchestrator "Create a health check endpoint"
-
-# Complex task
-npm run orchestrator "Generate complete authentication with JWT, 
-RBAC, rate limiting, and security headers"
-
-# Multi-agent task
-npm run orchestrator "Build a secure API with authentication, 
-monitoring, and security scanning"
-```
+- Event sourcing for audit trail
+- Circular dependency resolution
+- Enhanced type safety (replace `any`)
 
 ---
 
-## 📊 Current Status
+## Project Statistics
 
-| Component | Status |
-|-----------|--------|
-| Brain Core | ✅ Complete |
-| Thinking Engine | ✅ Complete |
-| Task Manager | ✅ Complete |
-| Auth Agent | ✅ Complete |
-| Security Agent | ✅ Complete |
-| Monitoring Agent | ✅ Complete |
-| Phase 1 | ✅ 100% Complete |
-
----
-
-## 👥 Team
-
-- **Person 1**: Auth Agent, Security Agent, Monitoring Agent
-- **Person 2**: DB Agent, Queue Agent, Test Agent  
-- **Person 3**: API Agent, CICD Agent, Infra Agent
+| Metric | Value |
+|--------|-------|
+| Source Files | 196 |
+| API Endpoints | 50+ |
+| Agents | 12 |
+| Capabilities | 62 |
+| Database Tables | 15+ |
+| Test Files | 9 |
 
 ---
 
-## 📄 License
+## License
 
-MIT License - See LICENSE file for details.
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last Updated: December 9, 2024*
+## Contact
+
+- **Repository**: [GitHub - Project-Meteoroid](https://github.com/YuvrajZende/Project-Meteoroid)
+- **Issues**: [GitHub Issues](https://github.com/YuvrajZende/Project-Meteoroid/issues)
+
+---
+
+*Last Updated: February 22, 2026*
+*Version: 29.0.0*
