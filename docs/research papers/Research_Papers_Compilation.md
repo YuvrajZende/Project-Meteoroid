@@ -8,6 +8,38 @@
 
 ---
 
+## Quick Links to Research Papers
+
+### Part 1: AI Code Generation & LLMs for Software Development
+1. [A Survey on Large Language Models for Code Generation](https://arxiv.org/abs/2406.00515)
+2. [Large Language Models for Code Generation: A Comprehensive Survey of Challenges, Techniques, Evaluation, and Applications](https://arxiv.org/abs/2503.01245)
+3. [Towards Advancing Code Generation with Large Language Models: A Research Roadmap](https://arxiv.org/abs/2501.11354)
+4. [Large Language Models for Code Generation: The Practitioners Perspective](https://arxiv.org/abs/2501.16998)
+5. [Enhancing Software Development with Large Language Models: A Case Study of Kolay.ai](https://www.researchgate.net/publication/400384058)
+
+### Part 2: Multi-Agent Systems & Orchestration
+6. [The Orchestration of Multi-Agent Systems: Architectures, Protocols, and Enterprise Adoption](https://arxiv.org/html/2601.13671v1)
+7. [Multi-Agent Orchestration for Software Development: A Comprehensive Review](https://sarcouncil.com/download-article/SJECS-580-2025-190-197.pdf)
+8. [Magentic-One: A Generalist Multi-Agent System for Solving Complex Tasks](https://www.microsoft.com/en-us/research/wp-content/uploads/2024/11/Magentic-One.pdf)
+9. [MAS-Orchestra: Understanding and Improving Multi-Agent Reasoning Through Holistic Orchestration and Controlled Benchmarks](https://arxiv.org/abs/2601.14652)
+10. [Multi-Agent Systems for Autonomous Software Planning, Coding, and Deployment](https://www.researchgate.net/publication/400847790)
+
+### Part 3: Vector Embeddings & Learning Systems for Code
+11. [GNN-Coder: Boosting Semantic Code Retrieval with Combined GNN and Transformer](https://arxiv.org/abs/2502.15202)
+12. [LoRACode: LoRA Adapters for Code Embeddings](https://arxiv.org/abs/2503.05315)
+13. [Isotropy Matters: Soft-ZCA Whitening of Embeddings for Semantic Code Search](https://arxiv.org/abs/2411.17538)
+14. [CodexEmbed: A Generalist Embedding Model Family for Multilingual and Multi-task Code Retrieval](https://learning2hash.github.io/publications/liu2024codexembed)
+15. [Semantic Code Finder: An Efficient Semantic Search Framework for Large-Scale Codebases](https://www.researchgate.net/publication/394797430)
+
+### Part 4: Automated Code Synthesis & Neural Program Synthesis
+16. [CodeARC: Benchmarking Reasoning Capabilities of LLM Agents for Inductive Program Synthesis](https://arxiv.org/abs/2503.23145)
+17. [Blueprint2Code: A Multi-Agent Pipeline for Reliable Code Generation](https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1660912/full)
+18. [Towards Neural-Network-Guided Program Synthesis and Verification](https://link.springer.com/article/10.1007/s10703-024-00468-9)
+19. [Training Language Models on Synthetic Edit Sequences Improves Code Synthesis](https://arxiv.org/abs/2410.02749)
+20. [Compiler.next: A Search-Based Compiler to Power the AI-Native Future](https://arxiv.org/html/2510.24799v1)
+
+---
+
 # Part 1: AI Code Generation & LLMs for Software Development
 
 This section covers foundational research on Large Language Models (LLMs) for code generation, providing the theoretical and practical underpinnings for the METEROID Backend Orchestrator's core AI capabilities.
