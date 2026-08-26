@@ -2,7 +2,7 @@
  * Microservice Agent - IAgent Implementation
  */
 
-import type { IAgent } from '@loveable/shared';
+import type { IAgent, AgentConfig, AgentInput, AgentOutput } from '@loveable/shared';
 import { MicroserviceAgent, getMicroserviceAgent, type MicroserviceGenerationResult } from './microservice-agent.js';
 
 const AGENT_ID = 'microservice-agent';
@@ -40,7 +40,7 @@ export class MicroserviceAgentWrapper implements IAgent {
         this.agent = getMicroserviceAgent();
     }
 
-    async initialize(config?: Record<string, unknown>): Promise<void> {
+    async initialize(_config: AgentConfig): Promise<void> {
         this.isReady = true;
     }
 
@@ -55,14 +55,12 @@ export class MicroserviceAgentWrapper implements IAgent {
         };
     }
 
-    async execute(task: {
-        type: string;
-        input: Record<string, unknown>;
-    }): Promise<{
-        success: boolean;
-        output: unknown;
-        metadata?: Record<string, unknown>;
-    }> {
+    async execute(input: AgentInput): Promise<AgentOutput> {
+        // Shim: preserve legacy {type, input} contract until wrapper rewrite (T13/T14)
+        const task = input as unknown as {
+            type: string;
+            input: Record<string, unknown>;
+        };
         const startTime = Date.now();
 
         try {
@@ -73,13 +71,13 @@ export class MicroserviceAgentWrapper implements IAgent {
                 success: true,
                 output: result,
                 metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            };
+            } as AgentOutput;
         } catch (error) {
             return {
                 success: false,
                 output: { error: error instanceof Error ? error.message : 'Unknown error' },
                 metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            };
+            } as AgentOutput;
         }
     }
 

@@ -5,7 +5,7 @@
  * @author Person 3 (API Specialist)
  */
 
-import type { IAgent } from '@loveable/shared';
+import type { IAgent, AgentConfig, AgentInput, AgentOutput } from '@loveable/shared';
 import { APIAgent, getAPIAgent, type APIGenerationResult } from './api-agent.js';
 
 const AGENT_ID = 'api-agent';
@@ -60,7 +60,7 @@ export class APIAgentWrapper implements IAgent {
         this.agent = getAPIAgent();
     }
 
-    async initialize(config?: Record<string, unknown>): Promise<void> {
+    async initialize(config: AgentConfig): Promise<void> {
         this.isReady = true;
         console.log(`[${AGENT_NAME}] Initialized with config:`, config);
     }
@@ -77,15 +77,13 @@ export class APIAgentWrapper implements IAgent {
         };
     }
 
-    async execute(task: {
-        type: string;
-        input: Record<string, unknown>;
-        options?: Record<string, unknown>;
-    }): Promise<{
-        success: boolean;
-        output: unknown;
-        metadata?: Record<string, unknown>;
-    }> {
+    async execute(input: AgentInput): Promise<AgentOutput> {
+        // Shim: preserve legacy {type, input, options} contract until wrapper rewrite (T11/T13/T14)
+        const task = input as unknown as {
+            type: string;
+            input: Record<string, unknown>;
+            options?: Record<string, unknown>;
+        };
         this.executionCount++;
         const startTime = Date.now();
 
@@ -118,7 +116,7 @@ export class APIAgentWrapper implements IAgent {
                     agent: AGENT_ID,
                     type: task.type,
                 },
-            };
+            } as AgentOutput;
         } catch (error) {
             return {
                 success: false,
@@ -129,7 +127,7 @@ export class APIAgentWrapper implements IAgent {
                     executionTime: Date.now() - startTime,
                     agent: AGENT_ID,
                 },
-            };
+            } as AgentOutput;
         }
     }
 

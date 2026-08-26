@@ -2,7 +2,7 @@
  * Email Agent - IAgent Implementation
  */
 
-import type { IAgent } from '@loveable/shared';
+import type { IAgent, AgentConfig, AgentInput, AgentOutput } from '@loveable/shared';
 import { EmailAgent, getEmailAgent, type EmailGenerationResult } from './email-agent.js';
 
 const AGENT_ID = 'email-agent';
@@ -41,7 +41,7 @@ export class EmailAgentWrapper implements IAgent {
         this.agent = getEmailAgent();
     }
 
-    async initialize(config?: Record<string, unknown>): Promise<void> {
+    async initialize(_config: AgentConfig): Promise<void> {
         this.isReady = true;
         console.log(`[${AGENT_NAME}] Initialized`);
     }
@@ -57,14 +57,12 @@ export class EmailAgentWrapper implements IAgent {
         };
     }
 
-    async execute(task: {
-        type: string;
-        input: Record<string, unknown>;
-    }): Promise<{
-        success: boolean;
-        output: unknown;
-        metadata?: Record<string, unknown>;
-    }> {
+    async execute(input: AgentInput): Promise<AgentOutput> {
+        // Shim: preserve legacy {type, input} contract until wrapper rewrite (T13/T14)
+        const task = input as unknown as {
+            type: string;
+            input: Record<string, unknown>;
+        };
         const startTime = Date.now();
 
         try {
@@ -75,13 +73,13 @@ export class EmailAgentWrapper implements IAgent {
                 success: true,
                 output: result,
                 metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            };
+            } as AgentOutput;
         } catch (error) {
             return {
                 success: false,
                 output: { error: error instanceof Error ? error.message : 'Unknown error' },
                 metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            };
+            } as AgentOutput;
         }
     }
 

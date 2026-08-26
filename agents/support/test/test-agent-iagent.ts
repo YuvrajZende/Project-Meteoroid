@@ -5,7 +5,7 @@
  * @author Person 2 (AI/ML Engineer)
  */
 
-import type { IAgent } from '@loveable/shared';
+import type { IAgent, AgentConfig, AgentInput, AgentOutput } from '@loveable/shared';
 import { TestAgent, testAgent } from './test-agent.js';
 import type {
     TestGenerationResult,
@@ -88,16 +88,18 @@ export class TestAgentWrapper implements IAgent {
     // LIFECYCLE METHODS
     // ============================================
 
-    async initialize(config?: Record<string, unknown>): Promise<void> {
+    async initialize(config: AgentConfig): Promise<void> {
+        // Shim: legacy loose config fields until wrapper rewrite (T11/T13/T14)
+        const cfg = config as Record<string, unknown>;
         if (this.isReady) return;
 
         // Inject services if provided
-        if (config?.aiClient) {
-            this.agent.setAIClient(config.aiClient);
+        if (cfg?.aiClient) {
+            this.agent.setAIClient(cfg.aiClient);
         }
 
-        if (config?.metricsService) {
-            this.agent.setMetricsService(config.metricsService);
+        if (cfg?.metricsService) {
+            this.agent.setMetricsService(cfg.metricsService);
         }
 
         await this.agent.initialize();
@@ -126,20 +128,18 @@ export class TestAgentWrapper implements IAgent {
     // EXECUTION
     // ============================================
 
-    async execute(task: {
-        type: string;
-        input: Record<string, unknown>;
-        options?: Record<string, unknown>;
-    }): Promise<{
-        success: boolean;
-        output: unknown;
-        metadata?: Record<string, unknown>;
-    }> {
+    async execute(input: AgentInput): Promise<AgentOutput> {
+        // Shim: preserve legacy {type, input, options} contract until wrapper rewrite (T11/T13/T14)
+        const task = input as unknown as {
+            type: string;
+            input: Record<string, unknown>;
+            options?: Record<string, unknown>;
+        };
         const startTime = Date.now();
 
         try {
             if (!this.isReady) {
-                await this.initialize();
+                await this.initialize({});
             }
 
             let result: unknown;
@@ -194,7 +194,7 @@ export class TestAgentWrapper implements IAgent {
                     durationMs: duration,
                     timestamp: new Date().toISOString(),
                 },
-            };
+            } as AgentOutput;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error(`[${AGENT_ID.toUpperCase()}] Execution failed:`, errorMessage);
@@ -208,7 +208,7 @@ export class TestAgentWrapper implements IAgent {
                     error: errorMessage,
                     durationMs: Date.now() - startTime,
                 },
-            };
+            } as AgentOutput;
         }
     }
 
