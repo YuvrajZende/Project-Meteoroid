@@ -22,7 +22,10 @@
                 "packages/orchestrator/src"
             ],
             "@loveable/agents": [
-                "packages/agents/src"
+                "agents/index.ts"
+            ],
+            "@loveable/agents/*": [
+                "agents/*"
             ],
             "@loveable/shared": [
                 "packages/shared/src"

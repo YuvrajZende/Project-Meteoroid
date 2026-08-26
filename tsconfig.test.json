@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": false,
+        "declaration": false,
+        "declarationMap": false,
+        "noEmit": true,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "isolatedModules": true,
+        "types": ["node", "jest"]
+    },
+    "include": [
+        "packages/orchestrator/tests/**/*.ts",
+        "packages/orchestrator/src/pipeline/**/*.ts",
+        "packages/orchestrator/src/cli.ts",
+        "agents/**/*.ts",
+        "packages/shared/src/**/*.ts"
+    ]
+}
