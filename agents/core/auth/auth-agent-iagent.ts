@@ -11,6 +11,7 @@ import type {
     AgentHealthStatus
 } from '@loveable/shared';
 import { AuthAgent, AuthConfig } from './auth-agent.js';
+import type { AuthFeature } from './auth-agent.js';
 
 /**
  * AuthAgentWrapper - Implements IAgent interface
@@ -52,46 +53,48 @@ export class AuthAgentWrapper implements IAgent {
      */
     async execute(input: AgentInput): Promise<AgentOutput> {
         const startTime = Date.now();
-
-        console.log(`🔐 [${this.name}] Executing task: ${input.task.substring(0, 50)}...`);
-
         try {
-            // Analyze requirements from task
-            const config = await this.agent.analyzeRequirements(input.task);
+            const ctx = input.context as Record<string, unknown> | undefined;
+            const upstream = ctx?.upstream as Record<string, unknown> | undefined;
+            const analysis = upstream?.['analysis-agent'] as
+                import('../analysis/types').FrontendAnalysisResult | undefined;
+            if (!analysis) {
+                return { success: false, error: { code: 'MISSING_UPSTREAM', message: 'auth agent requires upstream analysis-agent output' } };
+            }
 
-            // Generate auth system
+            const PROVIDER_MAP: Record<string, 'clerk' | 'custom' | 'auth0' | 'supabase'> = {
+                clerk: 'clerk', auth0: 'auth0', supabase: 'supabase',
+                'custom-jwt': 'custom', 'session-based': 'custom', passport: 'custom',
+                nextauth: 'custom', firebase: 'custom', none: 'custom', unknown: 'custom',
+            };
+            const f = analysis.authStrategy.features;
+            const features: AuthFeature[] = [
+                'login', 'register', 'logout', 'forgot-password', 'reset-password', 'session', 'refresh-token',
+                ...(f.socialLogin ? ['oauth' as const] : []),
+                ...(f.mfa ? ['mfa' as const] : []),
+            ];
+
+            const config: AuthConfig = { provider: PROVIDER_MAP[analysis.authStrategy.provider] ?? 'custom', features };
             const result = await this.agent.generateAuthSystem(config);
-
-            const executionTime = Date.now() - startTime;
 
             return {
                 success: true,
-                files: result.files.map(f => ({
-                    path: f.path,
-                    content: f.content,
-                    type: 'code' as const,
-                    language: 'typescript',
+                files: result.files.map(file => ({
+                    path: file.path, content: file.content, type: 'code' as const, language: 'typescript',
                 })),
-                message: `Generated ${result.files.length} authentication files`,
+                message: `generated ${result.files.length} auth files (${config.provider})`,
                 metadata: {
-                    executionTime,
-                    dependencies: result.dependencies,
+                    executionTime: Date.now() - startTime,
+                    data: { provider: config.provider },
                     envVariables: result.envVariables,
                     instructions: result.instructions,
                 },
             };
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
             return {
                 success: false,
-                error: {
-                    code: 'AUTH_GENERATION_ERROR',
-                    message: errorMessage,
-                },
-                metadata: {
-                    executionTime: Date.now() - startTime,
-                },
+                error: { code: 'AUTH_GENERATION_ERROR', message: error instanceof Error ? error.message : String(error) },
+                metadata: { executionTime: Date.now() - startTime },
             };
         }
     }
