@@ -1,3 +1,4 @@
+import type { IAgent } from '@loveable/shared';
 import { monitoringAgentIAgent } from '@loveable/agents/core/monitoring';
 import { queueAgentIAgent } from '@loveable/agents/core/queue';
 import { cicdAgentIAgent } from '@loveable/agents/specialized/cicd';
@@ -5,7 +6,7 @@ import { infraAgentIAgent } from '@loveable/agents/specialized/infra';
 import { microserviceAgentIAgent } from '@loveable/agents/specialized/microservice';
 import { emailAgentIAgent } from '@loveable/agents/support/email';
 
-const CASES: Array<[string, { execute(i: unknown): Promise<{ success: boolean; files?: Array<{ path: string }> ; metadata?: { data?: { stub?: boolean } } }> }, string]> = [
+const CASES: Array<[string, IAgent, string]> = [
     ['monitoring', monitoringAgentIAgent, 'src/monitoring/health-route.ts'],
     ['queue', queueAgentIAgent, 'src/queue/queue-setup.ts'],
     ['cicd', cicdAgentIAgent, '.github/workflows/ci.yml'],
