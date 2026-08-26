@@ -82,6 +82,11 @@ export class SecurityAgentWrapper implements IAgent {
             // Generate security system
             const result = await this.agent.generateSecuritySystem(config);
 
+            const upstream = ((input.context as Record<string, unknown> | undefined)?.upstream
+                ?? {}) as Record<string, any>;
+            const securedEndpoints = Number(upstream['api-agent']?.endpoints ?? 0);
+            const authProvider = String(upstream['auth-agent']?.provider ?? 'custom');
+
             const executionTime = Date.now() - startTime;
 
             return {
@@ -95,6 +100,7 @@ export class SecurityAgentWrapper implements IAgent {
                 message: `Generated ${result.files.length} security files`,
                 metadata: {
                     executionTime,
+                    data: { securedEndpoints, authProvider },
                     dependencies: result.dependencies,
                     envVariables: result.envVariables,
                     instructions: result.instructions,
