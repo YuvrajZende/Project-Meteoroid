@@ -77,74 +77,50 @@ export class APIAgentWrapper implements IAgent {
         };
     }
 
+    /**
+     * Execute an API generation task.
+     *
+     * Deterministic path: model names from the upstream analysis feed the engine's
+     * regex-based resource extraction (analyzeRequirements), which drives router
+     * generation — no LLM involved.
+     */
     async execute(input: AgentInput): Promise<AgentOutput> {
-        // Shim: preserve legacy {type, input, options} contract until wrapper rewrite (T11/T13/T14)
-        const task = input as unknown as {
-            type: string;
-            input: Record<string, unknown>;
-            options?: Record<string, unknown>;
-        };
-        this.executionCount++;
         const startTime = Date.now();
-
         try {
-            let result: unknown;
+            // NOTE: each cast kept on a single line — a cast chain split across lines
+            // before `as` is a TS parse error (see database-agent-iagent.ts note).
+            const ctx = (input.context as Record<string, unknown> | undefined) ?? {};
+            const upstream = ctx.upstream as Record<string, unknown> | undefined;
+            const analysis = upstream?.['analysis-agent'] as import('../analysis/types').FrontendAnalysisResult | undefined;
+            const requestName = (ctx.requestName as string | undefined) ?? 'project';
 
-            switch (task.type) {
-                case 'generate':
-                case 'generate-api':
-                    result = await this.handleGenerate(task.input);
-                    break;
-                case 'analyze':
-                    result = await this.handleAnalyze(task.input);
-                    break;
-                case 'generate-openapi':
-                    result = await this.handleGenerateOpenAPI(task.input);
-                    break;
-                default:
-                    // Default to generate
-                    result = await this.handleGenerate(task.input);
-            }
+            const modelNames = analysis?.dataModels.map(m => m.name).join(' ') ?? '';
+            const userRequest = `${requestName} backend with ${modelNames}`.toLowerCase();
 
+            const result: APIGenerationResult = await this.agent.generate(userRequest);
+
+            this.executionCount++;
             this.successCount++;
 
             return {
                 success: true,
-                output: result,
-                metadata: {
-                    executionTime: Date.now() - startTime,
-                    agent: AGENT_ID,
-                    type: task.type,
-                },
-            } as AgentOutput;
+                files: result.files.map(file => ({
+                    path: file.path,
+                    content: file.content,
+                    type: (file.type === 'documentation' ? 'doc' : 'code') as 'doc' | 'code',
+                    language: 'typescript',
+                })),
+                message: `generated ${result.files.length} API files (${result.endpoints} endpoints)`,
+                metadata: { executionTime: Date.now() - startTime, data: result },
+            };
         } catch (error) {
+            this.executionCount++;
             return {
                 success: false,
-                output: {
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                },
-                metadata: {
-                    executionTime: Date.now() - startTime,
-                    agent: AGENT_ID,
-                },
-            } as AgentOutput;
+                error: { code: 'API_GENERATION_ERROR', message: error instanceof Error ? error.message : String(error) },
+                metadata: { executionTime: Date.now() - startTime },
+            };
         }
-    }
-
-    private async handleGenerate(input: Record<string, unknown>): Promise<APIGenerationResult> {
-        const requirements = (input.requirements as string) || (input.prompt as string) || '';
-        return this.agent.generate(requirements);
-    }
-
-    private async handleAnalyze(input: Record<string, unknown>) {
-        const requirements = (input.requirements as string) || '';
-        return this.agent.analyzeRequirements(requirements);
-    }
-
-    private async handleGenerateOpenAPI(input: Record<string, unknown>) {
-        const requirements = (input.requirements as string) || '';
-        const routers = await this.agent.analyzeRequirements(requirements);
-        return this.agent.generateOpenAPIDoc(routers);
     }
 
     canHandle(capability: string): boolean {
