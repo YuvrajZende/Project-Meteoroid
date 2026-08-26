@@ -303,7 +303,7 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_ssm_parameter" "database_url" {
-  name  = "/${var.project_name}/${var.environment}/database_url"
+  name  = "/\${var.project_name}/\${var.environment}/database_url"
 type = "SecureString"
 value = "postgresql://\${var.db_username}:\${random_password.db_password.result}@\${aws_db_instance.main.endpoint}/\${var.db_name}"
 }

@@ -23,4 +23,3 @@ export {
     emailAgentIAgent,
 } from './email-agent-iagent.js';
 
-export default emailAgentIAgent;

@@ -24,4 +24,3 @@ export {
     cicdAgentIAgent,
 } from './cicd-agent-iagent.js';
 
-export default cicdAgentIAgent;

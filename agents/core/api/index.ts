@@ -27,4 +27,3 @@ export {
     apiAgentIAgent,
 } from './api-agent-iagent.js';
 
-export default apiAgentIAgent;

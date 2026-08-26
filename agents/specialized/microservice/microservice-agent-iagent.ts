@@ -28,6 +28,7 @@ const CAPABILITIES = [
 export class MicroserviceAgentWrapper implements IAgent {
     readonly id = AGENT_ID;
     readonly name = AGENT_NAME;
+    readonly tier = 2 as const;
     readonly version = AGENT_VERSION;
     readonly description = AGENT_DESCRIPTION;
     readonly capabilities = CAPABILITIES;

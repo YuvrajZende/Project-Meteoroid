@@ -23,4 +23,3 @@ export {
     microserviceAgentIAgent,
 } from './microservice-agent-iagent.js';
 
-export default microserviceAgentIAgent;

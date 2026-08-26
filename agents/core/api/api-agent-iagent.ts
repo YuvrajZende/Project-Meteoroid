@@ -46,6 +46,7 @@ const CAPABILITIES = [
 export class APIAgentWrapper implements IAgent {
     readonly id = AGENT_ID;
     readonly name = AGENT_NAME;
+    readonly tier = 1 as const;
     readonly version = AGENT_VERSION;
     readonly description = AGENT_DESCRIPTION;
     readonly capabilities = CAPABILITIES;

@@ -21,4 +21,3 @@ export {
     infraAgentIAgent,
 } from './infra-agent-iagent.js';
 
-export default infraAgentIAgent;
