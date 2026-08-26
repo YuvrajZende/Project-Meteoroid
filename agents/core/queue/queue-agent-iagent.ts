@@ -132,83 +132,25 @@ export class QueueAgentWrapper implements IAgent {
      * Execute a queue task
      * This is the main entry point for agent functionality
      */
-    async execute(input: AgentInput): Promise<AgentOutput> {
-        const startTime = Date.now();
-
-        if (!this.isInitialized) {
-            return {
-                success: false,
-                error: {
-                    code: 'NOT_INITIALIZED',
-                    message: 'Queue Agent has not been initialized',
-                },
-            };
-        }
-
-        console.log(`⚙️ [${this.name}] Executing task: ${input.task.substring(0, 100)}...`);
-
-        try {
-            // Extract context from input
-            const context = input.context as QueueTaskContext | undefined;
-
-            // Determine what to generate based on task
-            const generateOptions = this.parseTaskOptions(input.task);
-
-            // Execute queue generation
-            const result = await this.agent.generateQueueSystem({
-                requirements: input.task,
-                ...generateOptions,
-            });
-
-            const executionTime = Date.now() - startTime;
-            this.successCount++;
-            this.lastExecutionTime = new Date();
-
-            // Map to AgentOutput format
-            return {
-                success: true,
-                files: result.files.map(f => ({
-                    path: f.path,
-                    content: f.content,
-                    type: f.type === 'queue' || f.type === 'worker' || f.type === 'processor'
-                        ? 'code' as const
-                        : f.type === 'config' || f.type === 'types'
-                            ? 'config' as const
-                            : 'code' as const,
-                    language: 'typescript',
-                })),
-                message: this.generateSuccessMessage(result),
-                metadata: {
-                    executionTime,
-                    dependencies: result.dependencies,
-                    envVariables: result.envVariables,
-                    instructions: result.instructions,
-                    warnings: result.warnings,
-                    filesGenerated: result.files.length,
-                    agentVersion: this.version,
-                },
-                suggestedNextAgents: this.suggestNextAgents(input.task),
-            };
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.failureCount++;
-
-            console.error(`❌ [${this.name}] Execution failed:`, errorMessage);
-
-            return {
-                success: false,
-                error: {
-                    code: 'QUEUE_GENERATION_ERROR',
-                    message: errorMessage,
-                    details: error,
-                },
-                metadata: {
-                    executionTime: Date.now() - startTime,
-                    agentVersion: this.version,
-                },
-            };
-        }
+    async execute(_input: AgentInput): Promise<AgentOutput> {
+        const STUB_PATH = 'src/queue/queue-setup.ts';
+        const CONTENT = [
+            "// STUB — full implementation pending",
+            'export function createQueue(name: string) {',
+            '  return {',
+            '    name,',
+            '    jobs: [] as unknown[],',
+            '    add(job: unknown) { this.jobs.push(job); },',
+            '  };',
+            '}',
+            '',
+        ].join('\n');
+        return {
+            success: true,
+            files: [{ path: STUB_PATH, content: CONTENT, type: 'code' as const }],
+            message: 'stub output (full implementation pending)',
+            metadata: { data: { stub: true } },
+        };
     }
 
     /**

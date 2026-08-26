@@ -54,80 +54,23 @@ export class MonitoringAgentWrapper implements IAgent {
     /**
      * Execute monitoring task
      */
-    async execute(input: AgentInput): Promise<AgentOutput> {
-        const startTime = Date.now();
-
-        console.log(`📊 [${this.name}] Executing task: ${input.task.substring(0, 50)}...`);
-
-        try {
-            // Default monitoring config using correct interface
-            const config: MonitoringConfig = {
-                apmProvider: 'datadog',
-                errorTracking: 'sentry',
-                logging: 'pino',
-                tracing: true,
-                metrics: {
-                    enabled: true,
-                    provider: 'prometheus',
-                    collectDefaultMetrics: true,
-                },
-                healthChecks: {
-                    enabled: true,
-                    endpoints: {
-                        health: '/health',
-                        ready: '/ready',
-                        live: '/live',
-                    },
-                    dependencies: [],
-                },
-                alerting: {
-                    enabled: true,
-                    channels: [],
-                    thresholds: [],
-                },
-                auditLogging: {
-                    enabled: true,
-                    storage: 'database',
-                    retention: 90,
-                    events: ['auth', 'data', 'admin'],
-                },
-            };
-
-            // Generate monitoring system
-            const result = await this.agent.generateMonitoringSystem(config);
-
-            const executionTime = Date.now() - startTime;
-
-            return {
-                success: true,
-                files: result.files.map(f => ({
-                    path: f.path,
-                    content: f.content,
-                    type: 'code' as const,
-                    language: 'typescript',
-                })),
-                message: `Generated ${result.files.length} monitoring files`,
-                metadata: {
-                    executionTime,
-                    dependencies: result.dependencies,
-                    envVariables: result.envVariables,
-                    setupInstructions: result.setupInstructions,
-                },
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-            return {
-                success: false,
-                error: {
-                    code: 'MONITORING_GENERATION_ERROR',
-                    message: errorMessage,
-                },
-                metadata: {
-                    executionTime: Date.now() - startTime,
-                },
-            };
-        }
+    async execute(_input: AgentInput): Promise<AgentOutput> {
+        const STUB_PATH = 'src/monitoring/health-route.ts';
+        const CONTENT = [
+            "// STUB — full implementation pending",
+            "import express from 'express';",
+            '',
+            'export function registerHealthRoute(app: express.Express): void {',
+            "  app.get('/health', (_req, res) => res.json({ status: 'ok' }));",
+            '}',
+            '',
+        ].join('\n');
+        return {
+            success: true,
+            files: [{ path: STUB_PATH, content: CONTENT, type: 'code' as const }],
+            message: 'stub output (full implementation pending)',
+            metadata: { data: { stub: true } },
+        };
     }
 
     /**

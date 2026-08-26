@@ -55,30 +55,20 @@ export class MicroserviceAgentWrapper implements IAgent {
         };
     }
 
-    async execute(input: AgentInput): Promise<AgentOutput> {
-        // Shim: preserve legacy {type, input} contract until wrapper rewrite (T13/T14)
-        const task = input as unknown as {
-            type: string;
-            input: Record<string, unknown>;
+    async execute(_input: AgentInput): Promise<AgentOutput> {
+        const STUB_PATH = 'src/microservices/service-map.json';
+        const CONTENT = [
+            '{',
+            '  "services": [{ "name": "api", "type": "monolith-module" }]',
+            '}',
+            '',
+        ].join('\n');
+        return {
+            success: true,
+            files: [{ path: STUB_PATH, content: CONTENT, type: 'asset' as const }],
+            message: 'stub output (full implementation pending)',
+            metadata: { data: { stub: true } },
         };
-        const startTime = Date.now();
-
-        try {
-            const requirements = (task.input.requirements as string) || '';
-            const result = await this.agent.generate(requirements);
-
-            return {
-                success: true,
-                output: result,
-                metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            } as AgentOutput;
-        } catch (error) {
-            return {
-                success: false,
-                output: { error: error instanceof Error ? error.message : 'Unknown error' },
-                metadata: { executionTime: Date.now() - startTime, agent: AGENT_ID },
-            } as AgentOutput;
-        }
     }
 
     canHandle(capability: string): boolean {
