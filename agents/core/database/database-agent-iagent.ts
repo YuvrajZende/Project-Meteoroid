@@ -21,7 +21,13 @@ import type {
 } from '@loveable/shared';
 
 import { DatabaseAgent, databaseAgent } from './database-agent.js';
-import type { DatabaseGenerationResult, DatabaseTaskContext } from './types.js';
+import type {
+    ColumnDataType,
+    DatabaseGenerationResult,
+    RelationshipDefinition,
+    SchemaDefinition,
+    TableDefinition,
+} from './types.js';
 
 /**
  * DatabaseAgentWrapper - Implements IAgent interface
@@ -126,79 +132,98 @@ export class DatabaseAgentWrapper implements IAgent {
      */
     async execute(input: AgentInput): Promise<AgentOutput> {
         const startTime = Date.now();
-
-        if (!this.isInitialized) {
-            return {
-                success: false,
-                error: {
-                    code: 'NOT_INITIALIZED',
-                    message: 'Database Agent has not been initialized',
-                },
-            };
-        }
-
-        console.log(`🗄️ [${this.name}] Executing task: ${input.task.substring(0, 100)}...`);
-
         try {
-            // Extract context from input
-            const context = input.context as DatabaseTaskContext | undefined;
+            // NOTE: brief's original two-line cast chain ((x as T)?.upstream \n as U)?.[k]
+            // is a TS parse error (newline directly before an `as` cast); restructured into
+            // equivalent statements without changing semantics.
+            const context = input.context as Record<string, unknown> | undefined;
+            const analysis = (context?.upstream as Record<string, unknown> | undefined)?.['analysis-agent'] as import('../analysis/types').FrontendAnalysisResult | undefined;
+            if (!analysis) {
+                return { success: false, error: { code: 'MISSING_UPSTREAM', message: 'database agent requires upstream analysis-agent output' } };
+            }
 
-            // Determine what to generate based on task
-            const generateOptions = this.parseTaskOptions(input.task);
+            // --- deterministic mapping: InferredModel[] -> SchemaDefinition ---
+            const TYPE_MAP: Record<string, ColumnDataType> = {
+                string: 'string', number: 'float', boolean: 'boolean', date: 'datetime',
+                array: 'json', object: 'json', enum: 'enum', uuid: 'uuid',
+                email: 'string', url: 'string', unknown: 'text',
+            };
+            const tableName = (m: string) => m.toLowerCase();
 
-            // Execute database generation
-            const result = await this.agent.generateDatabaseSystem({
-                requirements: input.task,
-                ...generateOptions,
-            });
+            const tables: TableDefinition[] = analysis.dataModels.map(model => ({
+                name: tableName(model.name),
+                timestamps: true,
+                columns: model.fields.map(field => {
+                    const pk = field.name === (model.primaryKey ?? 'id');
+                    return {
+                        name: field.name,
+                        type: TYPE_MAP[field.type] ?? 'text',
+                        nullable: field.optional === true && !pk,
+                        primaryKey: pk,
+                        ...(field.type === 'enum' && field.enumValues ? { enumValues: field.enumValues } : {}),
+                    };
+                }),
+            }));
 
-            const executionTime = Date.now() - startTime;
-            this.successCount++;
-            this.lastExecutionTime = new Date();
+            const relationships: RelationshipDefinition[] = [];
+            for (const model of analysis.dataModels) {
+                for (const rel of model.relationships) {
+                    relationships.push({
+                        name: rel.fieldName,
+                        type: rel.type,
+                        fromTable: tableName(model.name),
+                        fromColumn: `${tableName(rel.targetModel)}Id`,
+                        toTable: tableName(rel.targetModel),
+                        toColumn: 'id',
+                    });
+                }
+            }
 
-            // Map to AgentOutput format
+            const schema: SchemaDefinition = { tables, relationships };
+
+            // --- deterministic template generation ---
+            // VERIFIED ENGINE DEVIATIONS (database-agent.ts):
+            // 1. generatePrismaSchema(schema) returns the raw Prisma DDL string, not a
+            //    { path, content } file -> we wrap it under 'prisma/schema.prisma' ourselves.
+            // 2. The engine derives model names via table.name.slice(0, -1), i.e. it expects
+            //    PLURAL table names ('products' -> 'model Product'). Our canonical table names
+            //    are singular lowercase ('product'), so we hand the prisma generator a
+            //    pluralized view of the SAME canonical schema; query-builder/service files and
+            //    metadata.data.schema keep the singular names.
+            const prismaView: SchemaDefinition = {
+                tables: tables.map(t => ({ ...t, name: `${t.name}s` })),
+                relationships: relationships.map(r => ({
+                    ...r,
+                    fromTable: `${r.fromTable}s`,
+                    toTable: `${r.toTable}s`,
+                })),
+            };
+
+            const files: Array<{ path: string; content: string }> = [
+                { path: 'prisma/schema.prisma', content: this.agent.generatePrismaSchema(prismaView) },
+            ];
+            for (const table of tables) {
+                files.push(this.agent.generateQueryBuilder(table));
+                files.push(this.agent.generateDatabaseService(table));
+            }
+            files.push(this.agent.generateConnectionPoolConfig());
+
             return {
                 success: true,
-                files: result.files.map(f => ({
-                    path: f.path,
-                    content: f.content,
-                    type: f.type === 'schema' || f.type === 'migration' || f.type === 'query'
-                        ? 'code' as const
-                        : f.type === 'config'
-                            ? 'config' as const
-                            : 'code' as const,
-                    language: f.path.endsWith('.sql') ? 'sql' : 'typescript',
-                })),
-                message: this.generateSuccessMessage(result),
-                metadata: {
-                    executionTime,
-                    dependencies: result.dependencies,
-                    envVariables: result.envVariables,
-                    instructions: result.instructions,
-                    warnings: result.warnings,
-                    filesGenerated: result.files.length,
-                    agentVersion: this.version,
-                },
-                suggestedNextAgents: this.suggestNextAgents(input.task),
-            };
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.failureCount++;
-
-            console.error(`❌ [${this.name}] Execution failed:`, errorMessage);
-
-            return {
-                success: false,
-                error: {
-                    code: 'DATABASE_GENERATION_ERROR',
-                    message: errorMessage,
-                    details: error,
-                },
+                files: files.map(f => ({ path: f.path, content: f.content, type: 'code' as const, language: 'typescript' })),
+                message: `generated ${files.length} database files from ${tables.length} tables`,
                 metadata: {
                     executionTime: Date.now() - startTime,
-                    agentVersion: this.version,
+                    data: { schema },
+                    dependencies: ['prisma', '@prisma/client'],
+                    instructions: ['run: npx prisma generate', 'run: npx prisma migrate dev'],
                 },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: { code: 'DATABASE_GENERATION_ERROR', message: error instanceof Error ? error.message : String(error) },
+                metadata: { executionTime: Date.now() - startTime },
             };
         }
     }
