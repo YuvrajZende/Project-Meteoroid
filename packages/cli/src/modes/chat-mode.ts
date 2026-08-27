@@ -122,6 +122,11 @@ export async function startChatMode(context: Partial<ChatContext> = {}): Promise
 
     const iface = createInterface();
 
+    // stdin EOF (e.g. piped input) can land before the first prompt — track it
+    // so the loop exits instead of calling question() on a closed interface.
+    let stdinClosed = false;
+    iface.once('close', () => { stdinClosed = true; });
+
     // Show welcome
     console.log();
     console.log(colors.primary('Chat Mode'));
@@ -146,6 +151,13 @@ export async function startChatMode(context: Partial<ChatContext> = {}): Promise
 
     // Main chat loop
     while (true) {
+        if (stdinClosed) {
+            console.log();
+            console.log(colors.muted('Input closed — exiting chat mode...'));
+            console.log();
+            break;
+        }
+
         // Update status bar
         showStatusBar({
             mode: chatContext.mode.toUpperCase(),
@@ -158,6 +170,8 @@ export async function startChatMode(context: Partial<ChatContext> = {}): Promise
             iface.question(getPrompt(chatContext.mode), (answer) => {
                 resolve(answer.trim());
             });
+            // stdin EOF (e.g. piped input) — exit instead of throwing ERR_USE_AFTER_CLOSE
+            iface.once('close', () => resolve('exit'));
         });
 
         // Check for empty input
