@@ -19,6 +19,7 @@
     "transform": "npx tsx packages/cli/src/index.ts transform",
     "or": "npx tsx packages/cli/src/index.ts or",
     "orchestrator": "npx ts-node packages/orchestrator/src/index.ts",
+    "agents": "tsx packages/orchestrator/src/cli.ts",
     "orchestrator:dev": "nodemon --watch packages/orchestrator/src --exec 'npx ts-node packages/orchestrator/src/index.ts'",
     "switch-models": "npx ts-node scripts/switch-models.ts",
     "type-check": "tsc --noEmit",

@@ -12,4 +12,5 @@ module.exports = {
     transform: {
         '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.test.json' }],
     },
+    cacheDirectory: '<rootDir>/.loveable-temp/jest-cache',
 };

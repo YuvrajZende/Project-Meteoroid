@@ -142,3 +142,7 @@ tasks
 output/
 new_services/
 Improvements_needed.md
+
+# Local pipeline outputs
+.loveable-temp/
+generated-backend/

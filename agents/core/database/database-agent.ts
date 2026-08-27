@@ -28,6 +28,7 @@ import {
     MigrationDefinition,
     QueryDefinition,
     SeedConfig,
+    IndexDefinition,
     IndexRecommendation,
     RLSPolicy,
     DatabaseGeneratedFile,

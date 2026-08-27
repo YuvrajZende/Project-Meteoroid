@@ -108,7 +108,15 @@ export async function executePlan(
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                const input: AgentInput = { task: `${id} for ${ctx.requestName}`, context: { upstream: ctx.upstream, requestName: ctx.requestName } };
+                const input: AgentInput = {
+                    task: `${id} for ${ctx.requestName}`,
+                    context: {
+                        upstream: ctx.upstream,
+                        files: ctx.files,
+                        requestName: ctx.requestName,
+                        analysisJson: ctx.analysisJson,
+                    },
+                };
                 const timeoutMs = entry.timeoutMs ?? defaultTimeout;
                 const output = await withTimeout(Promise.resolve(agent.execute(input)), timeoutMs);
 

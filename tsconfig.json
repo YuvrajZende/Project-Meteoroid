@@ -40,6 +40,6 @@
         "packages/api/src/**/*.ts",
         "packages/shared/src/**/*.ts",
         "packages/orchestrator/src/**/*.ts",
-        "packages/agents/src/**/*.ts"
+        "agents/**/*.ts"
     ]
 }

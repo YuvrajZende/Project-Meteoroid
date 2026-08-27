@@ -15,6 +15,7 @@ export interface AuthSetupInfo {
 
 export interface PipelineContextData {
     requestName: string;
+    analysisJson?: unknown;
     analysis?: FrontendAnalysisResult;
     dataModels?: DbSchemaDefinition;
     apiResult?: APIGenerationResult;
