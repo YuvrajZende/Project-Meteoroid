@@ -82,37 +82,6 @@ export async function checkSupabaseConnection(): Promise<{
         };
     }
 }
-try {
-    const startTime = Date.now();
-    const supabase = getSupabaseAdmin();
-
-    // Try a simple auth check (fast and reliable)
-    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
-
-    const latency = Date.now() - startTime;
-
-    if (error) {
-        return {
-            connected: false,
-            message: 'Supabase connection failed',
-            error: error.message,
-        };
-    }
-
-    return {
-        connected: true,
-        message: `Supabase healthy (${data.users.length} users)`,
-        latency,
-    };
-} catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    return {
-        connected: false,
-        message: 'Supabase connection failed',
-        error: errorMsg,
-    };
-}
-}
 
 /**
  * Check Vector Store (pgvector) connectivity and function availability

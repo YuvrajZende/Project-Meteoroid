@@ -17,5 +17,12 @@ export function getConvexClient(): ConvexHttpClient {
     return convexClient;
 }
 
+export async function closeConvexClient(): Promise<void> {
+    if (convexClient) {
+        convexClient.clearAuth();
+        convexClient = null;
+    }
+}
+
 // Export api object for easy access
 export { api };
