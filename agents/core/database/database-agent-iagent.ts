@@ -214,8 +214,9 @@ export class DatabaseAgentWrapper implements IAgent {
                 message: `generated ${files.length} database files from ${tables.length} tables`,
                 metadata: {
                     executionTime: Date.now() - startTime,
-                    data: { schema },
-                    dependencies: ['prisma', '@prisma/client'],
+                    // dependencies must live inside data — executor publishes
+                    // metadata.data as ctx.upstream[id] for codegen to merge.
+                    data: { schema, dependencies: ['prisma', '@prisma/client'] },
                     instructions: ['run: npx prisma generate', 'run: npx prisma migrate dev'],
                 },
             };

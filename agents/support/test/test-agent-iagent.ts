@@ -142,7 +142,8 @@ export class TestAgentWrapper implements IAgent {
 
             const imports = routeFiles.map(p => {
                 const name = p.split('/').pop()!.replace('.ts', '');
-                return `import * as ${name} from '../../${p.replace(/\.ts$/, '')}';`;
+                // spec lives at tests/smoke.test.ts — one '..' reaches the backend root
+                return `import * as ${name} from '../${p.replace(/\.ts$/, '')}';`;
             }).join('\n');
             const assertions = routeFiles.map(p => {
                 const name = p.split('/').pop()!.replace('.ts', '');

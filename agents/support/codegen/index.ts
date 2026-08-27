@@ -181,15 +181,47 @@ export class CodegenAgent implements IAgent {
             const requestName = (ctx.requestName as string | undefined) ?? 'generated-backend';
 
             const dbDeps: string[] = upstream['database-agent']?.dependencies ?? [];
-            const deps = ['express', 'cors', 'dotenv', ...dbDeps];
+            const authDeps: string[] = upstream['auth-agent']?.dependencies ?? [];
+            const securityDeps: string[] = upstream['security-agent']?.dependencies ?? [];
+            const deps = [...new Set(['express', 'cors', 'dotenv', 'zod', ...dbDeps, ...authDeps, ...securityDeps])];
 
             const pkg = {
                 name: requestName.toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
                 version: '0.1.0',
                 private: true,
-                scripts: { dev: 'tsx src/index.ts', build: 'tsc' },
+                scripts: { dev: 'tsx src/index.ts', build: 'tsc', test: 'vitest run' },
                 dependencies: Object.fromEntries(deps.map(d => [d, 'latest'])),
+                devDependencies: Object.fromEntries(
+                    ['tsx', 'typescript', 'vitest', '@types/express', '@types/cors', '@types/node'].map(d => [d, 'latest'])
+                ),
             };
+
+            // Server entry wiring everything upstream agents emit.
+            const entry = [
+                "import express from 'express';",
+                "import cors from 'cors';",
+                "import * as dotenv from 'dotenv';",
+                "import { applySecurityMiddleware } from './security/middleware/index.js';",
+                "import { registerHealthRoute } from './monitoring/health-route.js';",
+                "import { errorHandler } from './middleware/error-handler.js';",
+                "import apiRouter from './routes/index.js';",
+                '',
+                'dotenv.config();',
+                '',
+                'const app = express();',
+                'app.use(cors());',
+                'app.use(express.json());',
+                'applySecurityMiddleware(app);',
+                'registerHealthRoute(app);',
+                "app.use('/api', apiRouter);",
+                '',
+                "app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));",
+                'app.use(errorHandler);',
+                '',
+                'const port = Number(process.env.PORT ?? 3000);',
+                `app.listen(port, () => console.log('${requestName} listening on port ' + port));`,
+                '',
+            ].join('\n');
             const tsconfig = {
                 compilerOptions: {
                     target: 'ES2022',
@@ -210,6 +242,7 @@ export class CodegenAgent implements IAgent {
                 'npm install',
                 'npx prisma generate   # if prisma is present',
                 'npm run dev',
+                'npm test',
                 '```',
             ].join('\n');
 
@@ -221,9 +254,10 @@ export class CodegenAgent implements IAgent {
                 files: [
                     mk('package.json', JSON.stringify(pkg, null, 2), 'config'),
                     mk('tsconfig.json', JSON.stringify(tsconfig, null, 2), 'config'),
+                    mk('src/index.ts', entry, 'code'),
                     mk('README.md', readme, 'doc'),
                 ],
-                message: `scaffolded ${requestName}`,
+                message: `scaffolded ${requestName} (entry point + configs)`,
                 metadata: { executionTime: Date.now() - startTime },
             };
         } catch (error) {

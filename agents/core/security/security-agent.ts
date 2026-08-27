@@ -261,7 +261,8 @@ export class SecurityAgent {
 
         const result: SecurityGenerationResult = {
             files: [],
-            dependencies: ["helmet", "cors", "express-rate-limit", "hpp", "xss-clean"],
+            // Matches what the emitted middleware templates actually import.
+            dependencies: ["helmet", "cors", "express-rate-limit", "rate-limit-redis", "redis", "validator"],
             envVariables: [],
             instructions: [],
         };
@@ -630,7 +631,7 @@ export const corsMiddleware = cors(corsOptions);
  * Protects against brute force attacks and DDoS.
  */
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import { createClient } from "redis";
 
@@ -666,15 +667,16 @@ export const rateLimiter = rateLimit({
         return skipPaths.some(path => req.path.startsWith(path));
     },
     keyGenerator: (req) => {
+        // ipKeyGenerator normalizes IPv6 addresses (required by express-rate-limit v7+)
         ${config.keyGenerator === "user" ? `
         // Use user ID if authenticated, otherwise IP
-        return req.user?.id || req.ip || "unknown";
+        return req.user?.id || (req.ip ? ipKeyGenerator(req.ip) : "unknown");
         ` : config.keyGenerator === "custom" ? `
         // Custom key generation
-        return req.headers["x-forwarded-for"] as string || req.ip || "unknown";
+        return (req.headers["x-forwarded-for"] as string) || (req.ip ? ipKeyGenerator(req.ip) : "unknown");
         ` : `
         // Use IP address
-        return req.ip || "unknown";
+        return req.ip ? ipKeyGenerator(req.ip) : "unknown";
         `}
     },
     handler: (req, res) => {
@@ -697,8 +699,8 @@ export const apiRateLimiter = rateLimit({
     message: { error: "API rate limit exceeded" },
     standardHeaders: true,
     keyGenerator: (req) => {
-        // Prefer API key over IP for rate limiting
-        return req.headers["x-api-key"] as string || req.ip || "unknown";
+        // Prefer API key over IP for rate limiting (ipKeyGenerator for IPv6 safety)
+        return (req.headers["x-api-key"] as string) || (req.ip ? ipKeyGenerator(req.ip) : "unknown");
     },
 });
 

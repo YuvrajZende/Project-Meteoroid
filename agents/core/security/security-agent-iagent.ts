@@ -100,8 +100,9 @@ export class SecurityAgentWrapper implements IAgent {
                 message: `Generated ${result.files.length} security files`,
                 metadata: {
                     executionTime,
-                    data: { securedEndpoints, authProvider },
-                    dependencies: result.dependencies,
+                    // dependencies must live inside data — executor publishes
+                    // metadata.data as ctx.upstream[id] for codegen to merge.
+                    data: { securedEndpoints, authProvider, dependencies: result.dependencies },
                     envVariables: result.envVariables,
                     instructions: result.instructions,
                 },

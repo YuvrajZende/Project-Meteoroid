@@ -77,15 +77,26 @@ export class AuthAgentWrapper implements IAgent {
             const config: AuthConfig = { provider: PROVIDER_MAP[analysis.authStrategy.provider] ?? 'custom', features };
             const result = await this.agent.generateAuthSystem(config);
 
+            // Route templates (api-agent) import { authenticate } from
+            // '../middleware/auth.js' — emit it here so the generated backend runs.
+            const files = result.files
+                .map(file => ({
+                    path: file.path, content: file.content, type: 'code' as const, language: 'typescript' as const,
+                }))
+                // Drop Next.js-flavored artifacts (clerk.config, webhook headers) —
+                // the generated backend is an Express server; next/* imports would
+                // break `tsc` and ship dead code.
+                .filter(file => !/from ["'](@clerk\/nextjs|next\/)/.test(file.content));
+            const { middlewareFile, dependencies } = this.buildAuthMiddleware(config.provider);
+            files.push(middlewareFile);
+
             return {
                 success: true,
-                files: result.files.map(file => ({
-                    path: file.path, content: file.content, type: 'code' as const, language: 'typescript',
-                })),
-                message: `generated ${result.files.length} auth files (${config.provider})`,
+                files,
+                message: `generated ${files.length} auth files (${config.provider})`,
                 metadata: {
                     executionTime: Date.now() - startTime,
-                    data: { provider: config.provider },
+                    data: { provider: config.provider, dependencies },
                     envVariables: result.envVariables,
                     instructions: result.instructions,
                 },
@@ -97,6 +108,66 @@ export class AuthAgentWrapper implements IAgent {
                 metadata: { executionTime: Date.now() - startTime },
             };
         }
+    }
+
+    /**
+     * Build the express middleware that route templates import as
+     * `authenticate`, plus the runtime deps the codegen agent must install.
+     */
+    private buildAuthMiddleware(provider: 'clerk' | 'custom' | 'auth0' | 'supabase'): {
+        middlewareFile: { path: string; content: string; type: 'code'; language: 'typescript' };
+        dependencies: string[];
+    } {
+        const path = 'src/middleware/auth.ts';
+        if (provider === 'clerk') {
+            return {
+                middlewareFile: {
+                    path,
+                    type: 'code',
+                    language: 'typescript',
+                    content: [
+                        "import { requireAuth } from '@clerk/express';",
+                        '',
+                        '// Clerk session verification — configure CLERK keys in .env',
+                        'export const authenticate = requireAuth();',
+                        '',
+                    ].join('\n'),
+                },
+                dependencies: ['@clerk/express', 'svix', 'ioredis'],
+            };
+        }
+        const shared = [
+            "import type { Request, Response, NextFunction } from 'express';",
+            'import jwt from \'jsonwebtoken\';',
+            '',
+            'const SECRET = process.env.AUTH_JWT_SECRET ?? process.env.JWT_SECRET;',
+            '',
+            'export interface AuthenticatedUser { id: string; [key: string]: unknown }',
+            '',
+            'export function authenticate(req: Request, res: Response, next: NextFunction): void {',
+            '    if (!SECRET) {',
+            "        res.status(500).json({ error: 'AUTH_NOT_CONFIGURED', message: 'Set AUTH_JWT_SECRET to enable authentication.' });",
+            '        return;',
+            '    }',
+            '    const header = req.headers.authorization;',
+            "    if (!header?.startsWith('Bearer ')) {",
+            "        res.status(401).json({ error: 'UNAUTHORIZED', message: 'Missing Bearer token.' });",
+            '        return;',
+            '    }',
+            '    try {',
+            '        const payload = jwt.verify(header.slice(7), SECRET);',
+            '        (req as unknown as { user: AuthenticatedUser }).user = payload as AuthenticatedUser;',
+            '        next();',
+            '    } catch {',
+            "        res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired token.' });",
+            '    }',
+            '}',
+            '',
+        ];
+        return {
+            middlewareFile: { path, type: 'code', language: 'typescript', content: shared.join('\n') },
+            dependencies: ['jsonwebtoken', '@types/jsonwebtoken', 'ioredis'],
+        };
     }
 
     /**
