@@ -102,7 +102,10 @@ export class DetailsGenerator {
             jsonReportPath = path.join(outputDir, 'analysis-report.json');
             try {
                 // Create a serializable copy of the result
+                // Shape mirrors FrontendAnalysisResult so the orchestrator's
+                // analysis-loader-agent can re-ingest this report directly.
                 const serializableResult = {
+                    repositoryPath: analysisResult.repositoryPath,
                     framework: analysisResult.framework,
                     authStrategy: {
                         provider: analysisResult.authStrategy.provider,
@@ -110,15 +113,21 @@ export class DetailsGenerator {
                         version: analysisResult.authStrategy.version,
                         features: analysisResult.authStrategy.features,
                         tokenStorage: analysisResult.authStrategy.tokenStorage,
+                        protectedRoutes: analysisResult.authStrategy.protectedRoutes,
                     },
                     apiCalls: analysisResult.apiCalls.map(call => ({
                         endpoint: call.endpoint,
                         method: call.method,
-                        filePath: call.sourceFile,
+                        library: call.library,
+                        sourceFile: call.sourceFile,
+                        lineNumber: call.lineNumber,
                         requiresAuth: call.requiresAuth,
                     })),
                     dataModels: analysisResult.dataModels.map(model => ({
                         name: model.name,
+                        confidence: model.confidence,
+                        primaryKey: model.primaryKey,
+                        relationships: model.relationships.slice(0, 10), // Limit relationships
                         fields: model.fields.slice(0, 20), // Limit fields
                         sources: model.sources.slice(0, 3), // Limit sources
                     })),
@@ -135,6 +144,7 @@ export class DetailsGenerator {
                         category: dep.category,
                     })),
                     analyzedAt: analysisResult.analyzedAt?.toISOString?.() || new Date().toISOString(),
+                    suggestions: analysisResult.suggestions,
                 };
 
                 await fs.promises.writeFile(

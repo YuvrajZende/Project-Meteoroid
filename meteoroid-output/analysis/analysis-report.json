@@ -1,4 +1,5 @@
 {
+  "repositoryPath": "C:\\Users\\yuvra\\AppData\\Local\\Temp\\loveable-backend-clones\\sanskrit-syntax-sorcery-1787844911080-eqvbxh",
   "framework": {
     "type": "react-vite",
     "version": "^18.3.1",
@@ -10,39 +11,42 @@
     "confidence": 0.5833333333333334
   },
   "authStrategy": {
-    "provider": "supabase",
-    "packageName": "@supabase/supabase-js",
-    "version": "^2.95.3",
+    "provider": "none",
     "features": {
-      "socialLogin": true,
+      "socialLogin": false,
       "emailPassword": false,
       "magicLink": false,
       "phoneAuth": false,
       "mfa": true,
       "sso": false
     },
-    "tokenStorage": "cookie"
+    "tokenStorage": "cookie",
+    "protectedRoutes": []
   },
   "apiCalls": [],
   "dataModels": [
     {
-      "name": "ProductCardProps",
+      "name": "LayoutProps",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
-          "name": "product",
+          "name": "children",
           "type": "object",
           "optional": false
         }
       ],
       "sources": [
         {
-          "file": "src\\components\\ProductCard.tsx",
+          "file": "src\\components\\Layout.tsx",
           "type": "interface"
         }
       ]
     },
     {
       "name": "CarouselProps",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "opts",
@@ -74,6 +78,8 @@
     },
     {
       "name": "CarouselContextProps",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "carouselRef",
@@ -115,6 +121,8 @@
     },
     {
       "name": "ChartConfig",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "label",
@@ -136,6 +144,8 @@
     },
     {
       "name": "ChartContextProps",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "config",
@@ -152,6 +162,9 @@
     },
     {
       "name": "FormItemContextValue",
+      "confidence": 0.6,
+      "primaryKey": "id",
+      "relationships": [],
       "fields": [
         {
           "name": "id",
@@ -168,6 +181,8 @@
     },
     {
       "name": "PaginationLinkProps",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "isActive",
@@ -184,6 +199,14 @@
     },
     {
       "name": "SidebarContext",
+      "confidence": 0.6,
+      "relationships": [
+        {
+          "targetModel": "State",
+          "type": "one-to-one",
+          "fieldName": "state"
+        }
+      ],
       "fields": [
         {
           "name": "state",
@@ -229,89 +252,9 @@
       ]
     },
     {
-      "name": "Product",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "brand",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "price",
-          "type": "number",
-          "optional": false
-        },
-        {
-          "name": "originalPrice",
-          "type": "number",
-          "optional": true
-        },
-        {
-          "name": "image",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "category",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "sizes",
-          "type": "array",
-          "optional": false,
-          "arrayType": "number"
-        },
-        {
-          "name": "inStock",
-          "type": "boolean",
-          "optional": false
-        },
-        {
-          "name": "stockCount",
-          "type": "number",
-          "optional": false
-        },
-        {
-          "name": "ambassador",
-          "type": "string",
-          "optional": true
-        },
-        {
-          "name": "featured",
-          "type": "boolean",
-          "optional": true
-        },
-        {
-          "name": "new",
-          "type": "boolean",
-          "optional": true
-        },
-        {
-          "name": "description",
-          "type": "string",
-          "optional": false
-        }
-      ],
-      "sources": [
-        {
-          "file": "src\\data\\products.ts",
-          "type": "interface"
-        }
-      ]
-    },
-    {
       "name": "State",
+      "confidence": 0.6,
+      "relationships": [],
       "fields": [
         {
           "name": "toasts",
@@ -324,170 +267,6 @@
         {
           "file": "src\\hooks\\use-toast.ts",
           "type": "interface"
-        }
-      ]
-    },
-    {
-      "name": "DbProduct",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "brand",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "price",
-          "type": "number",
-          "optional": false
-        },
-        {
-          "name": "original_price",
-          "type": "object",
-          "optional": false
-        },
-        {
-          "name": "image_url",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "category",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "sizes",
-          "type": "array",
-          "optional": false,
-          "arrayType": "number"
-        },
-        {
-          "name": "in_stock",
-          "type": "boolean",
-          "optional": false
-        },
-        {
-          "name": "stock_count",
-          "type": "number",
-          "optional": false
-        },
-        {
-          "name": "ambassador",
-          "type": "object",
-          "optional": false
-        },
-        {
-          "name": "featured",
-          "type": "boolean",
-          "optional": false
-        },
-        {
-          "name": "is_new",
-          "type": "boolean",
-          "optional": false
-        },
-        {
-          "name": "description",
-          "type": "string",
-          "optional": false
-        }
-      ],
-      "sources": [
-        {
-          "file": "src\\hooks\\useProducts.ts",
-          "type": "interface"
-        }
-      ]
-    },
-    {
-      "name": "DbBrand",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "slug",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "logo",
-          "type": "string",
-          "optional": false
-        }
-      ],
-      "sources": [
-        {
-          "file": "src\\hooks\\useProducts.ts",
-          "type": "interface"
-        }
-      ]
-    },
-    {
-      "name": "DbAmbassador",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "title",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "brand",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "quote",
-          "type": "string",
-          "optional": false
-        },
-        {
-          "name": "stats",
-          "type": "string",
-          "optional": false
-        }
-      ],
-      "sources": [
-        {
-          "file": "src\\hooks\\useProducts.ts",
-          "type": "interface"
-        }
-      ]
-    },
-    {
-      "name": "Database",
-      "fields": [],
-      "sources": [
-        {
-          "file": "src\\integrations\\supabase\\types.ts",
-          "type": "type"
         }
       ]
     }
@@ -509,152 +288,147 @@
   "dependencies": [
     {
       "name": "@hookform/resolvers",
-      "version": "^3.10.0",
+      "version": "^3.9.0",
       "category": "other"
     },
     {
       "name": "@radix-ui/react-accordion",
-      "version": "^1.2.11",
+      "version": "^1.2.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-alert-dialog",
-      "version": "^1.1.14",
+      "version": "^1.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-aspect-ratio",
-      "version": "^1.1.7",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-avatar",
-      "version": "^1.1.10",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-checkbox",
-      "version": "^1.3.2",
+      "version": "^1.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-collapsible",
-      "version": "^1.1.11",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-context-menu",
-      "version": "^2.2.15",
+      "version": "^2.2.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-dialog",
-      "version": "^1.1.14",
+      "version": "^1.1.2",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-dropdown-menu",
-      "version": "^2.1.15",
+      "version": "^2.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-hover-card",
-      "version": "^1.1.14",
+      "version": "^1.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-label",
-      "version": "^2.1.7",
+      "version": "^2.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-menubar",
-      "version": "^1.1.15",
+      "version": "^1.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-navigation-menu",
-      "version": "^1.2.13",
+      "version": "^1.2.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-popover",
-      "version": "^1.1.14",
+      "version": "^1.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-progress",
-      "version": "^1.1.7",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-radio-group",
-      "version": "^1.3.7",
+      "version": "^1.2.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-scroll-area",
-      "version": "^1.2.9",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-select",
-      "version": "^2.2.5",
+      "version": "^2.1.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-separator",
-      "version": "^1.1.7",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-slider",
-      "version": "^1.3.5",
+      "version": "^1.2.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-slot",
-      "version": "^1.2.3",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-switch",
-      "version": "^1.2.5",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-tabs",
-      "version": "^1.1.12",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-toast",
-      "version": "^1.2.14",
+      "version": "^1.2.1",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-toggle",
-      "version": "^1.1.9",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-toggle-group",
-      "version": "^1.1.10",
+      "version": "^1.1.0",
       "category": "framework"
     },
     {
       "name": "@radix-ui/react-tooltip",
-      "version": "^1.2.7",
+      "version": "^1.1.4",
       "category": "framework"
     },
     {
-      "name": "@supabase/supabase-js",
-      "version": "^2.95.3",
-      "category": "auth"
-    },
-    {
       "name": "@tanstack/react-query",
-      "version": "^5.83.0",
+      "version": "^5.56.2",
       "category": "framework"
     },
     {
@@ -669,7 +443,7 @@
     },
     {
       "name": "cmdk",
-      "version": "^1.1.1",
+      "version": "^1.0.0",
       "category": "other"
     },
     {
@@ -679,12 +453,12 @@
     },
     {
       "name": "embla-carousel-react",
-      "version": "^8.6.0",
+      "version": "^8.3.0",
       "category": "framework"
     },
     {
       "name": "input-otp",
-      "version": "^1.4.2",
+      "version": "^1.2.4",
       "category": "other"
     },
     {
@@ -714,32 +488,32 @@
     },
     {
       "name": "react-hook-form",
-      "version": "^7.61.1",
+      "version": "^7.53.0",
       "category": "framework"
     },
     {
       "name": "react-resizable-panels",
-      "version": "^2.1.9",
+      "version": "^2.1.3",
       "category": "framework"
     },
     {
       "name": "react-router-dom",
-      "version": "^6.30.1",
+      "version": "^6.26.2",
       "category": "framework"
     },
     {
       "name": "recharts",
-      "version": "^2.15.4",
+      "version": "^2.12.7",
       "category": "other"
     },
     {
       "name": "sonner",
-      "version": "^1.7.4",
+      "version": "^1.5.0",
       "category": "other"
     },
     {
       "name": "tailwind-merge",
-      "version": "^2.6.0",
+      "version": "^2.5.2",
       "category": "other"
     },
     {
@@ -749,14 +523,25 @@
     },
     {
       "name": "vaul",
-      "version": "^0.9.9",
+      "version": "^0.9.3",
       "category": "other"
     },
     {
       "name": "zod",
-      "version": "^3.25.76",
+      "version": "^3.23.8",
       "category": "validation"
+    },
+    {
+      "name": "@eslint/js",
+      "version": "^9.9.0",
+      "category": "other"
     }
   ],
-  "analyzedAt": "2026-02-10T09:42:16.053Z"
+  "analyzedAt": "2026-08-27T15:35:17.749Z",
+  "suggestions": {
+    "recommendedDatabase": "postgresql",
+    "recommendedOrm": "prisma",
+    "recommendedAuth": "clerk",
+    "apiStyle": "rest"
+  }
 }
