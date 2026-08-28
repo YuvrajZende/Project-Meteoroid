@@ -1,0 +1,25 @@
+{
+    "name": "@loveable/shared",
+    "version": "1.0.0",
+    "description": "Shared interfaces and types for Loveable Backend",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "type-check": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "typescript": "^5.7.2"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

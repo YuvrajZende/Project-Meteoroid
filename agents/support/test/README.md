@@ -1,0 +1,455 @@
+# 🧪 Test Agent
+
+**Tier:** Support Agent  
+**Category:** Testing & Quality Assurance  
+**Author:** Person 2 (AI/ML Engineer)  
+**Version:** 1.0.0
+
+---
+
+## 📋 Overview
+
+The Test Agent provides comprehensive automated test generation capabilities for modern JavaScript/TypeScript applications. It supports multiple testing frameworks and can generate unit tests, integration tests, E2E tests, API tests, and component tests.
+
+---
+
+## 🎯 Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| `vitest` | Vitest configuration and test generation |
+| `jest` | Jest configuration and test generation |
+| `playwright` | Playwright E2E test generation |
+| `cypress` | Cypress test generation |
+| `unit-tests` | Unit test file generation |
+| `integration-tests` | Integration test templates |
+| `e2e-tests` | End-to-end test generation |
+| `api-tests` | API endpoint testing |
+| `component-tests` | React/Vue component tests |
+| `snapshot-testing` | Snapshot test generation |
+| `mock-generation` | Mock file generation |
+| `fixture-generation` | Test fixture factories |
+| `coverage-analysis` | Code coverage configuration |
+
+**Total Capabilities:** 24
+
+---
+
+## 📁 File Structure
+
+```
+agents/support/test/
+├── index.ts               # Module exports
+├── test-agent.ts          # Main implementation
+├── test-agent-iagent.ts   # IAgent interface wrapper
+├── test-agent.config.json # Configuration
+├── types.ts               # Type definitions
+├── README.md              # Documentation
+└── templates/
+    └── index.ts           # Test templates
+```
+
+---
+
+## 🚀 Quick Start
+
+### Basic Usage
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+// Initialize the agent
+await testAgent.initialize();
+
+// Generate tests from requirements
+const result = await testAgent.generate(`
+    Create unit tests for a user authentication service 
+    with login, logout, and password reset functions
+`);
+
+console.log(`Generated ${result.totalTests} tests in ${result.files.length} files`);
+```
+
+### Generate Unit Tests
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const result = await testAgent.generateUnitTests({
+    sourceFile: 'src/services/auth-service.ts',
+    sourceCode: `
+        export async function login(email: string, password: string): Promise<User> {
+            // ...implementation
+        }
+        
+        export async function logout(userId: string): Promise<void> {
+            // ...implementation
+        }
+    `,
+    testFramework: 'vitest',
+    includeEdgeCases: true,
+    includeMocks: true,
+    includeFixtures: true,
+});
+
+console.log(result.testCode);
+```
+
+### Generate E2E Tests (Playwright)
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const result = await testAgent.generateE2ETests({
+    pageUrl: 'http://localhost:3000/login',
+    userFlows: [
+        {
+            name: 'User can login successfully',
+            steps: [
+                { action: 'fill', selector: '#email', value: 'test@example.com' },
+                { action: 'fill', selector: '#password', value: 'password123' },
+                { action: 'click', selector: 'button[type="submit"]' },
+                { action: 'wait', selector: '.dashboard', timeout: 5000 },
+                { action: 'assert', selector: 'h1', expected: 'Welcome' },
+            ],
+        },
+    ],
+    browsers: ['chromium', 'firefox'],
+    screenshots: true,
+    video: true,
+});
+
+// Generates: playwright.config.ts + tests/e2e/login.spec.ts
+```
+
+### Generate API Tests
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const result = await testAgent.generateAPITests([
+    {
+        endpoint: '/api/users',
+        method: 'GET',
+        expectedStatus: 200,
+        auth: { type: 'bearer' },
+    },
+    {
+        endpoint: '/api/users',
+        method: 'POST',
+        requestBody: { name: 'Test User', email: 'test@example.com' },
+        expectedStatus: 201,
+        auth: { type: 'bearer' },
+    },
+]);
+```
+
+---
+
+## 🔧 Configuration
+
+### Vitest Configuration
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const config = testAgent.generateVitestConfig({
+    framework: 'vitest',
+    testType: 'unit',
+    coverage: true,
+    environment: 'node',
+    coverageThreshold: {
+        statements: 80,
+        branches: 75,
+        functions: 80,
+        lines: 80,
+    },
+    testTimeout: 10000,
+    maxConcurrency: 5,
+});
+```
+
+### Jest Configuration
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const config = testAgent.generateJestConfig({
+    framework: 'jest',
+    testType: 'unit',
+    coverage: true,
+    environment: 'jsdom', // For React components
+    coverageThreshold: {
+        statements: 80,
+        branches: 75,
+        functions: 80,
+        lines: 80,
+    },
+});
+```
+
+---
+
+## 📦 Generated Output
+
+### Unit Test Example
+
+```typescript
+/**
+ * Unit Tests for auth-service
+ * Generated by Test Agent
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { login, logout } from './auth-service';
+
+describe('auth-service', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+    
+    describe('login', () => {
+        it('should return expected result when called with valid input', async () => {
+            // Arrange
+            const input = { email: 'test@example.com', password: 'password123' };
+            
+            // Act
+            const result = await login(input.email, input.password);
+            
+            // Assert
+            expect(result).toBeDefined();
+            expect(result.id).toBeDefined();
+        });
+
+        it('should handle null input', async () => {
+            // Arrange & Act & Assert
+            await expect(login(null, null)).rejects.toThrow();
+        });
+    });
+});
+```
+
+### E2E Test Example
+
+```typescript
+/**
+ * E2E Tests: Login
+ * Generated by Test Agent
+ */
+
+import { test, expect } from '@playwright/test';
+
+test.describe('Login', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto('http://localhost:3000/login');
+    });
+    
+    test('User can login successfully', async ({ page }) => {
+        await page.locator('#email').fill('test@example.com');
+        await page.locator('#password').fill('password123');
+        await page.locator('button[type="submit"]').click();
+        await page.waitForSelector('.dashboard', { timeout: 5000 });
+        await expect(page.locator('h1')).toContainText('Welcome');
+    });
+});
+```
+
+---
+
+## 🔌 IAgent Interface
+
+### Using with Agent Loader
+
+```typescript
+import { testAgentIAgent } from './agents/support/test';
+
+// Initialize
+await testAgentIAgent.initialize({
+    aiClient: myAIClient,
+});
+
+// Execute task
+const result = await testAgentIAgent.execute({
+    type: 'generate-unit-tests',
+    input: {
+        sourceFile: 'src/utils/math.ts',
+        sourceCode: 'export const add = (a: number, b: number) => a + b;',
+        includeEdgeCases: true,
+    },
+});
+
+// Health check
+const health = await testAgentIAgent.healthCheck();
+console.log(health.healthy ? 'Ready' : 'Not ready');
+```
+
+### Task Types
+
+| Task Type | Description |
+|-----------|-------------|
+| `generate` | Comprehensive test generation |
+| `generate-unit-tests` | Unit test generation |
+| `generate-integration-tests` | Integration test generation |
+| `generate-e2e-tests` | E2E test generation |
+| `generate-api-tests` | API test generation |
+| `generate-component-tests` | Component test generation |
+| `generate-config` | Configuration generation |
+| `analyze-code` | Source code analysis |
+
+---
+
+## 📊 Code Analysis
+
+The Test Agent can analyze source code to extract testable elements:
+
+```typescript
+import { testAgent } from './agents/support/test';
+
+const analysis = testAgent.analyzeCode(`
+    export async function fetchUsers(limit: number = 10): Promise<User[]> {
+        // ...
+    }
+    
+    export class UserService {
+        async getById(id: string): Promise<User> {
+            // ...
+        }
+    }
+`);
+
+console.log(analysis.functions); // Extracted functions
+console.log(analysis.classes);   // Extracted classes
+console.log(analysis.imports);   // Import statements
+console.log(analysis.exports);   // Export names
+```
+
+---
+
+## 🧩 Templates
+
+### Available Templates
+
+| Template | Description |
+|----------|-------------|
+| `VITEST_CONFIG_TEMPLATE` | Vitest configuration file |
+| `JEST_CONFIG_TEMPLATE` | Jest configuration file |
+| `PLAYWRIGHT_CONFIG_TEMPLATE` | Playwright configuration |
+| `UNIT_TEST_TEMPLATE` | Unit test file structure |
+| `INTEGRATION_TEST_TEMPLATE` | Integration test structure |
+| `E2E_TEST_TEMPLATE` | E2E test structure |
+| `API_TEST_TEMPLATE` | API test structure |
+| `MOCK_FILE_TEMPLATE` | Mock file generation |
+| `FIXTURE_FILE_TEMPLATE` | Test fixtures |
+| `PAGE_OBJECT_TEMPLATE` | Page Object Model |
+
+### Template Sets
+
+| Set | Templates Included |
+|-----|-------------------|
+| `basic` | vitest-config, unit-test, mock |
+| `standard` | + integration-test, fixture |
+| `advanced` | + api-test, setup |
+| `full` | + playwright-config, e2e-test, component-test, page-object |
+
+---
+
+## 📈 Dependencies
+
+### Required (Generated Code)
+
+| Package | Purpose |
+|---------|---------|
+| `vitest` | Unit/integration testing |
+| `@vitest/coverage-v8` | Code coverage |
+
+### Optional (Based on Test Types)
+
+| Package | Purpose |
+|---------|---------|
+| `jest` | Alternative test framework |
+| `@playwright/test` | E2E testing |
+| `cypress` | Alternative E2E testing |
+| `supertest` | API testing |
+| `@testing-library/react` | React component testing |
+| `@testing-library/vue` | Vue component testing |
+| `@testing-library/user-event` | User event simulation |
+
+---
+
+## 🎯 Best Practices
+
+### Test Organization
+
+```
+tests/
+├── unit/
+│   └── services/
+│       └── auth-service.test.ts
+├── integration/
+│   └── api/
+│       └── users.integration.test.ts
+├── e2e/
+│   └── flows/
+│       └── login.spec.ts
+├── fixtures/
+│   └── users.fixtures.ts
+├── mocks/
+│   └── auth.mock.ts
+└── setup.ts
+```
+
+### Coverage Goals
+
+| Metric | Target |
+|--------|--------|
+| Statements | 80% |
+| Branches | 75% |
+| Functions | 80% |
+| Lines | 80% |
+
+---
+
+## 🔗 Integration
+
+### With Orchestrator
+
+The Test Agent is automatically available through the orchestrator when test-related keywords are detected:
+
+- `test`, `testing`, `tests`
+- `unit test`, `integration test`
+- `e2e`, `end-to-end`
+- `vitest`, `jest`, `playwright`
+- `coverage`, `mock`
+
+### With Other Agents
+
+| Agent | Integration |
+|-------|-------------|
+| `database-agent` | Generate database test fixtures |
+| `queue-agent` | Generate queue worker tests |
+| `codegen-agent` | Code formatting and cleanup |
+
+---
+
+## 📝 Changelog
+
+### v1.0.0 (December 2024)
+- Initial implementation
+- Unit test generation (Vitest/Jest)
+- Integration test templates
+- E2E test generation (Playwright)
+- API test generation
+- Component test generation (React)
+- Mock and fixture generation
+- Coverage configuration
+- IAgent interface implementation
+- 24 capabilities registered
+
+---
+
+## 📚 Resources
+
+- [Vitest Documentation](https://vitest.dev/)
+- [Jest Documentation](https://jestjs.io/)
+- [Playwright Documentation](https://playwright.dev/)
+- [Testing Library](https://testing-library.com/)
