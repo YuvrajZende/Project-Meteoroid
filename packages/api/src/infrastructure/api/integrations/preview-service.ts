@@ -54,6 +54,8 @@ export interface PreviewRequest {
 export interface PreviewSession {
     id: string;
     projectId: string;
+    /** Creator ('anonymous' when unauthenticated); only the owner can see or change the session */
+    ownerId: string;
     framework: PreviewFramework;
     files: Map<string, PreviewFile>;
     dependencies: Record<string, string>;
@@ -240,7 +242,7 @@ export class PreviewService extends EventEmitter {
     /**
      * Create or update a preview session
      */
-    async createPreview(request: PreviewRequest): Promise<PreviewResult> {
+    async createPreview(request: PreviewRequest, ownerId = 'anonymous'): Promise<PreviewResult> {
         const {
             projectId,
             files,
@@ -254,7 +256,8 @@ export class PreviewService extends EventEmitter {
         console.log(`[PREVIEW] Creating preview for project: ${projectId}, framework: ${framework}`);
 
         // Get or create session
-        let session = this.getSessionByProject(projectId);
+        // Sessions are per owner: another user's preview for the same project id is never reused.
+        let session = this.getSessionByProject(projectId, ownerId);
 
         this.ensureCleanupStarted();
 
@@ -263,6 +266,7 @@ export class PreviewService extends EventEmitter {
             session = {
                 id: uuidv4(),
                 projectId,
+                ownerId,
                 framework,
                 files: new Map(),
                 dependencies,
@@ -358,10 +362,10 @@ export class PreviewService extends EventEmitter {
     /**
      * Get session by project ID
      */
-    getSessionByProject(projectId: string): PreviewSession | null {
+    getSessionByProject(projectId: string, ownerId?: string): PreviewSession | null {
         const sessions = Array.from(this.sessions.values());
         for (const session of sessions) {
-            if (session.projectId === projectId) {
+            if (session.projectId === projectId && (ownerId === undefined || session.ownerId === ownerId)) {
                 return session;
             }
         }

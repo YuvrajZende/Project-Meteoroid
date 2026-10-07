@@ -27,6 +27,8 @@ interface SSEClient {
     projectId?: string;
     /** Subscriber identity for project streams ('anonymous' when unauthenticated) */
     userId?: string;
+    /** Unscoped stream allowed to see project events (local dev clients only, e.g. the TUI) */
+    seesProjectEvents?: boolean;
 }
 
 // ============================================
@@ -47,7 +49,7 @@ class SSEManager {
     /**
      * Add a new SSE client
      */
-    addClient(id: string, reply: FastifyReply, channel: string, projectId?: string, userId?: string): void {
+    addClient(id: string, reply: FastifyReply, channel: string, projectId?: string, userId?: string, seesProjectEvents = false): void {
         const keepAlive = setInterval(() => {
             try {
                 reply.raw.write(`: keepalive\n\n`);
@@ -63,6 +65,7 @@ class SSEManager {
             keepAlive,
             projectId,
             userId,
+            seesProjectEvents,
         });
 
         console.log(`[SSE] Client connected: ${id}. Total: ${this.clients.size}`);
@@ -93,12 +96,12 @@ class SSEManager {
         const eventUserId = getGenerationScope()?.userId;
 
         for (const client of this.clients.values()) {
-            // Project streams get only their project's events.
-            // Unscoped streams never see project events when auth is required (no cross-tenant leaks).
+            // Project streams get only their project's events, and only for the owner.
+            // Unscoped streams see project events only when flagged (local dev clients).
             const deliver = client.projectId
                 ? eventProjectId === client.projectId && eventUserId === client.userId
                 : (client.channels.has(channel) || client.channels.has('*'))
-                    && (!eventProjectId || !env.AUTH_REQUIRED);
+                    && (!eventProjectId || client.seesProjectEvents === true);
             if (deliver) {
                 try {
                     client.reply.raw.write(payload);
@@ -132,6 +135,10 @@ class SSEManager {
 }
 
 export const sseManager = SSEManager.getInstance();
+
+function isLoopback(ip: string): boolean {
+    return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
 
 // ============================================
 // STREAM TICKETS
@@ -296,7 +303,9 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
         });
 
         // Add client to all channels
-        sseManager.addClient(clientId, reply, '*');
+        // Project events on the global stream: only for same-machine clients in dev (the TUI).
+        // Everyone else gets them through the ticketed per-project stream.
+        sseManager.addClient(clientId, reply, '*', undefined, undefined, !env.AUTH_REQUIRED && isLoopback(request.ip));
 
         // Send initial status
         const registry = getAgentRegistry();

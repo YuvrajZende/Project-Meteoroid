@@ -19,6 +19,8 @@ import {
 import { env } from '../config/index.js';
 import { authenticate } from '../middleware/auth-middleware.js';
 import { sseCorsHeaders } from '../plugins/sse-cors.js';
+import { getFileWriter, isValidProjectId } from '../infrastructure/file-writer.js';
+import { canAccess, readOutputMeta } from './outputs.js';
 
 // ============================================
 // OAUTH STATE STORE (In-memory with expiration)
@@ -155,6 +157,23 @@ const listDeploymentsQuerySchema = z.object({
 // ROUTES
 // ============================================
 
+/**
+ * Project-scoped deployment routes act on a generated project the caller owns.
+ * With AUTH_REQUIRED, a project must exist and belong to the caller; otherwise unowned (dev) projects pass.
+ * Unknown and foreign projects both 404 so ids can't be probed.
+ */
+async function requireProjectOwner(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const { id } = request.params as { id?: string };
+    if (!id || !isValidProjectId(id)) {
+        return reply.status(400).send({ success: false, error: { code: 'INVALID_PROJECT', message: 'Invalid project ID' } });
+    }
+    const meta = await readOutputMeta(getFileWriter().getProjectPath(id));
+    const allowed = meta.userId ? canAccess(meta, request.authUser?.id) : !env.AUTH_REQUIRED;
+    if (!allowed) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Project not found' } });
+    }
+}
+
 export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
     const deploymentService = getDeploymentService();
     const githubService = getGitHubService();
@@ -172,7 +191,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * GET /api/v1/deployments/stream/:projectId
      * SSE stream for deployment progress
      */
-    app.get('/api/v1/deployments/stream/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.get('/api/v1/deployments/stream/:id', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         const params = projectIdParamsSchema.parse(request.params);
         const projectId = params.id;
 
@@ -241,7 +260,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/auto-deploy
      * Trigger auto-deployment for a project
      */
-    app.post('/api/v1/projects/:id/auto-deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/auto-deploy', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const body = z.object({
@@ -298,7 +317,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * GET /api/v1/projects/:id/deployment-history
      * Get deployment history from database
      */
-    app.get('/api/v1/projects/:id/deployment-history', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.get('/api/v1/projects/:id/deployment-history', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const query = z.object({
@@ -338,7 +357,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * DELETE /api/v1/projects/:id/pending-deploy
      * Cancel a pending auto-deploy
      */
-    app.delete('/api/v1/projects/:id/pending-deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.delete('/api/v1/projects/:id/pending-deploy', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         const params = projectIdParamsSchema.parse(request.params);
         const projectId = params.id;
 
@@ -379,7 +398,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/deploy
      * Deploy a project
      */
-    app.post('/api/v1/projects/:id/deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/deploy', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const body = deployProjectSchema.parse(request.body);
@@ -461,7 +480,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * GET /api/v1/projects/:id/deployments
      * List deployments for a project
      */
-    app.get('/api/v1/projects/:id/deployments', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.get('/api/v1/projects/:id/deployments', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const query = listDeploymentsQuerySchema.parse(request.query);
@@ -503,7 +522,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * GET /api/v1/projects/:id/preview
      * Get the current preview URL for a project
      */
-    app.get('/api/v1/projects/:id/preview', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.get('/api/v1/projects/:id/preview', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const projectId = params.id;
@@ -559,7 +578,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/deployments/:deployId/rollback
      * Rollback to a previous deployment
      */
-    app.post('/api/v1/projects/:id/deployments/:deployId/rollback', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/deployments/:deployId/rollback', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = deploymentIdParamsSchema.parse(request.params);
             const projectId = params.id;
@@ -596,7 +615,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * DELETE /api/v1/projects/:id/site
      * Delete deployment site for a project
      */
-    app.delete('/api/v1/projects/:id/site', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.delete('/api/v1/projects/:id/site', { preHandler: [authenticate({ required: env.AUTH_REQUIRED }), requireProjectOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const projectId = params.id;

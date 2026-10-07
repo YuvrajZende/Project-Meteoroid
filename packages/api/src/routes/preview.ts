@@ -70,9 +70,25 @@ interface SessionParams {
 // ROUTE REGISTRATION
 // ============================================
 
+
+/**
+ * Session-scoped routes only work for the session's creator. Unknown and foreign sessions both 404.
+ */
+function requireSessionOwner(previewService: ReturnType<typeof getPreviewService>) {
+    return async (request: FastifyRequest, reply: FastifyReply) => {
+        const { sessionId } = request.params as { sessionId: string };
+        const session = previewService.getSession(sessionId);
+        if (session && session.ownerId !== (request.authUser?.id ?? 'anonymous')) {
+            return reply.status(404).send({ success: false, error: 'Session not found' });
+        }
+    };
+}
+
 export async function registerPreviewRoutes(app: FastifyInstance): Promise<void> {
     const previewService = getPreviewService();
     const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+    const optionalAuth = authenticate({ required: false });
+    const sessionOwner = requireSessionOwner(previewService);
 
     // ============================================
     // SERVICE STATUS
@@ -187,7 +203,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
         }
 
         try {
-            const result = await previewService.createPreview(request.body as PreviewRequest);
+            const result = await previewService.createPreview(request.body as PreviewRequest, request.authUser?.id ?? 'anonymous');
             return {
                 success: true,
                 data: {
@@ -212,6 +228,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Serve the preview HTML directly (for iframe embedding)
      */
     app.get<{ Params: SessionParams }>('/api/v1/preview/:sessionId', {
+        preHandler: [optionalAuth, sessionOwner],
         schema: {
             description: 'Get preview HTML for iframe embedding',
             tags: ['Preview'],
@@ -245,6 +262,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Get raw preview HTML as JSON response
      */
     app.get<{ Params: SessionParams }>('/api/v1/preview/:sessionId/html', {
+        preHandler: [optionalAuth, sessionOwner],
         schema: {
             description: 'Get preview HTML as JSON',
             tags: ['Preview'],
@@ -299,7 +317,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Trigger a full HMR refresh for all connected clients
      */
     app.post<{ Params: SessionParams }>('/api/v1/preview/:sessionId/refresh', {
-        preHandler: requireMutatingAuth,
+        preHandler: [requireMutatingAuth, sessionOwner],
         schema: {
             description: 'Trigger HMR refresh for all clients',
             tags: ['Preview'],
@@ -344,7 +362,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Update files and trigger HMR (hot update if possible, full reload otherwise)
      */
     app.post<{ Params: SessionParams; Body: UpdateFilesBody }>('/api/v1/preview/:sessionId/files', {
-        preHandler: requireMutatingAuth,
+        preHandler: [requireMutatingAuth, sessionOwner],
         schema: {
             description: 'Update preview files and trigger HMR',
             tags: ['Preview'],
@@ -413,7 +431,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Delete a preview session
      */
     app.delete<{ Params: SessionParams }>('/api/v1/preview/:sessionId', {
-        preHandler: requireMutatingAuth,
+        preHandler: [requireMutatingAuth, sessionOwner],
         schema: {
             description: 'Delete a preview session',
             tags: ['Preview'],
@@ -460,6 +478,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * SSE stream for HMR updates (alternative to WebSocket)
      */
     app.get<{ Params: SessionParams }>('/api/v1/preview/:sessionId/stream', {
+        preHandler: [optionalAuth, sessionOwner],
         schema: {
             description: 'SSE stream for HMR updates',
             tags: ['Preview'],
@@ -543,6 +562,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
     app.post<{ Params: SessionParams; Body: JoinCollaborationBody }>(
         '/api/v1/preview/:sessionId/collaborate/join',
         {
+            preHandler: [optionalAuth, sessionOwner],
             schema: {
                 description: 'Join a collaboration session',
                 tags: ['Preview', 'Collaboration'],
@@ -602,6 +622,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
     app.post<{ Params: SessionParams; Body: UpdateCursorBody }>(
         '/api/v1/preview/:sessionId/collaborate/cursor',
         {
+            preHandler: [optionalAuth, sessionOwner],
             schema: {
                 description: 'Update cursor position in collaboration',
                 tags: ['Preview', 'Collaboration'],
@@ -644,6 +665,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
     app.get<{ Params: SessionParams }>(
         '/api/v1/preview/:sessionId/collaborate',
         {
+            preHandler: [optionalAuth, sessionOwner],
             schema: {
                 description: 'Get collaboration state',
                 tags: ['Preview', 'Collaboration'],
@@ -691,6 +713,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
     app.post<{ Params: SessionParams; Body: LeaveCollaborationBody }>(
         '/api/v1/preview/:sessionId/collaborate/leave',
         {
+            preHandler: [optionalAuth, sessionOwner],
             schema: {
                 description: 'Leave a collaboration session',
                 tags: ['Preview', 'Collaboration'],
