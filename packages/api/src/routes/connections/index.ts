@@ -9,6 +9,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getConnectionManager } from '../../infrastructure/api/connection-manager/index.js';
 import { getServiceRegistry } from '../../infrastructure/api/service-registry/index.js';
+import { authenticate } from '../../middleware/auth-middleware.js';
 
 interface ConnectionParams {
     id: string;
@@ -32,24 +33,15 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     const connectionManager = getConnectionManager();
     const registry = getServiceRegistry();
 
-    // Auth hook - all routes require authentication
-    fastify.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-        // Check for user in request (set by auth middleware)
-        const user = (request as any).user;
-        if (!user?.id) {
-            return reply.status(401).send({
-                success: false,
-                error: 'Authentication required'
-            });
-        }
-    });
+    // All connection routes require a verified user
+    fastify.addHook('preHandler', authenticate({ required: true }));
 
     /**
      * GET /api/v1/connections
      * List all user connections
      */
     fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
-        const userId = (request as any).user.id;
+        const userId = request.authUser!.id;
 
         try {
             const connections = await connectionManager.getUserConnections(userId);
@@ -94,7 +86,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     fastify.post<{ Body: CreateConnectionBody }>(
         '/',
         async (request, reply) => {
-            const userId = (request as any).user.id;
+            const userId = request.authUser!.id;
             const { serviceId, connectionName, credentials, metadata } = request.body;
 
             // Validate service exists
@@ -144,7 +136,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     fastify.get<{ Params: ConnectionParams }>(
         '/:id',
         async (request, reply) => {
-            const userId = (request as any).user.id;
+            const userId = request.authUser!.id;
             const { id } = request.params;
 
             try {
@@ -175,7 +167,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     fastify.put<{ Params: ConnectionParams; Body: UpdateConnectionBody }>(
         '/:id',
         async (request, reply) => {
-            const userId = (request as any).user.id;
+            const userId = request.authUser!.id;
             const { id } = request.params;
             const updates = request.body;
 
@@ -208,7 +200,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     fastify.delete<{ Params: ConnectionParams }>(
         '/:id',
         async (request, reply) => {
-            const userId = (request as any).user.id;
+            const userId = request.authUser!.id;
             const { id } = request.params;
 
             try {
@@ -234,7 +226,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
     fastify.post<{ Params: ConnectionParams }>(
         '/:id/test',
         async (request, reply) => {
-            const userId = (request as any).user.id;
+            const userId = request.authUser!.id;
             const { id } = request.params;
 
             try {
@@ -262,7 +254,7 @@ export async function connectionsRoutes(fastify: FastifyInstance): Promise<void>
      * Get usage statistics
      */
     fastify.get('/stats', async (request: FastifyRequest, reply: FastifyReply) => {
-        const userId = (request as any).user.id;
+        const userId = request.authUser!.id;
 
         try {
             const stats = await connectionManager.getUsageStats(userId);

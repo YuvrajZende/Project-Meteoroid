@@ -137,10 +137,11 @@ export function sanitizeObject(obj: Record<string, unknown>): Record<string, unk
 }
 
 /**
- * Security headers configuration
+ * Security headers reference values.
+ * @deprecated Not applied at runtime - plugins/helmet.ts is the single source of security headers.
+ * Kept only because it is re-exported from middleware/index.ts.
  */
 export const SECURITY_HEADERS = {
-    // Content Security Policy
     'Content-Security-Policy': [
         "default-src 'self'",
         "script-src 'self'",
@@ -152,23 +153,10 @@ export const SECURITY_HEADERS = {
         "form-action 'self'",
         "base-uri 'self'",
     ].join('; '),
-
-    // HTTP Strict Transport Security
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-
-    // Referrer Policy
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-
-    // Disable content sniffing
     'X-Content-Type-Options': 'nosniff',
-
-    // Prevent clickjacking
     'X-Frame-Options': 'DENY',
-
-    // XSS Protection (legacy, but still useful)
-    'X-XSS-Protection': '1; mode=block',
-
-    // Permissions Policy
     'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
 };
 
@@ -184,13 +172,16 @@ export async function registerSecurityMiddleware(app: FastifyInstance): Promise<
         (request as FastifyRequest & { botScore: number }).botScore = botResult.score;
 
         // Block obvious bots (but allow health checks and Swagger)
-        const path = request.url;
+        const path = request.url.split('?')[0];
         const isExemptPath = path === '/health' ||
             path === '/status' ||
             path.startsWith('/docs') ||
             path.startsWith('/api/v1/webhooks');
 
-        if (botResult.isBot && !isExemptPath) {
+        // Credentialed clients (CLI/SDK with Bearer token or API key) are identified by auth, not UA
+        const hasCredentials = Boolean(request.headers.authorization || request.headers['x-api-key']);
+
+        if (botResult.isBot && !isExemptPath && !hasCredentials) {
             app.log.warn({
                 ip: request.ip,
                 userAgent: request.headers['user-agent'],
@@ -205,28 +196,7 @@ export async function registerSecurityMiddleware(app: FastifyInstance): Promise<
         }
     });
 
-    // Add security headers
-    app.addHook('onSend', async (_request: FastifyRequest, reply: FastifyReply) => {
-        // Only add security headers in production
-        if (process.env.NODE_ENV === 'production') {
-            for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
-                reply.header(header, value);
-            }
-        }
-
-        // Always hide server info
-        reply.removeHeader('X-Powered-By');
-        reply.header('Server', 'Loveable');
-    });
-
-    // Input sanitization hook (for non-JSON bodies)
-    app.addHook('preValidation', async (request: FastifyRequest) => {
-        if (request.body && typeof request.body === 'object') {
-            // Note: Be careful with this - it modifies the request body
-            // Only sanitize if needed for your use case
-            // request.body = sanitizeObject(request.body as Record<string, unknown>);
-        }
-    });
+    // Security headers are set by plugins/helmet.ts
 
     app.log.info('[SECURITY] Security middleware registered');
 }

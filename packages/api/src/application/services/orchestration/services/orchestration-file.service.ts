@@ -19,6 +19,9 @@ import { getImportRegistry } from '../../../../services/registry/import-registry
 import { getProjectIntegrityValidator } from '../../validation/project-integrity-validator.js';
 import { getUnifiedGenerationPipeline } from '../../validation/unified-generation-pipeline.js';
 
+export { isProjectRootFile } from '../../../../infrastructure/project-files.js';
+import { isProjectRootFile } from '../../../../infrastructure/project-files.js';
+
 export interface FileToWrite {
     path: string;
     content: string;
@@ -88,7 +91,9 @@ export class OrchestrationFileService {
 
         let filesToWrite: FileToWrite[] = [
             ...processedOutput.files.map(f => ({
-                path: shouldAddSrcPrefix && !f.path.startsWith('src/') ? `src/${f.path}` : f.path,
+                path: shouldAddSrcPrefix && !f.path.startsWith('src/') && !isProjectRootFile(f.path)
+                    ? `src/${f.path}`
+                    : f.path.replace(/^\.\//, ''),
                 content: f.content,
                 type: mapFileType(f.type),
             })),

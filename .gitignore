@@ -1,9 +1,6 @@
 # ============================================
-# LOVEABLE BACKEND - GITIGNORE
+# METEOROID BACKEND - GITIGNORE
 # ============================================
-
-# AI Agents
-.husky/
 
 # Dependencies
 node_modules/
@@ -17,23 +14,24 @@ build/
 .next/
 out/
 
-# Compiled TypeScript files
-*.js
+# Compiled TypeScript output must never live next to sources (only in dist/).
+# Scoped to the TS backend packages; packages/web (Next.js) manages its own files.
+packages/api/src/**/*.js
+packages/api/src/**/*.js.map
+packages/api/src/**/*.d.ts
+packages/api/src/**/*.d.ts.map
+packages/shared/src/**/*.js
+packages/shared/src/**/*.js.map
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.d.ts.map
+packages/orchestrator/src/**/*.js
+packages/orchestrator/src/**/*.js.map
+packages/orchestrator/src/**/*.d.ts
+packages/orchestrator/src/**/*.d.ts.map
+# Hand-written ambient declarations are intentional
+!packages/*/src/**/types/**/*.d.ts
 *.js.map
-*.d.ts
 *.d.ts.map
-!**/node_modules/**/*.js
-
-# Compiled files in src directories
-# CRITICAL: These should NEVER be in source directories - only in dist/
-packages/*/src/**/*.js
-packages/*/src/**/*.js.map
-packages/*/src/**/*.d.ts
-packages/*/src/**/*.d.ts.map
-src/**/*.js
-src/**/*.js.map
-src/**/*.d.ts
-src/**/*.d.ts.map
 
 # Windows null device file (accidentally created)
 nul
@@ -143,3 +141,6 @@ output/
 new_services/
 Improvements_needed.md
 parsed-plotting-sunbeam.md
+
+# Local app data (custom agents)
+data/

@@ -166,6 +166,9 @@ export class PreviewService extends EventEmitter {
     private cleanupInterval: NodeJS.Timeout | null = null;
     private initialized: boolean = false;
 
+    /** Hard cap on concurrent sessions across all projects (oldest evicted first) */
+    static readonly MAX_TOTAL_SESSIONS = parseInt(process.env.PREVIEW_MAX_TOTAL_SESSIONS || '200', 10);
+
     constructor(config?: Partial<PreviewConfig>) {
         super();
         this.config = {
@@ -180,14 +183,54 @@ export class PreviewService extends EventEmitter {
     }
 
     async initialize(): Promise<void> {
+        this.ensureCleanupStarted();
+    }
+
+    private ensureCleanupStarted(): void {
         if (this.initialized) return;
 
-        // Start cleanup interval (every 5 minutes)
+        // Start cleanup interval (every 5 minutes); unref so it never keeps the process alive
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredSessions();
         }, 5 * 60 * 1000);
+        this.cleanupInterval.unref();
 
         this.initialized = true;
+    }
+
+    /**
+     * Remove a session and all associated state.
+     */
+    private removeSession(sessionId: string): void {
+        this.sessions.delete(sessionId);
+        this.collaborationStates.delete(sessionId);
+        this.hmrSubscribers.delete(sessionId);
+    }
+
+    /**
+     * Make room for a new session in the given project by evicting the oldest
+     * sessions (by lastUpdatedAt) beyond the per-project and global caps.
+     */
+    private enforceSessionLimits(projectId: string): void {
+        const byAge = (a: PreviewSession, b: PreviewSession) =>
+            a.lastUpdatedAt.getTime() - b.lastUpdatedAt.getTime();
+
+        const perProjectMax = Math.max(1, this.config.maxSessionsPerProject);
+        const projectSessions = Array.from(this.sessions.values())
+            .filter(s => s.projectId === projectId)
+            .sort(byAge);
+        while (projectSessions.length >= perProjectMax) {
+            const oldest = projectSessions.shift()!;
+            this.removeSession(oldest.id);
+        }
+
+        const globalMax = Math.max(1, PreviewService.MAX_TOTAL_SESSIONS);
+        if (this.sessions.size >= globalMax) {
+            const all = Array.from(this.sessions.values()).sort(byAge);
+            while (this.sessions.size >= globalMax && all.length > 0) {
+                this.removeSession(all.shift()!.id);
+            }
+        }
     }
 
     // ============================================
@@ -213,7 +256,10 @@ export class PreviewService extends EventEmitter {
         // Get or create session
         let session = this.getSessionByProject(projectId);
 
+        this.ensureCleanupStarted();
+
         if (!session) {
+            this.enforceSessionLimits(projectId);
             session = {
                 id: uuidv4(),
                 projectId,
@@ -506,7 +552,7 @@ export class PreviewService extends EventEmitter {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loveable Preview</title>
+    <title>Meteoroid Preview</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -515,7 +561,7 @@ export class PreviewService extends EventEmitter {
         }
         ${theme === 'system' ? themeStyles : ''}
         #root { min-height: 100vh; }
-        .loveable-error {
+        .meteoroid-error {
             padding: 20px;
             background: #ff6b6b;
             color: white;
@@ -524,7 +570,7 @@ export class PreviewService extends EventEmitter {
             font-family: monospace;
             white-space: pre-wrap;
         }
-        .loveable-loading {
+        .meteoroid-loading {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -536,7 +582,7 @@ export class PreviewService extends EventEmitter {
     ${customHead}
 </head>
 <body>
-    <div id="root"><div class="loveable-loading">Loading preview...</div></div>
+    <div id="root"><div class="meteoroid-loading">Loading preview...</div></div>
     
     <script type="importmap">
     {
@@ -550,7 +596,7 @@ export class PreviewService extends EventEmitter {
         // Error handler
         window.onerror = (msg, url, line, col, error) => {
             document.getElementById('root').innerHTML = 
-                '<div class="loveable-error">Error: ' + msg + '</div>';
+                '<div class="meteoroid-error">Error: ' + msg + '</div>';
             return false;
         };
 
@@ -570,7 +616,7 @@ export class PreviewService extends EventEmitter {
             console.log('[Preview] Rendered successfully');
         } catch (error) {
             document.getElementById('root').innerHTML = 
-                '<div class="loveable-error">' + error.stack + '</div>';
+                '<div class="meteoroid-error">' + error.stack + '</div>';
             console.error('[Preview Error]', error);
         }
 

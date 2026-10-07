@@ -6,20 +6,45 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
+import { API_ROOT, REPO_ROOT } from '../infrastructure/repo-root.js';
 
-// Load environment variables from .env file in project root
-// When running from packages/api/, we need to go up two levels
-const envPath = path.resolve(process.cwd(), '..', '..', '.env');
-const localEnvPath = path.resolve(process.cwd(), '.env');
+// packages/api/.env wins over the repo-root .env (dotenv never overrides already-set vars)
+const envPath = path.join(REPO_ROOT, '.env');
+const localEnvPath = path.join(API_ROOT, '.env');
 
 // Try local first, then root
-dotenv.config({ path: localEnvPath });
-dotenv.config({ path: envPath });
+dotenv.config({ path: localEnvPath, quiet: true });
+dotenv.config({ path: envPath, quiet: true });
 
 // Debug: log which .env was loaded
 if (process.env.NODE_ENV !== 'production') {
     console.log(`[CONFIG] Loading .env from: ${envPath}`);
 }
+
+if (!process.env.NODE_ENV) {
+    console.warn([
+        '',
+        '[CONFIG] WARNING: NODE_ENV is not set - defaulting to "development".',
+        '[CONFIG] Authentication is NOT enforced on cost-incurring routes in development.',
+        '[CONFIG] Set NODE_ENV=production (or AUTH_REQUIRED=true) for any deployed instance.',
+        '',
+    ].join('\n'));
+}
+
+/**
+ * Parse a boolean-ish env string ('true'/'false'/'1'/'0'); undefined when unset/empty.
+ */
+const booleanString = z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+        if (v === undefined || v.trim() === '') return undefined;
+        const n = v.trim().toLowerCase();
+        if (n === 'true' || n === '1') return true;
+        if (n === 'false' || n === '0') return false;
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Expected 'true' or 'false', got '${v}'` });
+        return z.NEVER;
+    });
 
 /**
  * Environment variable schema with validation rules
@@ -51,7 +76,10 @@ const envSchema = z.object({
 
     // Security
     JWT_SECRET: z.string().min(32).optional(),
-    CORS_ORIGINS: z.string().default('http://localhost:3000'),
+    // Require authentication on cost-incurring/destructive routes.
+    // Defaults to true in production, false otherwise.
+    AUTH_REQUIRED: booleanString,
+    CORS_ORIGINS: z.string().default('http://localhost:3001'),
 
     // Rate Limiting
     RATE_LIMIT_MAX: z.string().transform(Number).default('100'),
@@ -74,7 +102,10 @@ const parseEnv = () => {
         throw new Error('Invalid environment configuration');
     }
 
-    return parsed.data;
+    return {
+        ...parsed.data,
+        AUTH_REQUIRED: parsed.data.AUTH_REQUIRED ?? parsed.data.NODE_ENV === 'production',
+    };
 };
 
 export const env = parseEnv();
@@ -82,7 +113,7 @@ export const env = parseEnv();
 /**
  * Type-safe environment configuration type
  */
-export type Env = z.infer<typeof envSchema>;
+export type Env = ReturnType<typeof parseEnv>;
 
 /**
  * Check if running in production

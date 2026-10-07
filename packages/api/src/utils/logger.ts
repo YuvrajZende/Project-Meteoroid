@@ -76,7 +76,7 @@ class ServerLogger {
 
         console.log('');
         console.log(`${colors.bold}${colors.cyan}╭${'─'.repeat(width)}╮${colors.reset}`);
-        console.log(`${colors.bold}${colors.cyan}│${colors.reset}  ${pad('LOVEABLE BACKEND', width - 3)}${colors.cyan}│${colors.reset}`);
+        console.log(`${colors.bold}${colors.cyan}│${colors.reset}  ${pad('METEOROID BACKEND', width - 3)}${colors.cyan}│${colors.reset}`);
         console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}${pad('AI-Powered Code Generation Server', width - 3)}${colors.reset}${colors.cyan}│${colors.reset}`);
         console.log(`${colors.cyan}│${colors.reset}  ${colors.dim}${pad(`Version ${version}`, width - 3)}${colors.reset}${colors.cyan}│${colors.reset}`);
         console.log(`${colors.bold}${colors.cyan}╰${'─'.repeat(width)}╯${colors.reset}`);

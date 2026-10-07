@@ -227,7 +227,7 @@ export class GenerationIterationRepository extends BaseRepository implements IGe
         try {
             await this.query(
                 `UPDATE generation_iterations SET feedback = $feedback WHERE id = $id`,
-                { id, feedback: JSON.stringify(feedback) }
+                { id, feedback: feedback === undefined ? null : JSON.stringify(feedback) }
             );
         } catch (error) {
             this.handleError(error, 'updateFeedback');

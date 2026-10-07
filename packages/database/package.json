@@ -1,7 +1,7 @@
 {
-    "name": "@loveable/database",
+    "name": "@meteoroid/database",
     "version": "1.0.0",
-    "description": "Supabase database integration for Loveable Backend",
+    "description": "Supabase database integration for Meteoroid Backend",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {

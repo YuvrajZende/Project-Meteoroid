@@ -5,16 +5,9 @@ export default defineConfig({
         environment: 'node',
         globals: true,
         root: '.',
-        include: ['src/tests/**/*.test.ts', 'src/repositories/**/*.test.ts', 'src/**/__tests__/**/*.test.ts'],
-        exclude: ['node_modules', 'dist'],
+        include: ['src/**/*.test.ts'],
+        exclude: ['node_modules', 'dist', 'test/e2e/**'],
         setupFiles: ['./test/setup.ts'],
-        transformMode: {
-            ssr: true,
-        },
-        deps: {
-            interopDefault: true,
-        },
-        experimentalVmThreads: false,
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],

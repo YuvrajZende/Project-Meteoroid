@@ -177,7 +177,7 @@ export abstract class BaseRepository {
     /**
      * Build ORDER BY clause
      */
-    protected buildOrderBy(options?: { orderBy?: string; order?: 'ASC' | 'DESC' }): string {
+    protected buildOrderBy(options?: { orderBy?: string; orderDirection?: 'ASC' | 'DESC'; order?: 'ASC' | 'DESC' }): string {
         // Return empty string if no orderBy specified
         if (!options || typeof options.orderBy !== 'string' || options.orderBy.trim() === '') {
             return '';
@@ -185,11 +185,18 @@ export abstract class BaseRepository {
 
         // Convert camelCase to snake_case for column name
         const column = options.orderBy
+            .trim()
             .replace(/([a-z])([A-Z])/g, '$1_$2')  // Add underscore before capital letters
             .toLowerCase();
 
-        // Default direction is ASC
-        const direction = options.order || 'ASC';
+        // The column is interpolated into SQL, so only allow plain identifiers
+        if (!/^[a-z_][a-z0-9_]*$/.test(column)) {
+            throw new RepositoryError(`Invalid orderBy column: ${options.orderBy}`, this.constructor.name);
+        }
+
+        // Default direction is ASC; anything other than DESC is treated as ASC
+        const requested = String(options.orderDirection ?? options.order ?? 'ASC').toUpperCase();
+        const direction = requested === 'DESC' ? 'DESC' : 'ASC';
         return `ORDER BY ${column} ${direction}`;
     }
 

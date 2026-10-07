@@ -52,7 +52,7 @@ export class RedisCheckpointer {
     private sessionId: string;
 
     constructor(config?: Partial<RedisConfig>) {
-        this.keyPrefix = config?.keyPrefix || "loveable:orchestrator";
+        this.keyPrefix = config?.keyPrefix || "meteoroid:orchestrator";
         this.sessionId = this.generateSessionId();
     }
 

@@ -107,7 +107,9 @@ export class ProjectContextRepository extends BaseRepository implements IProject
             let paramIndex = 1;
 
             for (const [key, value] of Object.entries(updates)) {
-                if (key === 'userId' || key === 'projectId') continue;
+                // last_active is always set below; userId/projectId are the key
+                if (key === 'userId' || key === 'projectId' || key === 'lastActive') continue;
+                if (value === undefined) continue;
 
                 const paramName = `$${paramIndex++}`;
                 fields.push(`${this.toSnakeCase(key)} = ${paramName}`);
@@ -121,12 +123,17 @@ export class ProjectContextRepository extends BaseRepository implements IProject
                 }
             }
 
-            if (fields.length === 0) return;
+            if (fields.length === 0 && updates.lastActive === undefined) return;
+
+            const lastActive = updates.lastActive instanceof Date
+                ? updates.lastActive
+                : updates.lastActive !== undefined ? new Date(updates.lastActive) : this.now();
+            fields.push('last_active = $lastActive');
 
             await this.query(
-                `UPDATE project_contexts SET ${fields.join(', ')}, last_active = $lastActive
+                `UPDATE project_contexts SET ${fields.join(', ')}
                  WHERE user_id = $userId AND project_id = $projectId`,
-                { ...values, lastActive: this.now().toISOString() }
+                { ...values, lastActive: lastActive.toISOString() }
             );
         } catch (error) {
             this.handleError(error, 'update');

@@ -1,4 +1,4 @@
-# LOVEABLE Backend Orchestrator
+# METEOROID Backend Orchestrator
 
 **AI-Powered Multi-Agent Code Generation Platform**
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-LOVEABLE is an enterprise-grade backend orchestration platform that leverages specialized AI agents to automatically generate production-ready backend code. The system uses a sophisticated multi-model pipeline combining fast analysis models with powerful code generation models to deliver complete, runnable backend solutions from natural language prompts.
+METEOROID is an enterprise-grade backend orchestration platform that leverages specialized AI agents to automatically generate production-ready backend code. The system uses a sophisticated multi-model pipeline combining fast analysis models with powerful code generation models to deliver complete, runnable backend solutions from natural language prompts.
 
 ---
 
@@ -47,7 +47,7 @@ This typically takes weeks of development time and requires expertise across mul
 
 ### Solution
 
-LOVEABLE automates backend development through:
+METEOROID automates backend development through:
 - **Multi-Agent Orchestration**: Specialized agents handle different aspects (auth, database, API, security)
 - **AI-Powered Generation**: Uses state-of-the-art LLMs for intelligent code generation
 - **Blueprint Enforcement**: Ensures generated code follows architectural patterns
@@ -90,7 +90,7 @@ LOVEABLE automates backend development through:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           LOVEABLE BACKEND PLATFORM                          │
+│                           METEOROID BACKEND PLATFORM                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐    ┌─────────────────────────────────────────────────┐    │
@@ -258,45 +258,64 @@ cp .env.example .env
 
 ### Environment Configuration
 
-Create a `.env` file with the following variables:
+Copy `.env.example` to `.env`. The simplest setup is **one OpenRouter key**: set `OPENROUTER_API_KEY` and every AI call (planner, builder, fallback, chat, sub-agents, custom agents, embeddings) goes through OpenRouter. Pick any OpenRouter model with `OPENROUTER_FAST_MODEL` / `OPENROUTER_POWER_MODEL`, or set `AI_GATEWAY=direct` to use each provider's own key instead. The pipeline picks the first configured model from the priority lists in `packages/api/src/services/registry/model-registry.ts`.
 
 ```env
 # Server
 PORT=3000
 NODE_ENV=development
+AUTH_REQUIRED=false          # true in production: AI and destructive routes need a Supabase token
 
-# AI Models
-ZAI_API_KEY=your-zai-api-key
-GROQ_API_KEY=your-groq-api-key
+# AI models (any of these)
+GROQ_API_KEY=...             # fast model (analysis)
+OPENROUTER_API_KEY=...       # power model (code generation)
+ANTHROPIC_API_KEY=...        # claude-sonnet-5-5 / claude-haiku-4-5 fallback
 
-# Database (Supabase)
-SUPABASE_URL=your-supabase-url
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# Database & auth (Supabase)
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
 
-# Redis
+# Redis (optional; rate limiting falls back to memory)
 REDIS_URL=redis://localhost:6379
 
-# JWT
-JWT_SECRET=your-jwt-secret
+# Secrets (32+ chars)
+JWT_SECRET=...
 
-# Optional: Monitoring
-SENTRY_DSN=your-sentry-dsn
+# Web app origin
+CORS_ORIGINS=http://localhost:3001
 ```
 
-### Running the Server
+### Running
 
 ```bash
-# Development mode with hot reload
-cd packages/api
-npm run dev
-
-# Production build
-npm run build
-npm start
+npm start          # API + web app together, opens http://localhost:3001 (or double-click start.bat)
+npm run dev:all    # same, without opening the browser
+npm run dev        # API only, http://localhost:3000 (Swagger at /docs)
+npm run dev:web    # Web app only, http://localhost:3001
 ```
 
-The server will be available at `http://localhost:3000`
+Set `NEXT_PUBLIC_API_URL` in `packages/web/.env.local` if the API runs elsewhere (default `http://localhost:3000`).
+
+### Web App
+
+`packages/web` is a Next.js 16 + shadcn/ui client styled with Vercel's Geist design system (light/dark).
+
+| Page | Purpose |
+|------|---------|
+| Builds | Grouped build list with a docked composer: language/framework, Live or Demo mode, custom agents, effort (sub-agent count), web research, prompt enhancer, plugins |
+| Build | Split view: live activity (thinking, web search, sub-agent allocation, file stream) beside a file explorer or run details; ZIP and single-file download |
+| Agents | Create custom agents (name, role, instructions, capabilities, web research) and browse the built-in team |
+| Plugins | Connect integrations, preview the packages and env vars each adds, test connections, attach to the next build |
+| Chat / System / Settings | Direct Q&A, service health, account and theme |
+
+Demo mode simulates a full run without API keys. Custom agents are stored in `data/custom-agents.json` (or `DATA_DIR`); each selected agent gets its own subtask with its instructions.
+
+Optional web research: set `TAVILY_API_KEY` or `BRAVE_SEARCH_API_KEY` on the API. Live activity streams per project over `/api/v1/events/projects/:projectId` using a short-lived ticket from `POST /api/v1/events/tickets`.
+
+Third-party UI (aicss.dev, Beautiful UI; MIT) is credited in `packages/web/THIRD_PARTY_NOTICES.md`.
+
+Generated output is served by `GET /api/v1/outputs`, `GET /api/v1/outputs/:projectId` and `GET /api/v1/outputs/:projectId/download`. Real-time `pipelineStep` and `fileWritten` events on `/api/v1/events` carry `projectId` and `taskId`.
 
 ### Using the TUI
 

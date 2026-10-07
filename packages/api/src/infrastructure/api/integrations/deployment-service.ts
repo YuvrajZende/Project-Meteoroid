@@ -227,7 +227,7 @@ export class DeploymentService {
                 body: JSON.stringify({
                     files: fileDigest,
                     draft: !options.production,
-                    title: options.message || 'Deployed by Loveable Backend',
+                    title: options.message || 'Deployed by Meteoroid Backend',
                 }),
             }
         );
@@ -657,7 +657,7 @@ export class DeploymentService {
 
         if (provider === 'netlify') {
             // Create site if needed, then deploy
-            const siteName = `loveable-${options.projectId}`;
+            const siteName = `meteoroid-${options.projectId}`;
 
             // Try to get existing site or create new one
             let site: DeploymentSite;

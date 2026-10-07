@@ -13,12 +13,12 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
     await app.register(swagger, {
         openapi: {
             info: {
-                title: 'Loveable Backend API',
-                description: 'Production API for the Loveable AI-powered Backend Orchestrator',
+                title: 'Meteoroid Backend API',
+                description: 'Production API for the Meteoroid AI-powered Backend Orchestrator',
                 version: '1.0.0',
                 contact: {
                     name: 'API Support',
-                    email: 'support@loveable.dev',
+                    email: 'support@meteoroid.dev',
                 },
                 license: {
                     name: 'MIT',
@@ -31,7 +31,7 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
                     description: 'Development server',
                 },
                 {
-                    url: 'https://api.loveable.dev',
+                    url: 'https://api.meteoroid.dev',
                     description: 'Production server',
                 },
             ],

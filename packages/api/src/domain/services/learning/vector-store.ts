@@ -14,6 +14,7 @@
 
 import { injectable, unmanaged } from 'inversify';
 import { getSupabaseAdmin } from '../../../infrastructure/database/database-client.js';
+import { isGatewayEnabled } from '../../../services/registry/model-registry.js';
 
 // ============================================
 // TYPES
@@ -132,8 +133,12 @@ export class VectorStoreService {
         if (cached) return cached;
 
         try {
-            const apiKey = process.env.OPENAI_API_KEY;
-            const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+            // Single-key mode: OpenRouter serves the same OpenAI embedding models (same dimensions).
+            const gateway = isGatewayEnabled();
+            const apiKey = gateway ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
+            const baseUrl = gateway
+                ? 'https://openrouter.ai/api/v1'
+                : process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
 
             if (!apiKey) {
                 // Return mock embedding for development
@@ -147,7 +152,7 @@ export class VectorStoreService {
                     'Authorization': `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: this.config.embeddingModel,
+                    model: gateway ? `openai/${this.config.embeddingModel}` : this.config.embeddingModel,
                     input: text.slice(0, 8000), // Limit input size
                 }),
             });

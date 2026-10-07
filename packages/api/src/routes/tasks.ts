@@ -3,7 +3,7 @@
  * Task submission, status, and streaming endpoints
  */
 
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../middleware/auth-middleware.js';
 import type { AuthenticatedUser } from '../middleware/auth-middleware.js';
@@ -28,13 +28,6 @@ interface UserQuota {
 
 const userQuotas = new Map<string, UserQuota>();
 
-// Extend FastifyRequest type for authenticated routes
-declare module 'fastify' {
-    interface FastifyRequest {
-        authUser?: AuthenticatedUser;
-    }
-}
-
 // Validation schemas
 const createTaskSchema = z.object({
     prompt: z.string().min(1, 'Prompt is required').max(10000, 'Prompt too long'),
@@ -52,6 +45,19 @@ const listTasksQuerySchema = z.object({
 // Type definitions
 type CreateTaskBody = z.infer<typeof createTaskSchema>;
 type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+
+const KNOWN_TIERS = new Set(['free', 'pro', 'enterprise']);
+
+/**
+ * Resolve the user's subscription tier from the server-derived `tier` field
+ * (populated by auth middleware from app_metadata only). Never read from
+ * `claims`, which includes user-editable user_metadata.
+ * Defaults to 'free' when absent or unrecognised.
+ */
+function getUserTier(user: AuthenticatedUser): string {
+    const tier = user.tier ?? 'free';
+    return KNOWN_TIERS.has(tier) ? tier : 'free';
+}
 
 /**
  * Check if user has quota remaining for the current period
@@ -112,7 +118,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     /**
      * POST /api/v1/tasks - Submit new generation task
      */
-    app.post('/api/v1/tasks', {
+    app.post<{ Body: CreateTaskBody }>('/api/v1/tasks', {
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Tasks'],
@@ -141,7 +147,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                 },
             },
         },
-    }, async (request: FastifyRequest<{ Body: CreateTaskBody }>, reply: FastifyReply) => {
+    }, async (request, reply) => {
         // Validate input
         const validation = createTaskSchema.safeParse(request.body);
 
@@ -164,7 +170,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
         const { prompt, projectId, priority } = validation.data;
 
         // Check user quota
-        const userTier = user.tier || 'free';
+        const userTier = getUserTier(user);
         const quotaCheck = checkUserQuota(user.id, userTier);
 
         if (!quotaCheck.hasQuota) {
@@ -221,7 +227,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     /**
      * GET /api/v1/tasks/:id - Get task status
      */
-    app.get('/api/v1/tasks/:id', {
+    app.get<{ Params: { id: string } }>('/api/v1/tasks/:id', {
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Tasks'],
@@ -258,9 +264,8 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                 },
             },
         },
-    }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    }, async (request, reply) => {
         const { id } = request.params;
-        const user = request.authUser;
 
         // Authenticated via preHandler
         // TODO: Get task from database
@@ -275,7 +280,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     /**
      * GET /api/v1/tasks/:id/stream - SSE stream for real-time progress
      */
-    app.get('/api/v1/tasks/:id/stream', {
+    app.get<{ Params: { id: string } }>('/api/v1/tasks/:id/stream', {
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Tasks'],
@@ -290,14 +295,22 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                 required: ['id'],
             },
         },
-    }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    }, async (request, reply) => {
         const { id } = request.params;
-        const user = request.authUser;
 
-        // Authenticated via preHandler
+        // Authenticated via preHandler. Take over the raw response so Fastify
+        // does not try to send its own reply after we start streaming.
+        reply.hijack();
 
         // Set SSE headers
+        // Preserve headers already set via reply.header() (CORS, security headers).
+        const existingHeaders = Object.fromEntries(
+            Object.entries(reply.getHeaders()).filter(
+                (entry): entry is [string, string | number | string[]] => entry[1] !== undefined
+            )
+        );
         reply.raw.writeHead(200, {
+            ...existingHeaders,
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
@@ -333,7 +346,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                     result: taskState.result,
                 })}\n\n`);
                 reply.raw.end();
-                return reply;
+                return;
             }
         }
 
@@ -371,7 +384,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     /**
      * GET /api/v1/tasks - List user's tasks
      */
-    app.get('/api/v1/tasks', {
+    app.get<{ Querystring: ListTasksQuery }>('/api/v1/tasks', {
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Tasks'],
@@ -409,7 +422,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                 },
             },
         },
-    }, async (request: FastifyRequest<{ Querystring: ListTasksQuery }>, reply: FastifyReply) => {
+    }, async (request, reply) => {
         const validation = listTasksQuerySchema.safeParse(request.query);
 
         if (!validation.success) {
@@ -420,7 +433,6 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
         }
 
         const { limit, offset } = validation.data;
-        const user = request.authUser;
 
         // Authenticated via preHandler
         // TODO: Get tasks from database
@@ -437,7 +449,7 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
     /**
      * DELETE /api/v1/tasks/:id - Cancel a pending task
      */
-    app.delete('/api/v1/tasks/:id', {
+    app.delete<{ Params: { id: string } }>('/api/v1/tasks/:id', {
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Tasks'],
@@ -466,9 +478,8 @@ export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
                 },
             },
         },
-    }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    }, async (request, reply) => {
         const { id } = request.params;
-        const user = request.authUser;
 
         // Authenticated via preHandler
         // TODO: Cancel task in database

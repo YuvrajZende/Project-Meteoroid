@@ -12,6 +12,9 @@ import {
     type SupportedLanguage,
     type SupportedFramework,
 } from '../application/services/generation/enhanced-code-generator.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
+import { aiRouteRateLimit } from '../plugins/rate-limit.js';
 
 // Request body schema
 interface GenerateProjectBody {
@@ -39,12 +42,16 @@ interface GenerateProjectBody {
 
 export async function enhancedCodegenRoutes(app: FastifyInstance): Promise<void> {
     const generator = getEnhancedCodeGenerator();
+    const aiRouteOptions = {
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
+        config: { rateLimit: aiRouteRateLimit },
+    };
 
     /**
      * POST /api/v1/codegen/generate
      * Generate a complete project with multi-language support
      */
-    app.post('/api/v1/codegen/generate', async (
+    app.post<{ Body: GenerateProjectBody }>('/api/v1/codegen/generate', aiRouteOptions, async (
         request: FastifyRequest<{ Body: GenerateProjectBody }>,
         reply: FastifyReply
     ) => {
@@ -139,7 +146,7 @@ export async function enhancedCodegenRoutes(app: FastifyInstance): Promise<void>
      * POST /api/v1/codegen/scaffold
      * Generate only project scaffolding (config files)
      */
-    app.post('/api/v1/codegen/scaffold', async (
+    app.post<{ Body: { projectName: string; description: string; language?: SupportedLanguage } }>('/api/v1/codegen/scaffold', aiRouteOptions, async (
         request: FastifyRequest<{ Body: { projectName: string; description: string; language?: SupportedLanguage } }>,
         reply: FastifyReply
     ) => {

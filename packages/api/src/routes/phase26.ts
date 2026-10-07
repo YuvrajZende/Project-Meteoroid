@@ -10,6 +10,8 @@ import {
     getImportRegistry,
     getProjectIntegrityValidator,
 } from '../services/index.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 
 // ============================================
 // TYPES
@@ -39,6 +41,8 @@ interface ValidateReplacementBody {
 // ============================================
 
 export async function phase26Routes(app: FastifyInstance): Promise<void> {
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+
     const dependencyRegistry = getDependencyRegistry();
     const importRegistry = getImportRegistry();
     const projectValidator = getProjectIntegrityValidator();
@@ -67,7 +71,7 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/project/dependencies
      * Analyze code and detect required dependencies
      */
-    app.post('/api/v1/project/dependencies', async (request: FastifyRequest<{ Body: AnalyzeDependenciesBody }>, reply: FastifyReply) => {
+    app.post<{ Body: AnalyzeDependenciesBody }>('/api/v1/project/dependencies', { preHandler: requireMutatingAuth }, async (request: FastifyRequest<{ Body: AnalyzeDependenciesBody }>, reply: FastifyReply) => {
         try {
             const { code, filePath = 'analysis.ts' } = request.body;
 
@@ -106,7 +110,7 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/project/imports/deduplicate
      * Deduplicate imports in code
      */
-    app.post('/api/v1/project/imports/deduplicate', async (request: FastifyRequest<{ Body: DeduplicateImportsBody }>, reply: FastifyReply) => {
+    app.post<{ Body: DeduplicateImportsBody }>('/api/v1/project/imports/deduplicate', { preHandler: requireMutatingAuth }, async (request: FastifyRequest<{ Body: DeduplicateImportsBody }>, reply: FastifyReply) => {
         try {
             const { code, filePath = 'file.ts' } = request.body;
 
@@ -142,7 +146,7 @@ export async function phase26Routes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/project/validate-replacement
      * Validate a code replacement to prevent code loss
      */
-    app.post('/api/v1/project/validate-replacement', async (request: FastifyRequest<{ Body: ValidateReplacementBody }>, reply: FastifyReply) => {
+    app.post<{ Body: ValidateReplacementBody }>('/api/v1/project/validate-replacement', { preHandler: requireMutatingAuth }, async (request: FastifyRequest<{ Body: ValidateReplacementBody }>, reply: FastifyReply) => {
         try {
             const {
                 originalCode,

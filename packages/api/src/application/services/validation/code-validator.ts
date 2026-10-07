@@ -10,12 +10,53 @@
  * - Import/export consistency
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { mkdir, mkdtemp, writeFile, rm } from 'fs/promises';
+import { dirname, join } from 'path';
+import { API_ROOT } from '../../../infrastructure/repo-root.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/** Max captured stdout/stderr from child tools (bytes) */
+const MAX_TOOL_OUTPUT = 10 * 1024 * 1024;
+/** Kill child tools that hang */
+const TOOL_TIMEOUT_MS = 60_000;
+
+/**
+ * Resolve a package's JS entry script so it can be run as `node <script>`
+ * via execFile (no shell, no npx, works on Windows without .cmd shims).
+ */
+function resolveToolScript(pkg: string, relativeScript: string): string | null {
+    try {
+        // Resolve via package.json: bin scripts are often not listed in package "exports"
+        const pkgJson = require.resolve(`${pkg}/package.json`);
+        return join(dirname(pkgJson), relativeScript);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Private, project-owned root for per-run validation dirs. Deliberately NOT
+ * os.tmpdir(): tools like ESLint/tsc walk parent dirs for config, and a shared
+ * temp dir lets other local users plant configs (code execution).
+ */
+const VALIDATION_ROOT = join(API_ROOT, '.cache', 'validation');
+
+async function createRunDir(): Promise<string> {
+    await mkdir(VALIDATION_ROOT, { recursive: true, mode: 0o700 });
+    return mkdtemp(join(VALIDATION_ROOT, 'run-'));
+}
+
+/**
+ * Map an arbitrary (untrusted) generated file path to a safe flat filename
+ * inside the temp dir - no separators, no traversal.
+ */
+function toTempFileName(filePath: string): string {
+    const flat = filePath.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '_');
+    return flat.length > 0 ? flat : '_file.ts';
+}
 
 export interface ValidationError {
     file: string;
@@ -62,7 +103,6 @@ export interface ValidatorConfig {
 
 export class CodeValidator {
     private config: ValidatorConfig;
-    private tempDir: string;
 
     constructor(config?: Partial<ValidatorConfig>) {
         this.config = {
@@ -72,7 +112,6 @@ export class CodeValidator {
             autoFix: config?.autoFix ?? false,
             strictMode: config?.strictMode ?? true,
         };
-        this.tempDir = join(process.cwd(), '.temp-validation');
     }
 
     /**
@@ -269,52 +308,57 @@ export class CodeValidator {
     private async runTypeScript(files: CodeFile[]): Promise<ValidationError[]> {
         const errors: ValidationError[] = [];
 
-        // Create temp directory
-        if (!existsSync(this.tempDir)) {
-            mkdirSync(this.tempDir, { recursive: true });
+        const tscScript = resolveToolScript('typescript', 'bin/tsc');
+        if (!tscScript) {
+            console.log('[CODE-VALIDATOR] TypeScript not available, skipping type check');
+            return errors;
         }
 
-        // Write files to temp
-        const tempFiles: string[] = [];
-        for (const file of files) {
-            const tempPath = join(this.tempDir, file.path.replace(/\//g, '_'));
-            writeFileSync(tempPath, file.content);
-            tempFiles.push(tempPath);
-        }
-
-        // Write minimal tsconfig
-        const tsconfigPath = join(this.tempDir, 'tsconfig.json');
-        writeFileSync(tsconfigPath, JSON.stringify({
-            compilerOptions: {
-                target: 'ES2022',
-                module: 'ESNext',
-                moduleResolution: 'Node',
-                strict: this.config.strictMode,
-                skipLibCheck: true,
-                noEmit: true,
-            },
-            include: ['*.ts'],
-        }, null, 2));
+        // Per-run isolated temp dir (no cross-request collisions)
+        const runDir = await createRunDir();
 
         try {
-            // Run tsc
-            await execAsync(`npx tsc --project ${tsconfigPath}`, {
-                cwd: this.tempDir,
-            });
-        } catch (error) {
-            // Parse tsc output
-            const output = (error as { stdout?: string; stderr?: string }).stdout ||
-                (error as { stderr?: string }).stderr || '';
-            const parsedErrors = this.parseTscOutput(output, files);
-            errors.push(...parsedErrors);
-        } finally {
-            // Cleanup
-            try {
-                tempFiles.forEach(f => existsSync(f) && unlinkSync(f));
-                existsSync(tsconfigPath) && unlinkSync(tsconfigPath);
-            } catch {
-                // Ignore cleanup errors
+            for (const file of files) {
+                await writeFile(join(runDir, toTempFileName(file.path)), file.content);
             }
+
+            // Write minimal tsconfig
+            // The temp dir lives outside the project, so point module/type resolution
+            // back at the project's node_modules (where typescript itself was resolved).
+            const nodeModulesDir = dirname(dirname(dirname(tscScript)));
+            const tsconfigPath = join(runDir, 'tsconfig.json');
+            await writeFile(tsconfigPath, JSON.stringify({
+                compilerOptions: {
+                    target: 'ES2022',
+                    module: 'ESNext',
+                    moduleResolution: 'Node',
+                    strict: this.config.strictMode,
+                    skipLibCheck: true,
+                    noEmit: true,
+                    baseUrl: '.',
+                    paths: {
+                        '*': [join(nodeModulesDir, '*'), join(nodeModulesDir, '@types', '*')],
+                    },
+                    typeRoots: [join(nodeModulesDir, '@types')],
+                },
+                include: ['*.ts'],
+            }, null, 2));
+
+            try {
+                await execFileAsync(process.execPath, [tscScript, '--project', tsconfigPath, '--pretty', 'false'], {
+                    cwd: runDir,
+                    timeout: TOOL_TIMEOUT_MS,
+                    maxBuffer: MAX_TOOL_OUTPUT,
+                    windowsHide: true,
+                });
+            } catch (error) {
+                // tsc exits non-zero when there are diagnostics
+                const output = (error as { stdout?: string; stderr?: string }).stdout ||
+                    (error as { stderr?: string }).stderr || '';
+                errors.push(...this.parseTscOutput(output, files));
+            }
+        } finally {
+            await rm(runDir, { recursive: true, force: true }).catch(() => undefined);
         }
 
         return errors;
@@ -326,36 +370,19 @@ export class CodeValidator {
     private async runESLint(files: CodeFile[]): Promise<ValidationError[]> {
         const errors: ValidationError[] = [];
 
-        // Check if ESLint is available
-        try {
-            await execAsync('npx eslint --version');
-        } catch {
+        const eslintScript = resolveToolScript('eslint', 'bin/eslint.js');
+        if (!eslintScript) {
             console.log('[CODE-VALIDATOR] ESLint not available, skipping lint check');
             return errors;
         }
 
-        // Create temp directory
-        if (!existsSync(this.tempDir)) {
-            mkdirSync(this.tempDir, { recursive: true });
-        }
+        const runDir = await createRunDir();
 
-        // Write files to temp
-        const tempFiles: string[] = [];
-        for (const file of files) {
-            const tempPath = join(this.tempDir, file.path.replace(/\//g, '_'));
-            writeFileSync(tempPath, file.content);
-            tempFiles.push(tempPath);
-        }
-
-        try {
-            // Run ESLint
-            const { stdout } = await execAsync(
-                `npx eslint ${tempFiles.join(' ')} --format json`,
-                { cwd: this.tempDir }
-            );
-
-            // Parse ESLint output
-            const results = JSON.parse(stdout);
+        const collect = (stdout: string): void => {
+            const results = JSON.parse(stdout) as Array<{
+                filePath: string;
+                messages: Array<{ line: number; column: number; message: string; severity: number; ruleId?: string; fix?: unknown }>;
+            }>;
             for (const result of results) {
                 for (const msg of result.messages) {
                     errors.push({
@@ -369,36 +396,60 @@ export class CodeValidator {
                     });
                 }
             }
-        } catch (error) {
-            // ESLint returns non-zero on errors
-            const output = (error as { stdout?: string }).stdout || '';
-            if (output.startsWith('[')) {
-                try {
-                    const results = JSON.parse(output);
-                    for (const result of results) {
-                        for (const msg of result.messages) {
-                            errors.push({
-                                file: result.filePath,
-                                line: msg.line,
-                                column: msg.column,
-                                message: msg.message,
-                                severity: msg.severity === 2 ? 'error' : 'warning',
-                                rule: msg.ruleId,
-                                fixable: !!msg.fix,
-                            });
-                        }
+        };
+
+        try {
+            const tempFiles: string[] = [];
+            for (const file of files) {
+                const tempPath = join(runDir, toTempFileName(file.path));
+                await writeFile(tempPath, file.content);
+                tempFiles.push(tempPath);
+            }
+
+            // Pin an explicit config; never discover configs from the filesystem (ESLint 8 eslintrc mode)
+            let tsParser: string | null = null;
+            try {
+                tsParser = require.resolve('@typescript-eslint/parser');
+            } catch {
+                tsParser = null;
+            }
+            const eslintConfigPath = join(runDir, 'eslint.config.json');
+            await writeFile(eslintConfigPath, JSON.stringify({
+                root: true,
+                ...(tsParser ? { parser: tsParser } : {}),
+                parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+                env: { es2022: true, node: true },
+                rules: {},
+            }, null, 2));
+
+            try {
+                const { stdout } = await execFileAsync(
+                    process.execPath,
+                    [
+                        eslintScript,
+                        '--no-eslintrc',
+                        '--no-ignore',
+                        '--config', eslintConfigPath,
+                        '--format', 'json',
+                        '--',
+                        ...tempFiles,
+                    ],
+                    { cwd: runDir, timeout: TOOL_TIMEOUT_MS, maxBuffer: MAX_TOOL_OUTPUT, windowsHide: true }
+                );
+                collect(stdout);
+            } catch (error) {
+                // ESLint returns non-zero on errors
+                const output = (error as { stdout?: string }).stdout || '';
+                if (output.startsWith('[')) {
+                    try {
+                        collect(output);
+                    } catch {
+                        // Ignore parse errors
                     }
-                } catch {
-                    // Ignore parse errors
                 }
             }
         } finally {
-            // Cleanup
-            try {
-                tempFiles.forEach(f => existsSync(f) && unlinkSync(f));
-            } catch {
-                // Ignore cleanup errors
-            }
+            await rm(runDir, { recursive: true, force: true }).catch(() => undefined);
         }
 
         return errors;
@@ -579,7 +630,7 @@ export class CodeValidator {
 
     private parseTscOutput(output: string, files: CodeFile[]): ValidationError[] {
         const errors: ValidationError[] = [];
-        const lines = output.split('\n');
+        const lines = output.split(/\r?\n/);
 
         const errorPattern = /^(.+)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.+)$/;
 
@@ -590,7 +641,7 @@ export class CodeValidator {
 
                 // Map temp file back to original
                 const originalFile = files.find(f =>
-                    _file.includes(f.path.replace(/\//g, '_'))
+                    _file.includes(toTempFileName(f.path))
                 );
 
                 errors.push({

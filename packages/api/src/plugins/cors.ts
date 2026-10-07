@@ -20,12 +20,14 @@ export async function registerCors(app: FastifyInstance): Promise<void> {
             'Authorization',
             'X-Request-ID',
             'X-API-Key',
+            'X-CSRF-Token',
         ],
         exposedHeaders: [
             'X-Request-ID',
             'X-RateLimit-Limit',
             'X-RateLimit-Remaining',
             'X-RateLimit-Reset',
+            'Content-Disposition',
         ],
         credentials: true,
         maxAge: 86400, // 24 hours

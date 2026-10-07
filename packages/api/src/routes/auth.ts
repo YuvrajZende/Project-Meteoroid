@@ -5,7 +5,25 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient, getSupabaseAdmin } from '../infrastructure/database/database-client.js';
+import { authenticate } from '../middleware/auth-middleware.js';
+
+/**
+ * Create a fresh, per-request anon Supabase client that never persists or
+ * auto-refreshes sessions. Session-producing calls (login, refresh, code
+ * exchange) must use this so tokens never live on a shared singleton.
+ */
+function createRequestScopedAuthClient(): SupabaseClient {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) {
+        throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
+    }
+    return createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+}
 
 // Supported OAuth providers
 type OAuthProvider = 'github' | 'google' | 'gitlab';
@@ -75,6 +93,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
                             properties: {
                                 id: { type: 'string' },
                                 email: { type: 'string' },
+                                name: { type: 'string' },
                             },
                         },
                     },
@@ -95,7 +114,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         const { email, password, name } = validation.data;
 
         try {
-            const supabase = getSupabaseClient();
+            const supabase = createRequestScopedAuthClient();
 
             // Sign up with Supabase Auth
             const { data, error } = await supabase.auth.signUp({
@@ -174,6 +193,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
                             properties: {
                                 id: { type: 'string' },
                                 email: { type: 'string' },
+                                name: { type: 'string' },
                             },
                         },
                     },
@@ -194,7 +214,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         const { email, password } = validation.data;
 
         try {
-            const supabase = getSupabaseClient();
+            const supabase = createRequestScopedAuthClient();
 
             // Sign in with Supabase Auth
             const { data, error } = await supabase.auth.signInWithPassword({
@@ -302,7 +322,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         }
 
         try {
-            const supabase = getSupabaseClient();
+            const supabase = createRequestScopedAuthClient();
 
             // Refresh the session using Supabase
             const { data, error } = await supabase.auth.refreshSession({
@@ -368,28 +388,21 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
                 },
             },
         },
+        preHandler: authenticate({ required: true, allowApiKey: false }),
     }, async (request: FastifyRequest, reply: FastifyReply) => {
-        const authHeader = request.headers.authorization;
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return reply.status(401).send({
-                error: 'Authentication required',
-                message: 'Please provide a valid Bearer token in the Authorization header',
-            });
+        const authUser = request.authUser;
+        if (!authUser) {
+            return reply.status(401).send({ error: 'Authentication required' });
         }
-
-        const token = authHeader.slice(7); // Remove 'Bearer ' prefix
 
         try {
             const supabase = getSupabaseAdmin();
 
-            // Verify the token and get user
-            const { data: { user }, error } = await supabase.auth.getUser(token);
+            const { data: { user }, error } = await supabase.auth.admin.getUserById(authUser.id);
 
             if (error || !user) {
                 return reply.status(401).send({
                     error: 'Invalid or expired token',
-                    details: error?.message,
                 });
             }
 
@@ -741,7 +754,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             }
 
             try {
-                const supabase = getSupabaseClient();
+                const supabase = createRequestScopedAuthClient();
 
                 // Exchange the code for a session
                 const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -883,50 +896,6 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             }
         }
     );
-
-    /**
-     * GET /api/v1/auth/session - Get current session from Supabase
-     */
-    app.get('/api/v1/auth/session', {
-        schema: {
-            tags: ['Auth'],
-            summary: 'Get current session',
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        session: { type: 'object' },
-                        user: { type: 'object' },
-                    },
-                },
-            },
-        },
-    }, async (_request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const supabase = getSupabaseClient();
-            const { data, error } = await supabase.auth.getSession();
-
-            if (error) {
-                return reply.status(401).send({
-                    success: false,
-                    error: 'Failed to get session',
-                    details: error.message,
-                });
-            }
-
-            return reply.send({
-                session: data.session,
-                user: data.session?.user || null,
-            });
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            return reply.status(500).send({
-                success: false,
-                error: 'Session retrieval failed',
-                details: errorMessage,
-            });
-        }
-    });
 
     app.log.info('[ROUTES] Auth routes registered: /api/v1/auth/*');
     app.log.info('[ROUTES] OAuth routes registered: /api/v1/auth/oauth/* (GitHub, Google, GitLab)');

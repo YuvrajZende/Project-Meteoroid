@@ -2,7 +2,7 @@
  * BaseRepository Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { BaseRepository, RepositoryError } from '../base.repository.js';
 import { MockDatabase } from './mock-database.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
@@ -20,7 +20,7 @@ class TestRepository extends BaseRepository {
         return this.entityToRow(entity);
     }
 
-    public testBuildOrderBy(options?: { orderBy?: string; order?: 'ASC' | 'DESC' }): string {
+    public testBuildOrderBy(options?: { orderBy?: string; orderDirection?: 'ASC' | 'DESC'; order?: 'ASC' | 'DESC' }): string {
         return this.buildOrderBy(options);
     }
 
@@ -190,6 +190,20 @@ describe('BaseRepository', () => {
         it('should convert camelCase to snake_case for column names', () => {
             const result = repository.testBuildOrderBy({ orderBy: 'createdAt' });
             expect(result).toBe('ORDER BY created_at ASC');
+        });
+
+        it('should honour QueryOptions.orderDirection', () => {
+            const result = repository.testBuildOrderBy({ orderBy: 'created_at', orderDirection: 'DESC' });
+            expect(result).toBe('ORDER BY created_at DESC');
+        });
+
+        it('should reject non-identifier column names (SQL injection)', () => {
+            expect(() => repository.testBuildOrderBy({ orderBy: 'id; DROP TABLE users' })).toThrow(RepositoryError);
+        });
+
+        it('should fall back to ASC for unexpected directions', () => {
+            const result = repository.testBuildOrderBy({ orderBy: 'id', order: 'sideways' as 'ASC' });
+            expect(result).toBe('ORDER BY id ASC');
         });
     });
 

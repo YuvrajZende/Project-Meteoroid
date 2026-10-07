@@ -16,6 +16,12 @@ import { TYPES } from '../../../di/types.js';
 import type { IGenerationService, GenerationRequest, GenerationResult } from '../../../interfaces/generation.interface.js';
 import type { ICodeGenerator, CodeGenerationRequest } from '../../../interfaces/generator.interface.js';
 import type { Subtask } from '../../../interfaces/planning.interface.js';
+import { getConfiguredModelPair } from '../../../services/registry/model-registry.js';
+
+/** Configured power model (POWER_MODEL_NAME, or first power model with an API key). */
+function getDefaultModelId(): string {
+    return getConfiguredModelPair()[1].id;
+}
 
 @injectable()
 export class GenerationService implements IGenerationService {
@@ -48,7 +54,7 @@ export class GenerationService implements IGenerationService {
             const generationRequest: CodeGenerationRequest = {
                 prompt,
                 context: {
-                    language: request.options?.model || 'typescript',
+                    language: 'typescript',
                     framework: this.detectFramework(request.prompt),
                     existingCode: request.context?.previousCode,
                 },
@@ -83,7 +89,7 @@ export class GenerationService implements IGenerationService {
                     duration,
                     tokensUsed: result.metadata?.tokensUsed as number || 0,
                     cost: result.metadata?.cost as number || 0,
-                    model: request.options?.model || 'gpt-4',
+                    model: request.options?.model || getDefaultModelId(),
                     retries: 0,
                 },
                 metadata: {
@@ -115,7 +121,7 @@ export class GenerationService implements IGenerationService {
                 metrics: {
                     duration,
                     tokensUsed: 0,
-                    model: request.options?.model || 'gpt-4',
+                    model: request.options?.model || getDefaultModelId(),
                     retries: 0,
                 },
             };
@@ -175,7 +181,7 @@ export class GenerationService implements IGenerationService {
             metrics: {
                 duration: 0,
                 tokensUsed: 0,
-                model: request.options?.model || 'gpt-4',
+                model: request.options?.model || getDefaultModelId(),
                 retries: maxRetries,
             },
         };

@@ -24,7 +24,7 @@ import type {
     AgentHealthStatus,
     AgentTier,
     GeneratedFile,
-} from '@loveable/shared';
+} from '@meteoroid/shared';
 
 dotenv.config();
 

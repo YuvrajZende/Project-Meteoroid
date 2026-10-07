@@ -574,7 +574,6 @@ let instance: PluginRegistryService | null = null;
 
 export class PluginRegistryService {
     private catalog: Map<string, PluginDefinition>;
-    private readonly _activeConfigs: Map<string, PluginConfig> = new Map();
 
     constructor() {
         this.catalog = new Map();

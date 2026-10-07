@@ -1,7 +1,7 @@
 /**
  * Database Client Service
- * Provides hybrid database connection:
- * - Local PostgreSQL (via MCP) for relational data
+ * Provides Supabase-backed database access:
+ * - Relational data via the SQL -> PostgREST translator (HybridDatabase/SupabaseDatabase)
  * - Supabase (with pgvector) for vector operations
  * 
  * PERFORMANCE FEATURES:
@@ -15,7 +15,7 @@
 
 import { getSupabaseClient as getClient, getSupabaseAdmin as getAdmin, getDbConfig, resetSupabaseClients } from './supabase-client.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { HybridDatabase } from './hybrid-database.js';
+import { HybridDatabase } from './hybrid-database.js';
 
 let hybridDatabase: HybridDatabase | null = null;
 let lastHealthCheck: Date | null = null;
@@ -31,10 +31,9 @@ export function getSupabaseAdmin(): SupabaseClient {
 
 export function getHybridDatabase(): HybridDatabase {
     if (!hybridDatabase) {
-        const { HybridDatabase } = require('./hybrid-database.js');
         hybridDatabase = new HybridDatabase();
     }
-    return hybridDatabase!;
+    return hybridDatabase;
 }
 
 export async function checkSupabaseConnection(): Promise<{
@@ -144,42 +143,6 @@ export async function checkVectorStore(): Promise<{
             message: 'Vector store check failed',
             tableExists: false,
             functionExists: false,
-            error: errorMsg,
-        };
-    }
-}
-
-export async function checkLocalConnection(): Promise<{
-    connected: boolean;
-    message: string;
-    latency?: number;
-    error?: string;
-}> {
-    try {
-        const startTime = Date.now();
-        const hybridDb = getHybridDatabase();
-
-        const state = await hybridDb.getConnectionState();
-        const latency = Date.now() - startTime;
-
-        if (!state.local.connected) {
-            return {
-                connected: false,
-                message: 'Local PostgreSQL connection failed',
-                error: 'Could not connect to local PostgreSQL via MCP',
-            };
-        }
-
-        return {
-            connected: true,
-            message: 'Local PostgreSQL healthy',
-            latency,
-        };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        return {
-            connected: false,
-            message: 'Local PostgreSQL check failed',
             error: errorMsg,
         };
     }
@@ -295,20 +258,15 @@ export async function testDatabaseOperations(): Promise<{
 }
 
 export async function checkDatabaseHealth(): Promise<{
-    local: Awaited<ReturnType<typeof checkLocalConnection>>;
     supabase: Awaited<ReturnType<typeof checkSupabaseConnection>>;
     vectorStore: Awaited<ReturnType<typeof checkVectorStore>>;
 }> {
-    const [localResult, supabaseResult, vectorResult] = await Promise.allSettled([
-        checkLocalConnection(),
+    const [supabaseResult, vectorResult] = await Promise.allSettled([
         checkSupabaseConnection(),
         checkVectorStore(),
     ]);
 
     return {
-        local: localResult.status === 'fulfilled'
-            ? await localResult.value
-            : { connected: false, message: 'Check failed', error: 'Promise rejected' },
         supabase: supabaseResult.status === 'fulfilled'
             ? await supabaseResult.value
             : { connected: false, message: 'Check failed', error: 'Promise rejected' },

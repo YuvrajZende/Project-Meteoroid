@@ -11,6 +11,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { getPluginRegistry, type PluginConfig } from '../domain/services/plugins/index.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 
 // ============================================
 // SCHEMAS
@@ -40,6 +42,8 @@ const BuildContextSchema = z.object({
 // ============================================
 
 export async function registerPluginRoutes(app: FastifyInstance): Promise<void> {
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+
     const registry = getPluginRegistry();
 
     /**
@@ -139,6 +143,7 @@ export async function registerPluginRoutes(app: FastifyInstance): Promise<void> 
      * Validates plugin configurations (checks required fields, URL format, etc.)
      */
     app.post('/api/v1/plugins/validate', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Plugins'],
             summary: 'Validate plugin configurations',
@@ -201,6 +206,7 @@ export async function registerPluginRoutes(app: FastifyInstance): Promise<void> 
      * Tests connectivity to services (HTTP ping, endpoint check)
      */
     app.post('/api/v1/plugins/test', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Plugins'],
             summary: 'Test plugin connectivity',
@@ -266,6 +272,7 @@ export async function registerPluginRoutes(app: FastifyInstance): Promise<void> 
      * Builds AI generation context from active plugin configs
      */
     app.post('/api/v1/plugins/context', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Plugins'],
             summary: 'Build generation context from plugins',
@@ -299,7 +306,7 @@ export async function registerPluginRoutes(app: FastifyInstance): Promise<void> 
                                 systemPromptSection: { type: 'string' },
                                 techStack: { type: 'array', items: { type: 'string' } },
                                 envVars: { type: 'object', additionalProperties: { type: 'string' } },
-                                packages: { type: 'object' },
+                                packages: { type: 'object', additionalProperties: { type: 'array', items: { type: 'string' } } },
                                 contextTree: { type: 'array' },
                             },
                         },

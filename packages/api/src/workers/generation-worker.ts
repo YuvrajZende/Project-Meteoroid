@@ -9,7 +9,7 @@ import { getJobQueue } from '../infrastructure/job-queue.js';
 import { getKeyManager } from '../infrastructure/key-manager.js';
 import { getAgentRegistry } from '../services/registry/agent-registry.js';
 import { getAIClient } from '../infrastructure/ai-client.js';
-import type { IAgent } from '@loveable/shared';
+import type { IAgent } from '@meteoroid/shared';
 
 /**
  * Generation stages

@@ -27,10 +27,10 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "paths": {
-            "@loveable/shared": [
+            "@meteoroid/shared": [
                 "../shared/src/index.ts"
             ],
-            "@loveable/shared/*": [
+            "@meteoroid/shared/*": [
                 "../shared/src/*"
             ]
         },

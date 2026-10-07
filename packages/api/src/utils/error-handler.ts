@@ -4,6 +4,7 @@
  */
 
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
+import { ZodError } from 'zod';
 import { isProduction } from '../config/index.js';
 
 /**
@@ -22,6 +23,17 @@ interface ErrorResponse {
  */
 export function registerErrorHandler(app: FastifyInstance): void {
     app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+        // Zod .parse() failures are client errors, not server faults
+        if (error instanceof ZodError) {
+            void reply.status(400).send({
+                statusCode: 400,
+                error: 'Bad Request',
+                message: error.issues.map(i => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '),
+                requestId: request.id,
+            });
+            return;
+        }
+
         const statusCode = error.statusCode || 500;
 
         // Log error details

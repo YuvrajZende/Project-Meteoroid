@@ -29,7 +29,8 @@ export class OrchestrationService implements IOrchestrator {
         @inject(TYPES.PlanningService) private planningService: IPlanningService,
         @inject(TYPES.GenerationService) private generationService: IGenerationService,
         @inject(TYPES.ValidationService) private validationService: IValidationService,
-        @inject(TYPES.ContextManager) private readonly _contextManager?: IContextManager,
+        // Injected for DI-signature compatibility; not used by this service yet.
+        @inject(TYPES.ContextManager) _contextManager?: IContextManager,
         @inject(TYPES.LearningService) private learningService?: ILearningService
     ) { }
 

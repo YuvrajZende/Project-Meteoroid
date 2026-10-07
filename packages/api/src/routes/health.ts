@@ -255,7 +255,7 @@ export async function registerHealthRoutes(app: FastifyInstance): Promise<void> 
         const summary = registry.getSummary();
 
         return {
-            name: 'Loveable Backend API',
+            name: 'Meteoroid Backend API',
             version: '1.0.0',
             environment: process.env.NODE_ENV || 'development',
             uptime: process.uptime(),

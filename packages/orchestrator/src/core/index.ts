@@ -3,7 +3,7 @@
  * ORCHESTRATOR CORE MODULE EXPORTS
  * ============================================
  * 
- * The Brain and Nervous System of the LOVEABLE Orchestrator.
+ * The Brain and Nervous System of the METEOROID Orchestrator.
  * All core systems are interconnected through the Brain Core.
  * 
  * ARCHITECTURE:

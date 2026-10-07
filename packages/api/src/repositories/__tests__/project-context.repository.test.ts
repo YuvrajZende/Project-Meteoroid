@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ProjectContextRepository } from '../project-context.repository.js';
 import { MockDatabase } from './mock-database.js';
 import type { PersistentContext } from '../../interfaces/context.interface.js';
+import { RepositoryError } from '../base.repository.js';
 
 describe('ProjectContextRepository', () => {
     let repository: ProjectContextRepository;
@@ -136,7 +137,7 @@ describe('ProjectContextRepository', () => {
             badDb.query = () => { throw new Error('Database connection failed'); };
             const badRepo = new ProjectContextRepository(badDb);
 
-            await expect(badRepo.save(mockContextEntity)).rejects.toThrow('RepositoryError');
+            await expect(badRepo.save(mockContextEntity)).rejects.toThrow(RepositoryError);
         });
     });
 
@@ -281,7 +282,6 @@ describe('ProjectContextRepository', () => {
             await repository.update('user_001', 'proj_001', {
                 // @ts-expect-error - Testing that userId is ignored
                 userId: 'new_user',
-                // @ts-expect-error - Testing that projectId is ignored
                 projectId: 'new_project',
                 preferences: { theme: 'light' },
             });

@@ -64,6 +64,7 @@ const DEFAULT_CONFIG: CSRFConfig = {
         /^\/api\/v1\/preview/,
         /^\/api\/v1\/agents/,
         /^\/api\/v1\/projects/,
+        /^\/api\/v1\/outputs/,
         /^\/api\/v1\/tasks/,
         /^\/api\/v1\/benchmarks/,
         /^\/api\/v1\/templates/,
@@ -86,7 +87,15 @@ export class CSRFService {
 
     constructor(config?: Partial<CSRFConfig>) {
         this.config = { ...DEFAULT_CONFIG, ...config };
-        this.secret = process.env.CSRF_SECRET || process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+        const configuredSecret = process.env.CSRF_SECRET || process.env.JWT_SECRET;
+        if (!configuredSecret && process.env.NODE_ENV === 'production') {
+            // A random per-process secret breaks tokens across restarts and multiple instances.
+            throw new Error(
+                '[CSRF] CSRF_SECRET (or JWT_SECRET) must be set in production. ' +
+                'Generate one with: openssl rand -hex 32'
+            );
+        }
+        this.secret = configuredSecret || crypto.randomBytes(32).toString('hex');
     }
 
     /**

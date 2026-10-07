@@ -18,7 +18,7 @@ import type {
     AgentOutput,
     AgentHealthStatus,
     AgentTier,
-} from '@loveable/shared';
+} from '@meteoroid/shared';
 
 import { DatabaseAgent, databaseAgent } from './database-agent.js';
 import type { DatabaseGenerationResult, DatabaseTaskContext } from './types.js';

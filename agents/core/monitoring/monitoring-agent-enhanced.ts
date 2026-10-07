@@ -10,7 +10,7 @@
  * - Context-aware logging generation
  * - Integration with Health Monitor
  * 
- * @author LOVEABLE Backend Orchestrator
+ * @author METEOROID Backend Orchestrator
  * @version 1.0.0
  */
 

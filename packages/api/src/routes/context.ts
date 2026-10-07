@@ -8,12 +8,16 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getEntityExtractor, getGenerationContext } from '../services/index.js';
 import type { ExtractedEntity } from '../domain/services/analysis/entity-extractor.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 
 // ============================================
 // ROUTE DEFINITIONS
 // ============================================
 
 export async function contextRoutes(app: FastifyInstance): Promise<void> {
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+
     const entityExtractor = getEntityExtractor();
     const contextService = getGenerationContext();
 
@@ -25,7 +29,11 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
      * Extract entities from a prompt
      * POST /api/v1/context/extract
      */
-    app.post('/api/v1/context/extract', async (
+    app.post<{
+            Body: {
+                prompt: string;
+            };
+        }>('/api/v1/context/extract', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{
             Body: {
                 prompt: string;
@@ -82,7 +90,16 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
      * Create a new generation context
      * POST /api/v1/context/create
      */
-    app.post('/api/v1/context/create', async (
+    app.post<{
+            Body: {
+                taskId: string;
+                projectId?: string;
+                userId?: string;
+                prompt: string;
+                language?: string;
+                framework?: string;
+            };
+        }>('/api/v1/context/create', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{
             Body: {
                 taskId: string;
@@ -287,7 +304,16 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
      * Add a decision to context
      * POST /api/v1/context/:contextId/decision
      */
-    app.post('/api/v1/context/:contextId/decision', async (
+    app.post<{
+            Params: {
+                contextId: string;
+            };
+            Body: {
+                phase: string;
+                decision: string;
+                reasoning?: string;
+            };
+        }>('/api/v1/context/:contextId/decision', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{
             Params: {
                 contextId: string;
@@ -333,7 +359,17 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
      * Finalize context
      * POST /api/v1/context/:contextId/finalize
      */
-    app.post('/api/v1/context/:contextId/finalize', async (
+    app.post<{
+            Params: {
+                contextId: string;
+            };
+            Body: {
+                success: boolean;
+                duration?: number;
+                cost?: number;
+                qualityScore?: number;
+            };
+        }>('/api/v1/context/:contextId/finalize', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{
             Params: {
                 contextId: string;

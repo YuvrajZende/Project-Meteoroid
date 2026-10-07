@@ -108,9 +108,6 @@ export async function registerHelmet(app: FastifyInstance): Promise<void> {
             reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         }
 
-        // X-Content-Type-Options (redundant but explicit)
-        reply.header('X-Content-Type-Options', 'nosniff');
-
         // X-Request-ID for tracing
         reply.header('X-Request-ID', _request.id);
     });

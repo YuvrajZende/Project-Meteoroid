@@ -4,6 +4,7 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import { registerCors } from './cors.js';
 import { registerHelmet } from './helmet.js';
 import { registerRateLimit } from './rate-limit.js';
@@ -30,10 +31,13 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
     await registerRateLimit(app);
     await registerSizeLimits(app);
 
-    // 3. CSRF Protection (after cookie support, before routes)
+    // 3. Cookie parsing (used by GitHub OAuth session routes)
+    await app.register(cookie);
+
+    // 4. CSRF Protection (after cookie support, before routes)
     await registerCSRF(app);
 
-    // 4. IP Blocking (security layer)
+    // 5. IP Blocking (security layer)
     await registerIPBlocking(app, {
         enabled: true,
         maxFailedAttempts: 10,
@@ -41,7 +45,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
         autoBlockDuration: 60, // 1 hour
     });
 
-    // 5. Documentation (after security so routes are available)
+    // 6. Documentation (after security so routes are available)
     await registerSwagger(app);
 
     app.log.info('[PLUGINS] All plugins registered successfully');

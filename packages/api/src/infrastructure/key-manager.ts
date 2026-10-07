@@ -14,6 +14,7 @@
 
 import { injectable, unmanaged } from 'inversify';
 import { EventEmitter } from 'events';
+import { getModel } from '../services/registry/model-registry.js';
 
 /**
  * Supported AI providers
@@ -67,19 +68,10 @@ export interface KeyManagerConfig {
 }
 
 /**
- * Cost per 1K tokens for different models (approximate)
+ * Fallback cost (USD per 1M tokens) for model ids not in MODEL_REGISTRY.
+ * Known models are priced from the registry so there is a single pricing table.
  */
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-    'gpt-4': { input: 0.03, output: 0.06 },
-    'gpt-4-turbo': { input: 0.01, output: 0.03 },
-    'gpt-4o': { input: 0.005, output: 0.015 },
-    'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
-    'gpt-3.5-turbo': { input: 0.0015, output: 0.002 },
-    'claude-3-opus': { input: 0.015, output: 0.075 },
-    'claude-3-sonnet': { input: 0.003, output: 0.015 },
-    'claude-3-haiku': { input: 0.00025, output: 0.00125 },
-    'glm-4': { input: 0.001, output: 0.001 },
-};
+const UNKNOWN_MODEL_COST_PER_MILLION = { input: 2.0, output: 10.0 };
 
 /**
  * KeyManager - Manages API keys with rotation and failover
@@ -291,9 +283,11 @@ export class KeyManager extends EventEmitter {
 
         // Calculate cost
         if (this.config.trackCosts) {
-            const costs = MODEL_COSTS[model] || { input: 0.01, output: 0.03 };
-            const cost = (tokensUsed.input / 1000 * costs.input) +
-                (tokensUsed.output / 1000 * costs.output);
+            const pricing = getModel(model)?.pricing;
+            const inputRate = pricing?.inputPerMillion ?? UNKNOWN_MODEL_COST_PER_MILLION.input;
+            const outputRate = pricing?.outputPerMillion ?? UNKNOWN_MODEL_COST_PER_MILLION.output;
+            const cost = (tokensUsed.input / 1_000_000 * inputRate) +
+                (tokensUsed.output / 1_000_000 * outputRate);
             keyMeta.estimatedCost += cost;
         }
     }

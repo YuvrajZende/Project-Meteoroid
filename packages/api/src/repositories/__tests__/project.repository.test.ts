@@ -5,9 +5,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProjectRepository } from '../project.repository.js';
 import { MockDatabase } from './mock-database.js';
-import { mockProject, mockProjectRow, generateMockProjects } from './fixtures.js';
+import { mockProjectRow, generateMockProjects } from './fixtures.js';
 import { RepositoryError } from '../base.repository.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe('ProjectRepository', () => {
     let repository: ProjectRepository;
@@ -35,7 +37,7 @@ describe('ProjectRepository', () => {
             const result = await repository.create(newProject);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^proj_/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.name).toBe('New Project');
             expect(result.userId).toBe('user_123');
             expect(result.createdAt).toBeInstanceOf(Date);

@@ -23,6 +23,9 @@ import {
     type PreviewFile,
     type HMRUpdate,
 } from '../services/index.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
+import { sseCorsHeaders } from '../plugins/sse-cors.js';
 
 // ============================================
 // TYPE DEFINITIONS FOR REQUEST BODIES
@@ -69,6 +72,7 @@ interface SessionParams {
 
 export async function registerPreviewRoutes(app: FastifyInstance): Promise<void> {
     const previewService = getPreviewService();
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
 
     // ============================================
     // SERVICE STATUS
@@ -119,6 +123,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Create or update a preview session
      */
     app.post<{ Body: CreatePreviewBody }>('/api/v1/preview', {
+        preHandler: requireMutatingAuth,
         schema: {
             description: 'Create or update a preview session',
             tags: ['Preview'],
@@ -294,6 +299,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Trigger a full HMR refresh for all connected clients
      */
     app.post<{ Params: SessionParams }>('/api/v1/preview/:sessionId/refresh', {
+        preHandler: requireMutatingAuth,
         schema: {
             description: 'Trigger HMR refresh for all clients',
             tags: ['Preview'],
@@ -338,6 +344,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Update files and trigger HMR (hot update if possible, full reload otherwise)
      */
     app.post<{ Params: SessionParams; Body: UpdateFilesBody }>('/api/v1/preview/:sessionId/files', {
+        preHandler: requireMutatingAuth,
         schema: {
             description: 'Update preview files and trigger HMR',
             tags: ['Preview'],
@@ -406,6 +413,7 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
      * Delete a preview session
      */
     app.delete<{ Params: SessionParams }>('/api/v1/preview/:sessionId', {
+        preHandler: requireMutatingAuth,
         schema: {
             description: 'Delete a preview session',
             tags: ['Preview'],
@@ -474,12 +482,15 @@ export async function registerPreviewRoutes(app: FastifyInstance): Promise<void>
             });
         }
 
+        // Take over the raw response so Fastify doesn't also try to reply
+        reply.hijack();
+
         // Set SSE headers
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
+            ...sseCorsHeaders(request),
         });
 
         // Send initial connection message

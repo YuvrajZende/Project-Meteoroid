@@ -7,9 +7,13 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// Note: SUPABASE_USE_POOLER no longer rewrites the REST URL. *.pooler.supabase.co is a
+// Postgres (Supavisor) host, not a PostgREST host, so rewriting broke every request.
+// supabase-js talks HTTP to SUPABASE_URL; the global fetch keeps connections alive.
 const DB_CONFIG = {
+    // Kept for getDbConfig() consumers; the REST client never uses a pooler host.
     pooler: {
-        enabled: process.env.SUPABASE_USE_POOLER === 'true',
+        enabled: false,
         minConnections: 2,
         maxConnections: 10,
     },
@@ -23,33 +27,18 @@ const DB_CONFIG = {
 let supabaseClient: SupabaseClient | null = null;
 let supabaseAdmin: SupabaseClient | null = null;
 
-function getPoolerUrl(originalUrl: string): string {
-    if (!DB_CONFIG.pooler.enabled) return originalUrl;
-    return originalUrl.replace(
-        /\.supabase\.co$/,
-        '.pooler.supabase.co'
-    );
-}
-
 export function createSupabaseClient(): SupabaseClient {
-    const originalUrl = process.env.SUPABASE_URL;
+    const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_ANON_KEY;
 
-    if (!originalUrl || !key) {
+    if (!url || !key) {
         throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env');
     }
-
-    const url = getPoolerUrl(originalUrl);
 
     return createClient(url, key, {
         auth: {
             autoRefreshToken: true,
             persistSession: false,
-        },
-        global: {
-            headers: {
-                'x-connection-pool': 'true',
-            },
         },
         db: {
             schema: 'public',
@@ -63,25 +52,17 @@ export function createSupabaseClient(): SupabaseClient {
 }
 
 export function createSupabaseAdmin(): SupabaseClient {
-    const originalUrl = process.env.SUPABASE_URL;
+    const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!originalUrl || !key) {
+    if (!url || !key) {
         throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env');
     }
-
-    const url = getPoolerUrl(originalUrl);
 
     return createClient(url, key, {
         auth: {
             autoRefreshToken: false,
             persistSession: false,
-        },
-        global: {
-            headers: {
-                'x-connection-pool': 'true',
-                'x-service-role': 'true',
-            },
         },
         db: {
             schema: 'public',
@@ -92,7 +73,7 @@ export function createSupabaseAdmin(): SupabaseClient {
 export function getSupabaseClient(): SupabaseClient {
     if (!supabaseClient) {
         supabaseClient = createSupabaseClient();
-        console.log(`[DATABASE] Supabase client initialized (pooler: ${DB_CONFIG.pooler.enabled})`);
+        console.log('[DATABASE] Supabase client initialized');
     }
     return supabaseClient;
 }
@@ -100,7 +81,7 @@ export function getSupabaseClient(): SupabaseClient {
 export function getSupabaseAdmin(): SupabaseClient {
     if (!supabaseAdmin) {
         supabaseAdmin = createSupabaseAdmin();
-        console.log(`[DATABASE] Supabase admin client initialized (pooler: ${DB_CONFIG.pooler.enabled})`);
+        console.log('[DATABASE] Supabase admin client initialized');
     }
     return supabaseAdmin;
 }

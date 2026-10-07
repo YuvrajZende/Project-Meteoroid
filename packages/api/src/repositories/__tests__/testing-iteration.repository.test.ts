@@ -8,6 +8,8 @@ import { TestingIterationRepository } from '../testing-iteration.repository.js';
 import { MockDatabase } from './mock-database.js';
 import type { TestingIteration } from '../../interfaces/learning.interface.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe('TestingIterationRepository', () => {
     let repository: TestingIterationRepository;
     let mockDb: MockDatabase;
@@ -16,25 +18,10 @@ describe('TestingIterationRepository', () => {
     // TEST FIXTURES
     // ============================================
 
-    const mockIterationEntity: TestingIteration = {
-        id: 'test_001',
-        projectId: 'proj_001',
-        testType: 'authentication',
-        testDescription: 'Test user login with valid credentials',
-        userQuery: 'I want to test if users can log in',
-        expectedBehavior: 'User should be authenticated and redirected to dashboard',
-        actualResult: 'Login successful, redirect working',
-        success: true,
-        lessons: ['Login flow works correctly'],
-        relatedFiles: ['src/auth/login.ts'],
-        tags: ['auth', 'login', 'success'],
-        createdAt: new Date('2024-01-15T10:00:00Z'),
-    };
-
     const mockIterationRow = {
         id: 'test_001',
         project_id: 'proj_001',
-        test_type: 'authentication',
+        test_type: 'unit',
         test_description: 'Test user login with valid credentials',
         user_query: 'I want to test if users can log in',
         expected_behavior: 'User should be authenticated and redirected to dashboard',
@@ -59,7 +46,7 @@ describe('TestingIterationRepository', () => {
         it('should create a new testing iteration', async () => {
             const input = {
                 projectId: 'proj_001',
-                testType: 'authentication' as const,
+                testType: 'unit' as const,
                 testDescription: 'Test user login',
                 userQuery: 'Test login functionality',
                 expectedBehavior: 'User should login',
@@ -73,9 +60,9 @@ describe('TestingIterationRepository', () => {
             const result = await repository.create(input);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^test_\d+_\w+$/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.projectId).toBe(input.projectId);
-            expect(result.testType).toBe('authentication');
+            expect(result.testType).toBe('unit');
             expect(result.success).toBe(true);
             expect(result.createdAt).toBeInstanceOf(Date);
         });
@@ -83,7 +70,7 @@ describe('TestingIterationRepository', () => {
         it('should generate unique IDs for each iteration', async () => {
             const input = {
                 projectId: 'proj_001',
-                testType: 'authentication' as const,
+                testType: 'unit' as const,
                 testDescription: 'Test',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -101,16 +88,7 @@ describe('TestingIterationRepository', () => {
         });
 
         it('should handle all test types', async () => {
-            const testTypes: TestingIteration['testType'][] = [
-                'authentication',
-                'authorization',
-                'data-validation',
-                'error-handling',
-                'performance',
-                'integration',
-                'ui-ux',
-                'other',
-            ];
+            const testTypes: TestingIteration['testType'][] = ['unit', 'integration', 'e2e', 'manual'];
 
             for (const testType of testTypes) {
                 const result = await repository.create({
@@ -133,15 +111,15 @@ describe('TestingIterationRepository', () => {
         it('should handle null optional fields', async () => {
             const result = await repository.create({
                 projectId: 'proj_001',
-                testType: 'other',
+                testType: 'manual',
                 testDescription: 'Test',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
                 actualResult: 'Test',
                 success: true,
-                lessons: null,
-                relatedFiles: null,
-                tags: null,
+                lessons: null as unknown as string[],
+                relatedFiles: null as unknown as string[],
+                tags: null as unknown as string[],
             });
 
             expect(result.lessons).toBeNull();
@@ -156,7 +134,7 @@ describe('TestingIterationRepository', () => {
 
             await expect(badRepo.create({
                 projectId: 'proj_001',
-                testType: 'other',
+                testType: 'manual',
                 testDescription: 'Test',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -182,7 +160,7 @@ describe('TestingIterationRepository', () => {
             expect(result).toBeDefined();
             expect(result?.id).toBe('test_001');
             expect(result?.projectId).toBe('proj_001');
-            expect(result?.testType).toBe('authentication');
+            expect(result?.testType).toBe('unit');
             expect(result?.testDescription).toBe('Test user login with valid credentials');
         });
 
@@ -205,9 +183,9 @@ describe('TestingIterationRepository', () => {
         it('should handle null JSON fields', async () => {
             mockDb.seed('testing_iterations', [{
                 ...mockIterationRow,
-                lessons: null,
+                lessons: null as unknown as string[],
                 related_files: null,
-                tags: null,
+                tags: null as unknown as string[],
             }]);
 
             const result = await repository.findById('test_001');
@@ -267,49 +245,40 @@ describe('TestingIterationRepository', () => {
         beforeEach(() => {
             mockDb.seed('testing_iterations', [
                 mockIterationRow,
-                { ...mockIterationRow, id: 'test_002', test_type: 'authentication' },
-                { ...mockIterationRow, id: 'test_003', test_type: 'authorization' },
-                { ...mockIterationRow, id: 'test_004', test_type: 'data-validation' },
-                { ...mockIterationRow, id: 'test_005', test_type: 'authentication' },
+                { ...mockIterationRow, id: 'test_002', test_type: 'unit' },
+                { ...mockIterationRow, id: 'test_003', test_type: 'integration' },
+                { ...mockIterationRow, id: 'test_004', test_type: 'e2e' },
+                { ...mockIterationRow, id: 'test_005', test_type: 'unit' },
             ]);
         });
 
         it('should find iterations by test type', async () => {
-            const results = await repository.findByTestType('authentication');
+            const results = await repository.findByTestType('unit');
 
             expect(results).toHaveLength(3);
-            expect(results.every(r => r.testType === 'authentication')).toBe(true);
+            expect(results.every(r => r.testType === 'unit')).toBe(true);
         });
 
         it('should return empty array for non-existent test type', async () => {
-            const results = await repository.findByTestType('performance');
+            const results = await repository.findByTestType('manual');
 
             expect(results).toEqual([]);
         });
 
         it('should order by created_at DESC', async () => {
             mockDb.seed('testing_iterations', [
-                { ...mockIterationRow, id: 'test_001', test_type: 'authentication', created_at: '2024-01-15T10:00:00Z' },
-                { ...mockIterationRow, id: 'test_002', test_type: 'authentication', created_at: '2024-01-15T11:00:00Z' },
+                { ...mockIterationRow, id: 'test_001', test_type: 'unit', created_at: '2024-01-15T10:00:00Z' },
+                { ...mockIterationRow, id: 'test_002', test_type: 'unit', created_at: '2024-01-15T11:00:00Z' },
             ]);
 
-            const results = await repository.findByTestType('authentication');
+            const results = await repository.findByTestType('unit');
 
             expect(results[0].id).toBe('test_002');
             expect(results[1].id).toBe('test_001');
         });
 
         it('should handle all test types', async () => {
-            const testTypes: TestingIteration['testType'][] = [
-                'authentication',
-                'authorization',
-                'data-validation',
-                'error-handling',
-                'performance',
-                'integration',
-                'ui-ux',
-                'other',
-            ];
+            const testTypes: TestingIteration['testType'][] = ['unit', 'integration', 'e2e', 'manual'];
 
             for (const testType of testTypes) {
                 mockDb.clearAll();
@@ -413,7 +382,7 @@ describe('TestingIterationRepository', () => {
         it('should handle special characters in fields', async () => {
             const specialData = {
                 projectId: 'proj_001',
-                testType: 'other' as const,
+                testType: 'manual' as const,
                 testDescription: 'Test with "quotes" and \'apostrophes\'',
                 userQuery: 'Query with <html> & special chars: @#$%',
                 expectedBehavior: 'Expected with unicode: \u2713',
@@ -437,7 +406,7 @@ describe('TestingIterationRepository', () => {
 
             const result = await repository.create({
                 projectId: 'proj_001',
-                testType: 'other',
+                testType: 'manual',
                 testDescription: longString,
                 userQuery: longString,
                 expectedBehavior: longString,
@@ -454,7 +423,7 @@ describe('TestingIterationRepository', () => {
         it('should handle empty arrays for optional fields', async () => {
             const result = await repository.create({
                 projectId: 'proj_001',
-                testType: 'other',
+                testType: 'manual',
                 testDescription: 'Test',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -475,7 +444,7 @@ describe('TestingIterationRepository', () => {
 
             const result = await repository.create({
                 projectId: 'proj_001',
-                testType: 'other',
+                testType: 'manual',
                 testDescription: 'Test',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -536,7 +505,7 @@ describe('TestingIterationRepository', () => {
         it('should create and find iteration', async () => {
             const created = await repository.create({
                 projectId: 'proj_001',
-                testType: 'authentication',
+                testType: 'unit',
                 testDescription: 'Test login',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -547,7 +516,7 @@ describe('TestingIterationRepository', () => {
                 tags: [],
             });
 
-            const found = await repository.findById(created.id);
+            const found = await repository.findById(created.id!);
 
             expect(found).toBeDefined();
             expect(found?.id).toBe(created.id);
@@ -557,7 +526,7 @@ describe('TestingIterationRepository', () => {
         it('should support multiple projects', async () => {
             await repository.create({
                 projectId: 'proj_001',
-                testType: 'authentication',
+                testType: 'unit',
                 testDescription: 'Test for proj 1',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',
@@ -570,7 +539,7 @@ describe('TestingIterationRepository', () => {
 
             await repository.create({
                 projectId: 'proj_002',
-                testType: 'authentication',
+                testType: 'unit',
                 testDescription: 'Test for proj 2',
                 userQuery: 'Test',
                 expectedBehavior: 'Test',

@@ -95,10 +95,21 @@ export interface ContextSummary {
 
 @injectable()
 export class GenerationContextService {
+    /** Insertion order == LRU order (entries are re-inserted on access) */
     private contexts: Map<string, GenerationContext> = new Map();
+    /** contextId -> epoch ms after which the context is evicted */
+    private contextExpiry: Map<string, number> = new Map();
     private supabaseEnabled: boolean;
     private pendingContexts: GenerationContext[] = [];
     private flushInterval: NodeJS.Timeout | null = null;
+    private evictionInterval: NodeJS.Timeout | null = null;
+
+    /** Idle TTL for active contexts */
+    static readonly CONTEXT_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+    /** Grace period after finalize() so follow-up reads still succeed */
+    static readonly FINALIZED_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    /** Hard cap on in-memory contexts (least recently used evicted first) */
+    static readonly MAX_CONTEXTS = 500;
 
     constructor() {
         this.supabaseEnabled = !!(
@@ -112,6 +123,60 @@ export class GenerationContextService {
                 () => this.flushPendingContexts(),
                 60000
             );
+            this.flushInterval.unref();
+        }
+
+        this.evictionInterval = setInterval(() => this.evictExpired(), 5 * 60 * 1000);
+        this.evictionInterval.unref();
+    }
+
+    // ============================================
+    // BOUNDED STORAGE (TTL + LRU)
+    // ============================================
+
+    /**
+     * Look up a context, refreshing its LRU position and idle TTL.
+     */
+    private touch(contextId: string): GenerationContext | undefined {
+        const context = this.contexts.get(contextId);
+        if (!context) return undefined;
+
+        const expiresAt = this.contextExpiry.get(contextId) ?? 0;
+        if (Date.now() > expiresAt) {
+            this.removeContext(contextId);
+            return undefined;
+        }
+
+        // Move to most-recently-used position
+        this.contexts.delete(contextId);
+        this.contexts.set(contextId, context);
+
+        // Finalized contexts keep their short grace deadline; active ones get a fresh idle TTL
+        if (context.currentPhase !== 'complete' && context.currentPhase !== 'failed') {
+            this.contextExpiry.set(contextId, Date.now() + GenerationContextService.CONTEXT_TTL_MS);
+        }
+        return context;
+    }
+
+    private removeContext(contextId: string): void {
+        this.contexts.delete(contextId);
+        this.contextExpiry.delete(contextId);
+    }
+
+    private evictExpired(): void {
+        const now = Date.now();
+        for (const [id, expiresAt] of this.contextExpiry.entries()) {
+            if (now > expiresAt) {
+                this.removeContext(id);
+            }
+        }
+    }
+
+    private enforceMaxSize(): void {
+        while (this.contexts.size >= GenerationContextService.MAX_CONTEXTS) {
+            const lruId = this.contexts.keys().next().value;
+            if (lruId === undefined) break;
+            this.removeContext(lruId);
         }
     }
 
@@ -145,7 +210,10 @@ export class GenerationContextService {
             subtaskResults: [],
         };
 
+        this.evictExpired();
+        this.enforceMaxSize();
         this.contexts.set(context.id, context);
+        this.contextExpiry.set(context.id, Date.now() + GenerationContextService.CONTEXT_TTL_MS);
         console.log(`[CONTEXT] Created context ${context.id} for task ${taskId}`);
 
         return context;
@@ -155,14 +223,14 @@ export class GenerationContextService {
      * Get a context by ID
      */
     getContext(contextId: string): GenerationContext | undefined {
-        return this.contexts.get(contextId);
+        return this.touch(contextId);
     }
 
     /**
      * Update context with extracted entities
      */
     setEntities(contextId: string, extraction: EntityExtractionResult): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (!context) {
             console.warn(`[CONTEXT] Context ${contextId} not found`);
             return;
@@ -185,7 +253,7 @@ export class GenerationContextService {
      * Update current phase
      */
     setPhase(contextId: string, phase: GenerationContext['currentPhase']): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (context) {
             context.currentPhase = phase;
             this.addDecision(contextId, phase, `Entered ${phase} phase`);
@@ -196,7 +264,7 @@ export class GenerationContextService {
      * Set current subtask
      */
     setCurrentSubtask(contextId: string, subtask: string): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (context) {
             context.currentSubtask = subtask;
         }
@@ -206,7 +274,7 @@ export class GenerationContextService {
      * Add a decision to the context
      */
     addDecision(contextId: string, phase: string, decision: string, reasoning?: string): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (context) {
             context.decisions.push({
                 timestamp: new Date(),
@@ -221,7 +289,7 @@ export class GenerationContextService {
      * Add a generated file to the context
      */
     addGeneratedFile(contextId: string, file: GeneratedFileInfo): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (context) {
             // Check for duplicates
             const existing = context.generatedFiles.find(f => f.path === file.path);
@@ -237,7 +305,7 @@ export class GenerationContextService {
      * Record a subtask result
      */
     addSubtaskResult(contextId: string, result: SubtaskResult): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (context) {
             context.subtaskResults.push(result);
         }
@@ -251,7 +319,7 @@ export class GenerationContextService {
         success: boolean,
         metrics: { duration?: number; cost?: number; qualityScore?: number }
     ): void {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (!context) return;
 
         context.currentPhase = success ? 'complete' : 'failed';
@@ -269,6 +337,9 @@ export class GenerationContextService {
             this.pendingContexts.push(context);
         }
 
+        // Release from memory after a short grace period (persisted copy lives in the DB)
+        this.contextExpiry.set(contextId, Date.now() + GenerationContextService.FINALIZED_TTL_MS);
+
         console.log(`[CONTEXT] Finalized context ${contextId}: ${success ? 'SUCCESS' : 'FAILED'}`);
     }
 
@@ -276,7 +347,7 @@ export class GenerationContextService {
      * Get a summary of the context
      */
     getSummary(contextId: string): ContextSummary | null {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (!context) return null;
 
         return {
@@ -296,7 +367,7 @@ export class GenerationContextService {
      * Get entity names for the context
      */
     getEntityNames(contextId: string): string[] {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         return context ? context.entities.map(e => e.name) : [];
     }
 
@@ -304,7 +375,7 @@ export class GenerationContextService {
      * Check if an entity exists in the context
      */
     hasEntity(contextId: string, entityName: string): boolean {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         return context ? context.entities.some(e =>
             e.name.toLowerCase() === entityName.toLowerCase()
         ) : false;
@@ -314,7 +385,7 @@ export class GenerationContextService {
      * Get generated files that haven't been written yet
      */
     getGeneratedFilePaths(contextId: string): string[] {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         return context ? context.generatedFiles.map(f => f.path) : [];
     }
 
@@ -322,7 +393,7 @@ export class GenerationContextService {
      * Validate that all expected entities have been implemented
      */
     validateEntitiesImplemented(contextId: string): { valid: boolean; missing: string[] } {
-        const context = this.contexts.get(contextId);
+        const context = this.touch(contextId);
         if (!context) return { valid: false, missing: [] };
 
         const implementedEntities = new Set<string>();
@@ -399,14 +470,23 @@ export class GenerationContextService {
 
             if (error) {
                 console.error('[CONTEXT] Failed to persist contexts:', error);
-                this.pendingContexts.unshift(...contextsToFlush);
+                this.requeue(contextsToFlush);
             } else {
                 console.log(`[CONTEXT] Persisted ${contextsToFlush.length} contexts`);
             }
         } catch (error) {
             console.error('[CONTEXT] Persistence error:', error);
-            this.pendingContexts.unshift(...contextsToFlush);
+            this.requeue(contextsToFlush);
         }
+    }
+
+    /**
+     * Re-queue failed contexts, dropping the oldest beyond a fixed cap so a
+     * persistently failing DB cannot grow memory without bound.
+     */
+    private requeue(failed: GenerationContext[]): void {
+        const MAX_PENDING = GenerationContextService.MAX_CONTEXTS;
+        this.pendingContexts = [...failed, ...this.pendingContexts].slice(-MAX_PENDING);
     }
 
     /**
@@ -425,6 +505,10 @@ export class GenerationContextService {
         if (this.flushInterval) {
             clearInterval(this.flushInterval);
             this.flushInterval = null;
+        }
+        if (this.evictionInterval) {
+            clearInterval(this.evictionInterval);
+            this.evictionInterval = null;
         }
         await this.flushPendingContexts();
         console.log('[CONTEXT] Shutdown complete');

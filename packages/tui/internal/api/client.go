@@ -175,7 +175,7 @@ type ChatResponse struct {
 	Duration int    `json:"duration"`
 }
 
-// HealthResponse for GET /api/v1/health
+// HealthResponse for GET /health
 type HealthResponse struct {
 	Status    string  `json:"status"`
 	Timestamp string  `json:"timestamp"`
@@ -187,7 +187,7 @@ type HealthResponse struct {
 
 // CheckHealth pings the backend health endpoint
 func (c *Client) CheckHealth() (*HealthResponse, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/api/v1/health")
+	resp, err := c.httpClient.Get(c.baseURL + "/health")
 	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}

@@ -24,6 +24,8 @@ import { connectionsRoutes } from './connections/index.js';
 import { contextRoutes } from './context.js';
 import { phase26Routes } from './phase26.js';
 import { registerPluginRoutes } from './plugins.js';
+import { registerOutputRoutes } from './outputs.js';
+import { registerCustomAgentRoutes } from './custom-agents.js';
 
 /**
  * Register all routes to the Fastify instance
@@ -90,6 +92,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     // Phase 28: Plugin Registry routes
     await registerPluginRoutes(app);
 
+    // Generated project outputs (files, ZIP download)
+    await registerOutputRoutes(app);
+
+    // User-defined agents
+    await registerCustomAgentRoutes(app);
+
     app.log.info('[ROUTES] All routes registered successfully');
 }
 
@@ -115,4 +123,5 @@ export {
     connectionsRoutes,
     phase26Routes,
     registerPluginRoutes,
+    registerOutputRoutes,
 };

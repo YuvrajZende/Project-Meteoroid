@@ -115,8 +115,8 @@ export class CostTrackerService {
      */
     private async initializeSupabasePersistence(): Promise<void> {
         try {
-            const isConnected = await checkSupabaseConnection();
-            if (isConnected) {
+            const { connected } = await checkSupabaseConnection();
+            if (connected) {
                 this.supabaseEnabled = true;
                 console.log('[COST-TRACKER] Supabase persistence enabled');
 
@@ -124,6 +124,8 @@ export class CostTrackerService {
                 this.persistenceInterval = setInterval(() => {
                     this.flushPendingRecords().catch(console.error);
                 }, 30000);
+                // Don't keep the process alive just for cost flushing
+                this.persistenceInterval.unref();
             } else {
                 console.log('[COST-TRACKER] Supabase not connected, using in-memory only');
             }

@@ -26,9 +26,39 @@ import {
 } from './services/index.js';
 
 // Infrastructure
-import { broadcastPipelineStep } from '../../../routes/websocket.js';
+import { broadcastActivity, broadcastPipelineStep } from '../../../routes/websocket.js';
+import { formatResearchNotes, isWebSearchConfigured, webSearch } from '../../../infrastructure/web-search.js';
+import { formatAgentInstructions } from '../../../domain/services/agents/custom-agents.js';
 import { getBenchmarkingService } from '../../../infrastructure/benchmarking.js';
 import { getMCPHub, type MCPHubService } from '../../../domain/services/context/core-services.js';
+
+// ============================================
+// CONCURRENCY
+// ============================================
+
+/** Max subtasks generated in parallel (each subtask = 1 fast + 1 power model call). */
+const SUBTASK_CONCURRENCY = Math.max(1, parseInt(process.env.SUBTASK_CONCURRENCY || '3', 10) || 3);
+
+/**
+ * Run `fn` over `items` with at most `limit` in flight; results keep input order.
+ * Stays on the caller's async chain so AsyncLocalStorage context (projectId tagging) is preserved.
+ */
+async function mapWithConcurrency<T, R>(
+    items: readonly T[],
+    limit: number,
+    fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const worker = async (): Promise<void> => {
+        while (next < items.length) {
+            const index = next++;
+            results[index] = await fn(items[index], index);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return results;
+}
 
 // ============================================
 // TYPES
@@ -42,7 +72,11 @@ export interface IntegratedOrchestratorConfig {
     useFileWriter: boolean;
     useMultiModel: boolean;
     useQualityAssessment: boolean;
+    /** Research current docs on the web before generating (needs a search provider key) */
+    useWebSearch: boolean;
     maxSubtasks: number;
+    /** User-defined agents; each gets its own subtask with its instructions */
+    customAgents?: Array<{ id: string; name: string; role: string; instructions: string }>;
     project?: {
         name: string;
         techStack: string[];
@@ -135,6 +169,7 @@ export class IntegratedOrchestrator {
             useFileWriter: config?.useFileWriter ?? true,
             useMultiModel: config?.useMultiModel ?? true,
             useQualityAssessment: config?.useQualityAssessment ?? true,
+            useWebSearch: config?.useWebSearch ?? true,
             maxSubtasks: config?.maxSubtasks ?? 3,
             project: config?.project,
         };
@@ -213,7 +248,7 @@ export class IntegratedOrchestrator {
             };
             steps.push(step);
             onProgress?.(step);
-            broadcastPipelineStep(step.stepNumber, phase, message);
+            broadcastPipelineStep(step.stepNumber, phase, message, agent);
             return step;
         };
 
@@ -263,11 +298,22 @@ export class IntegratedOrchestrator {
 
             // PHASE 2: ANALYSIS
             addStep('thinking', 'Analyzing task...');
+            broadcastActivity({ kind: 'thinking', status: 'start' });
+            const thinkingStart = Date.now();
             const analysisResult = await this.analysisService.analyze(
                 input.prompt,
                 config.useAIThinking,
                 ['auth-agent', 'security-agent', 'api-agent', 'database-agent']
             );
+            broadcastActivity({
+                kind: 'thinking',
+                status: 'end',
+                complexity: analysisResult.aiAnalysis?.complexity ?? analysisResult.taskAnalysis.complexity,
+                summary: analysisResult.subtasks.length > 1
+                    ? `Split into ${analysisResult.subtasks.length} subtasks for ${analysisResult.selectedAgents.join(', ')}`
+                    : 'Single subtask plan',
+                durationMs: Date.now() - thinkingStart,
+            });
 
             addStep('thinking', `Analysis complete (${analysisResult.thinkingTime}ms)`, {
                 complexity: analysisResult.taskAnalysis.complexity,
@@ -287,16 +333,57 @@ export class IntegratedOrchestrator {
             }
 
             // PHASE 4: EXECUTION & CODE GENERATION
-            const subtasks = analysisResult.subtasks.slice(0, config.maxSubtasks);
-            addStep('execution', `Processing ${subtasks.length} subtasks...`);
+            // Subtasks are independent: generate them with bounded concurrency, preserving result order.
+            const customAgents = config.customAgents ?? [];
+            const subtasks = [
+                ...analysisResult.subtasks.slice(0, Math.max(1, config.maxSubtasks - customAgents.length)),
+                ...customAgents.map(a => `${a.name}: ${a.role}`),
+            ];
+            const customByIndex = new Map(customAgents.map((a, i) => [subtasks.length - customAgents.length + i, a]));
+            const language = input.context?.language || 'typescript';
+            const framework = input.context?.framework || 'fastify';
+            addStep('execution', `Processing ${subtasks.length} subtasks (concurrency ${SUBTASK_CONCURRENCY})...`);
 
-            for (let i = 0; i < subtasks.length; i++) {
-                const subtask = subtasks[i];
-                const agent = analysisResult.selectedAgents[i % analysisResult.selectedAgents.length] || 'api-agent';
+            const subtaskAgents = subtasks.map((_, i) =>
+                customByIndex.get(i)?.id
+                    ?? analysisResult.selectedAgents[i % analysisResult.selectedAgents.length]
+                    ?? 'api-agent'
+            );
+            agentsExecuted.push(...subtaskAgents);
+            broadcastActivity({
+                kind: 'plan',
+                subtasks: subtasks.map((title, id) => ({ id, title, agent: subtaskAgents[id] })),
+            });
 
+            // PHASE 3.5: WEB RESEARCH (optional tool use)
+            let researchNotes = '';
+            if (config.useWebSearch && isWebSearchConfigured()) {
+                const query = `${framework} ${language} ${input.prompt.slice(0, 120)} best practices latest`;
+                const toolId = `search-${Date.now()}`;
+                const searchStart = Date.now();
+                addStep('research', `Searching the web: ${query}`);
+                broadcastActivity({ kind: 'tool', id: toolId, tool: 'web_search', status: 'running', query });
+                try {
+                    const results = await webSearch(query, 5);
+                    researchNotes = formatResearchNotes(results);
+                    broadcastActivity({
+                        kind: 'tool', id: toolId, tool: 'web_search', status: 'done', query,
+                        results: results.map(r => ({ title: r.title, url: r.url })),
+                        durationMs: Date.now() - searchStart,
+                    });
+                    addStep('research', `Found ${results.length} sources`);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    broadcastActivity({ kind: 'tool', id: toolId, tool: 'web_search', status: 'error', query, error: message, durationMs: Date.now() - searchStart });
+                    addStep('research', `Web search unavailable: ${message}`);
+                }
+            }
+
+            const subtaskResults = await mapWithConcurrency(subtasks, SUBTASK_CONCURRENCY, async (subtask, i) => {
+                const agent = subtaskAgents[i];
+                const agentStart = Date.now();
+                broadcastActivity({ kind: 'agent', id: i, agent, status: 'running' });
                 this.analysisService.startAgentExecution(agent, subtask);
-                agentsExecuted.push(agent);
-
                 addStep('execution', `Agent "${agent}" processing subtask ${i + 1}/${subtasks.length}`, { subtask, agent }, agent);
 
                 try {
@@ -308,30 +395,23 @@ export class IntegratedOrchestrator {
                         taskId: input.taskId,
                         projectId: input.projectId,
                         userId: input.userId,
-                        language: input.context?.language || 'typescript',
-                        framework: input.context?.framework || 'fastify',
+                        language,
+                        framework,
                         techStack: input.context?.techStack,
                         existingCode: input.context?.existingCode,
                         generationContext: contextResult.generationContext,
                         entityConstraints: contextResult.entityConstraints,
+                        researchNotes,
+                        agentInstructions: customByIndex.has(i) ? formatAgentInstructions(customByIndex.get(i)!) : undefined,
                         originalPrompt: input.prompt,
                     };
 
                     const codeResult = await this.generationService.generate(genRequest);
 
-                    generatedCode.push({
-                        subtask,
-                        code: codeResult.code,
-                        explanation: codeResult.explanation,
-                        agent,
-                    });
-
                     this.analysisService.updateAgentProgress(agent, 100);
                     this.analysisService.completeAgentExecution(agent, true);
 
-                    // Record benchmark
-                    const benchmarking = getBenchmarkingService();
-                    benchmarking.recordAgentExecution({
+                    getBenchmarkingService().recordAgentExecution({
                         agentId: agent,
                         agentName: agent,
                         executionTime: codeResult.analysisTime + codeResult.generationTime,
@@ -349,38 +429,47 @@ export class IntegratedOrchestrator {
                         cost: codeResult.cost,
                     }, agent);
 
+                    broadcastActivity({ kind: 'agent', id: i, agent, status: 'done', files: codeResult.files.length, durationMs: Date.now() - agentStart });
+                    return {
+                        ok: true as const,
+                        gen: { subtask, code: codeResult.code, explanation: codeResult.explanation, agent },
+                    };
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-                    errors.push(`Code generation failed: ${errorMsg}`);
+                    broadcastActivity({ kind: 'agent', id: i, agent, status: 'failed', error: errorMsg, durationMs: Date.now() - agentStart });
                     this.analysisService.completeAgentExecution(agent, false, errorMsg);
                     addStep('code-generation', `Failed: ${errorMsg}`, undefined, agent);
+                    return { ok: false as const, error: `Code generation failed: ${errorMsg}` };
                 }
+            });
+
+            for (const result of subtaskResults) {
+                if (result.ok) generatedCode.push(result.gen);
+                else errors.push(result.error);
             }
 
-            // PHASE 5: QUALITY ASSESSMENT
-            let qualityScore = 0;
+            // PHASE 5: QUALITY ASSESSMENT (runs concurrently with file processing/writing)
+            let qualityPromise: Promise<Awaited<ReturnType<OrchestrationQualityService['assessQuality']>> | null> = Promise.resolve(null);
             if (config.useQualityAssessment && generatedCode.length > 0) {
                 addStep('quality', 'Assessing code quality...');
-                
-                const filesToAssess = generatedCode.map((gen, idx) => ({
-                    path: `generated/${gen.agent}/file-${idx}.ts`,
-                    content: gen.code,
-                }));
-
-                const qualityResult = await this.qualityService.assessQuality(
-                    filesToAssess,
+                qualityPromise = this.qualityService.assessQuality(
+                    generatedCode.map((gen, idx) => ({
+                        path: `generated/${gen.agent}/file-${idx}.ts`,
+                        content: gen.code,
+                    })),
                     null,
-                    input.context?.language || 'typescript',
-                    input.context?.framework || 'fastify'
-                );
-
-                qualityScore = qualityResult.score;
-                addStep('quality', `Quality: ${qualityResult.score}/100 (${qualityResult.passed ? 'PASS' : 'NEEDS WORK'})`);
+                    language,
+                    framework
+                ).catch((error: unknown) => {
+                    console.warn('[ORCHESTRATOR] Quality assessment failed:', error);
+                    return null;
+                });
             }
 
             // PHASE 6: FILE PROCESSING & WRITING
+            // Must complete before responding: the UI fetches the files right after.
             let fileWriteResult: OrchestrationResult['fileWriteResult'];
-            
+
             if (config.useFileWriter && generatedCode.length > 0) {
                 addStep('finalize', 'Processing and writing files...');
 
@@ -388,7 +477,7 @@ export class IntegratedOrchestrator {
                 const processingResult = await this.fileService.processFiles(
                     allCode,
                     config.project?.name || input.projectId,
-                    input.context?.language || 'typescript',
+                    language,
                     null
                 );
 
@@ -396,7 +485,7 @@ export class IntegratedOrchestrator {
                     input.projectId,
                     processingResult.filesToWrite,
                     config.project?.name || input.projectId,
-                    input.context?.language || 'typescript'
+                    language
                 );
 
                 fileWriteResult = {
@@ -410,88 +499,32 @@ export class IntegratedOrchestrator {
                     filesWritten: writeResult.filesWritten?.length || 0,
                     integrityScore: processingResult.validationReport.score,
                 });
+            }
 
-                // PHASE 7: PERSISTENCE
-                addStep('finalize', 'Storing results...');
+            const qualityResult = await qualityPromise;
+            const qualityScore = qualityResult?.score ?? 0;
+            if (qualityResult) {
+                addStep('quality', `Quality: ${qualityResult.score}/100 (${qualityResult.passed ? 'PASS' : 'NEEDS WORK'})`);
+            }
 
-                // Store learning iteration
-                for (const gen of generatedCode) {
-                    await this.persistenceService.storeIteration({
-                        taskId: input.taskId,
-                        projectId: input.projectId,
-                        userId: input.userId,
-                        prompt: input.prompt,
-                        generatedCode: [{ path: `${gen.agent}/${gen.subtask.slice(0, 30)}`, content: gen.code, language: input.context?.language || 'typescript' }],
-                        config: { language: input.context?.language, framework: input.context?.framework, agentsUsed: agentsExecuted },
-                        success: errors.length === 0,
-                        errors,
-                        metrics: {
-                            duration: Date.now() - startTime.getTime(),
-                            tokensUsed: 0,
-                        },
-                    });
-                }
-
-                // Index for learning
-                const indexResult = await this.persistenceService.indexGeneratedCode(
-                    input.projectId,
-                    generatedCode.map(g => ({ path: g.subtask, content: g.code })),
-                    input.context?.language || 'typescript'
-                );
-                addStep('finalize', `Indexed ${indexResult.chunksCreated} code chunks`);
-
-                // Store architecture
-                await this.qualityService.storeArchitecture(
-                    input.projectId,
-                    input.prompt,
-                    input.context?.language || 'typescript',
-                    input.context?.framework || 'fastify',
-                    fileWriteResult.filesWritten,
-                    qualityScore
-                );
-
-                // Save to database
-                const dbResult = await this.persistenceService.saveToDatabase(
-                    {
-                        taskId: input.taskId,
-                        projectId: input.projectId,
-                        userId: input.userId,
-                        prompt: input.prompt,
-                        generatedCode: generatedCode.map(g => ({
-                            subtask: g.subtask,
-                            agent: g.agent,
-                            codeLength: g.code.length,
-                            explanation: g.explanation.substring(0, 200),
-                        })),
-                        filesWritten: fileWriteResult.filesWritten,
-                        totalDuration: Date.now() - startTime.getTime(),
-                        errors,
-                        agentsExecuted,
-                        startTime,
-                        endTime: new Date(),
-                    },
-                    { name: config.project?.name, description: config.project?.description, techStack: config.project?.techStack }
-                );
-
-                if (dbResult.success) {
-                    addStep('finalize', '✅ Results saved to database');
-                }
-
-                // Record benchmark
-                await this.persistenceService.recordBenchmark(
-                    input.taskId,
-                    input.projectId,
-                    input.userId,
-                    {
-                        orchestrationStartTime,
-                        totalDuration: Date.now() - startTime.getTime(),
-                        thinkingTime: analysisResult.thinkingTime,
-                        agentsExecuted,
-                        subtasksCount: subtasks.length,
-                        filesGenerated: fileWriteResult.filesWritten.length,
-                        success: errors.length === 0,
-                    }
-                );
+            // PHASE 7: PERSISTENCE (fire-and-forget, off the response path)
+            if (fileWriteResult) {
+                addStep('finalize', 'Storing results in background...');
+                this.persistInBackground({
+                    input,
+                    config,
+                    language,
+                    framework,
+                    generatedCode: [...generatedCode],
+                    errors: [...errors],
+                    agentsExecuted: [...agentsExecuted],
+                    filesWritten: [...fileWriteResult.filesWritten],
+                    qualityScore,
+                    startTime,
+                    orchestrationStartTime,
+                    thinkingTime: analysisResult.thinkingTime,
+                    subtasksCount: subtasks.length,
+                });
             }
 
             // Finalize context
@@ -531,6 +564,7 @@ export class IntegratedOrchestrator {
 
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            console.error('[ORCHESTRATOR] Orchestration failed:', error);
             errors.push(errorMsg);
             addStep('finalize', `Orchestration failed: ${errorMsg}`);
 
@@ -551,6 +585,103 @@ export class IntegratedOrchestrator {
                 errors,
             };
         }
+    }
+
+    /**
+     * Persist learning, index, architecture, DB records and benchmark in parallel without
+     * blocking the HTTP response. Failures are logged, never thrown.
+     */
+    private persistInBackground(data: {
+        input: OrchestrationInput;
+        config: IntegratedOrchestratorConfig;
+        language: string;
+        framework: string;
+        generatedCode: OrchestrationResult['generatedCode'];
+        errors: string[];
+        agentsExecuted: string[];
+        filesWritten: string[];
+        qualityScore: number;
+        startTime: Date;
+        orchestrationStartTime: number;
+        thinkingTime: number;
+        subtasksCount: number;
+    }): void {
+        const { input, config, language, generatedCode, errors, agentsExecuted, filesWritten, startTime } = data;
+        const success = errors.length === 0;
+        const totalDuration = Date.now() - startTime.getTime();
+
+        const tasks: Array<[string, Promise<unknown>]> = [
+            ['storeIteration', Promise.all(generatedCode.map(gen => this.persistenceService.storeIteration({
+                taskId: input.taskId,
+                projectId: input.projectId,
+                userId: input.userId,
+                prompt: input.prompt,
+                generatedCode: [{ path: `${gen.agent}/${gen.subtask.slice(0, 30)}`, content: gen.code, language }],
+                config: { language: input.context?.language, framework: input.context?.framework, agentsUsed: agentsExecuted },
+                success,
+                errors,
+                metrics: { duration: totalDuration, tokensUsed: 0 },
+            })))],
+            ['indexGeneratedCode', this.persistenceService.indexGeneratedCode(
+                input.projectId,
+                generatedCode.map(g => ({ path: g.subtask, content: g.code })),
+                language
+            ).then(r => console.log(`[ORCHESTRATOR] Indexed ${r.chunksCreated} code chunks`))],
+            ['storeArchitecture', this.qualityService.storeArchitecture(
+                input.projectId,
+                input.prompt,
+                language,
+                data.framework,
+                filesWritten,
+                data.qualityScore
+            )],
+            ['saveToDatabase', this.persistenceService.saveToDatabase(
+                {
+                    taskId: input.taskId,
+                    projectId: input.projectId,
+                    userId: input.userId,
+                    prompt: input.prompt,
+                    generatedCode: generatedCode.map(g => ({
+                        subtask: g.subtask,
+                        agent: g.agent,
+                        codeLength: g.code.length,
+                        explanation: g.explanation.substring(0, 200),
+                    })),
+                    filesWritten,
+                    totalDuration,
+                    errors,
+                    agentsExecuted,
+                    startTime,
+                    endTime: new Date(),
+                },
+                { name: config.project?.name, description: config.project?.description, techStack: config.project?.techStack }
+            ).then(r => {
+                if (r.success) console.log('[ORCHESTRATOR] Results saved to database');
+                else console.warn(`[ORCHESTRATOR] Database save skipped: ${r.error}`);
+            })],
+            ['recordBenchmark', this.persistenceService.recordBenchmark(
+                input.taskId,
+                input.projectId,
+                input.userId,
+                {
+                    orchestrationStartTime: data.orchestrationStartTime,
+                    totalDuration,
+                    thinkingTime: data.thinkingTime,
+                    agentsExecuted,
+                    subtasksCount: data.subtasksCount,
+                    filesGenerated: filesWritten.length,
+                    success,
+                }
+            )],
+        ];
+
+        void Promise.allSettled(tasks.map(([, p]) => p)).then(results => {
+            results.forEach((result, i) => {
+                if (result.status === 'rejected') {
+                    console.error(`[ORCHESTRATOR] Background ${tasks[i][0]} failed for task ${input.taskId}:`, result.reason);
+                }
+            });
+        });
     }
 
     private async generateSimpleScript(

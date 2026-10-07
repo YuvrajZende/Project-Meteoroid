@@ -1,5 +1,5 @@
 /**
- * Loveable Backend API - Entry Point
+ * Meteoroid Backend API - Entry Point
  * Production-ready Fastify server for the AI Orchestrator
  */
 
@@ -20,6 +20,7 @@ import { initializeAdapters } from './infrastructure/api/adapters/adapter-factor
 import { checkSupabaseConnection, checkVectorStore } from './infrastructure/database/database-client.js';
 import { flush } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
+import { closeRateLimitRedis } from './plugins/rate-limit.js';
 import Redis from 'ioredis';
 
 /**
@@ -80,6 +81,9 @@ async function bootstrap(): Promise<void> {
 
                 await flush(5000);
                 await app.close();
+
+                // Rate-limit Redis client is created outside Fastify's lifecycle
+                await closeRateLimitRedis();
 
                 console.log('  Goodbye!\n');
                 process.exit(0);

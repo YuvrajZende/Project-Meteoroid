@@ -1,6 +1,6 @@
 # Agent Template
 
-This is a template for creating new agents for the Loveable Backend Orchestrator.
+This is a template for creating new agents for the Meteoroid Backend Orchestrator.
 
 ## Quick Start
 

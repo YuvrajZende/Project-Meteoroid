@@ -5,9 +5,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { UserRepository } from '../user.repository.js';
 import { MockDatabase } from './mock-database.js';
-import { mockUser, mockUserRow, generateMockUsers } from './fixtures.js';
+import { mockUserRow, generateMockUsers } from './fixtures.js';
 import { RepositoryError } from '../base.repository.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe('UserRepository', () => {
     let repository: UserRepository;
@@ -33,7 +35,7 @@ describe('UserRepository', () => {
             const result = await repository.create(newUser);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^user_/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.email).toBe('newuser@example.com');
             expect(result.createdAt).toBeInstanceOf(Date);
             expect(result.updatedAt).toBeInstanceOf(Date);
@@ -138,7 +140,7 @@ describe('UserRepository', () => {
             await repository.update('user_test_123', {
                 id: 'different_id',
                 createdAt: new Date('2020-01-01'),
-            });
+            } as Parameters<typeof repository.update>[1]);
 
             const tableData = mockDatabase.getTableData('users');
             expect(tableData[0].id).toBe('user_test_123');
@@ -249,7 +251,7 @@ describe('UserRepository', () => {
 
             const results = await repository.findAll({
                 orderBy: 'created_at',
-                order: 'DESC',
+                orderDirection: 'DESC',
             });
 
             expect(results).toHaveLength(5);

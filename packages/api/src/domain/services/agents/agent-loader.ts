@@ -7,7 +7,7 @@
 import { readdir, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
-import { isValidAgent, type IAgent } from '@loveable/shared';
+import { isValidAgent, type IAgent } from '@meteoroid/shared';
 import { AgentRegistry } from '../../../services/registry/agent-registry.js';
 
 /**

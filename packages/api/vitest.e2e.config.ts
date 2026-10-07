@@ -10,12 +10,12 @@ export default defineConfig({
         testTimeout: 60000, // 60 second timeout for E2E tests
         hookTimeout: 120000, // 2 minute timeout for setup/teardown
         bail: 1, // Stop on first failure (comment out to continue on failure)
-        pool: 1, // Run tests serially (E2E tests may have side effects)
+        // Run tests serially in a single process (E2E tests may have side effects)
+        pool: 'forks',
         poolOptions: {
-            threads: 1,
-            minThreads: 1,
-            maxThreads: 1,
+            forks: { singleFork: true },
         },
+        include: ['test/e2e/**/*.test.ts'],
         // E2E tests don't need coverage
         coverage: { enabled: false },
         // Setup file for test initialization

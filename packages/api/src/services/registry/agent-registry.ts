@@ -4,7 +4,7 @@
  * Provides methods to query agents by ID or capability
  */
 
-import type { IAgent, AgentMetadata, AgentHealthStatus } from '@loveable/shared';
+import type { IAgent, AgentMetadata, AgentHealthStatus } from '@meteoroid/shared';
 
 /**
  * AgentRegistry - Singleton registry for managing loaded agents

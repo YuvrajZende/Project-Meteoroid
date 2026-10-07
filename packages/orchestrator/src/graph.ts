@@ -24,7 +24,7 @@ import {
 
 console.log(`\n`);
 console.log(`╔═══════════════════════════════════════════════════════════════════╗`);
-console.log(`║          🧠 LOVEABLE ORCHESTRATOR - BRAIN INITIALIZATION          ║`);
+console.log(`║          🧠 METEOROID ORCHESTRATOR - BRAIN INITIALIZATION          ║`);
 console.log(`╠═══════════════════════════════════════════════════════════════════╣`);
 console.log(`║  🔄 Loading Thinking Engine...                                    ║`);
 console.log(`║  📊 Initializing Agent Monitor...                                 ║`);
@@ -135,7 +135,7 @@ console.log(`\n`);
 export const printGraphStructure = () => {
     console.log(`\n`);
     console.log(`╔═══════════════════════════════════════════════════════════════════════════════╗`);
-    console.log(`║                    🧠 LOVEABLE ORCHESTRATOR ARCHITECTURE                      ║`);
+    console.log(`║                    🧠 METEOROID ORCHESTRATOR ARCHITECTURE                      ║`);
     console.log(`╠═══════════════════════════════════════════════════════════════════════════════╣`);
     console.log(`║                                                                               ║`);
     console.log(`║                              [USER REQUEST]                                   ║`);

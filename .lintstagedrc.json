@@ -1,12 +1,9 @@
 {
-    "*.ts": [
+    "{packages/api,packages/shared,packages/orchestrator,agents,scripts}/**/*.ts": [
         "eslint --fix",
         "prettier --write"
     ],
-    "*.json": [
-        "prettier --write"
-    ],
-    "*.md": [
+    "{*,packages/api/**/*,packages/shared/**/*,packages/orchestrator/**/*,agents/**/*,scripts/**/*,docs/**/*}.{json,md}": [
         "prettier --write"
     ]
 }

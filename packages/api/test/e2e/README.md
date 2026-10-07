@@ -1,6 +1,6 @@
 # E2E Testing Guide
 
-This directory contains end-to-end tests for the Loveable Backend API.
+This directory contains end-to-end tests for the Meteoroid Backend API.
 
 ## Test Structure
 

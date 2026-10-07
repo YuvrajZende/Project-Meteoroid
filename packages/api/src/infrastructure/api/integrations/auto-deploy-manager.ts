@@ -500,7 +500,7 @@ export class AutoDeployManager extends EventEmitter {
 
             // First ensure site exists
             for (const record of recordsToFlush) {
-                const siteId = `loveable-${record.projectId}`;
+                const siteId = `meteoroid-${record.projectId}`;
 
                 // Upsert site record
                 await supabase.from('deployment_sites').upsert({
@@ -519,7 +519,7 @@ export class AutoDeployManager extends EventEmitter {
                 .from('deployments')
                 .upsert(dbRecords.map(r => ({
                     ...r,
-                    site_id: `loveable-${r.project_id}`,
+                    site_id: `meteoroid-${r.project_id}`,
                 })), { onConflict: 'provider,provider_deploy_id' });
 
             if (error) {

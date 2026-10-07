@@ -37,72 +37,113 @@ function logSecurityEvent(
     }, `[WEBHOOK SECURITY] ${event} for ${webhook}`);
 }
 
+declare module 'fastify' {
+    interface FastifyRequest {
+        /** Raw request body bytes (set only by the webhook content-type parser) */
+        rawBody?: Buffer;
+    }
+}
+
 /**
- * Verify webhook signature (HMAC-SHA256)
+ * Constant-time comparison of two hex/ascii strings (length-checked).
+ */
+function safeEqual(a: string, b: string): boolean {
+    const aBuf = Buffer.from(a, 'utf8');
+    const bBuf = Buffer.from(b, 'utf8');
+    if (aBuf.length !== bBuf.length) {
+        return false;
+    }
+    return timingSafeEqual(aBuf, bBuf);
+}
+
+/**
+ * Verify webhook signature (HMAC-SHA256 over the raw body bytes)
  */
 function verifyWebhookSignature(
-    payload: string,
+    payload: Buffer,
     signature: string,
     secret: string
 ): boolean {
     const expectedSignature = createHmac('sha256', secret)
         .update(payload)
         .digest('hex');
-
-    try {
-        return timingSafeEqual(
-            Buffer.from(signature),
-            Buffer.from(expectedSignature)
-        );
-    } catch {
-        return false;
-    }
+    return safeEqual(signature.trim().toLowerCase(), expectedSignature);
 }
 
 /**
  * Verify Stripe webhook signature
- * Stripe uses a different signature format: timestamp + signature
+ * Header format: t={timestamp},v1={signature}[,v1=...][,v0=...]
  */
 function verifyStripeSignature(
-    payload: string,
+    payload: Buffer,
     signature: string,
     secret: string
 ): boolean {
-    try {
-        // Stripe signature format: t={timestamp},v1={signature}
-        const [t, v1] = signature.split(',');
-        if (!t || !v1) {
-            return false;
-        }
+    let timestamp: string | undefined;
+    const v1Signatures: string[] = [];
+    for (const part of signature.split(',')) {
+        const idx = part.indexOf('=');
+        if (idx === -1) continue;
+        const key = part.slice(0, idx).trim();
+        const value = part.slice(idx + 1).trim();
+        if (key === 't') timestamp = value;
+        else if (key === 'v1') v1Signatures.push(value);
+    }
 
-        const timestamp = Number(t.replace('t=', ''));
-        const now = Math.floor(Date.now() / 1000);
-
-        // SECURITY: Reject timestamps older than tolerance (prevents replay attacks)
-        if (now - timestamp > WEBHOOK_TIMESTAMP_TOLERANCE) {
-            return false;
-        }
-
-        // Recreate signature
-        const payloadForSigning = `${t}.${payload}`;
-        const expectedSignature = createHmac('sha256', secret)
-            .update(payloadForSigning)
-            .digest('hex');
-
-        const providedSignature = v1.replace('v1=', '');
-        return timingSafeEqual(
-            Buffer.from(expectedSignature),
-            Buffer.from(providedSignature)
-        );
-    } catch {
+    if (!timestamp || !/^\d+$/.test(timestamp) || v1Signatures.length === 0) {
         return false;
     }
+
+    // SECURITY: Reject timestamps outside tolerance (prevents replay attacks)
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - Number(timestamp)) > WEBHOOK_TIMESTAMP_TOLERANCE) {
+        return false;
+    }
+
+    const expectedSignature = createHmac('sha256', secret)
+        .update(`${timestamp}.`)
+        .update(payload)
+        .digest('hex');
+
+    return v1Signatures.some(sig => safeEqual(sig, expectedSignature));
+}
+
+/**
+ * Parse JSON while preserving the exact raw bytes for HMAC verification.
+ */
+function addRawJsonParser(scope: FastifyInstance): void {
+    scope.addContentTypeParser(
+        'application/json',
+        { parseAs: 'buffer' },
+        (request, body, done) => {
+            const raw = body as Buffer;
+            request.rawBody = raw;
+            if (raw.length === 0) {
+                done(null, {});
+                return;
+            }
+            try {
+                done(null, JSON.parse(raw.toString('utf8')));
+            } catch (err) {
+                const error = err as Error & { statusCode?: number };
+                error.statusCode = 400;
+                done(error, undefined);
+            }
+        }
+    );
+}
+
+function getRawBody(request: FastifyRequest): Buffer | null {
+    return Buffer.isBuffer(request.rawBody) ? request.rawBody : null;
 }
 
 /**
  * Register webhook routes
  */
-export async function registerWebhookRoutes(app: FastifyInstance): Promise<void> {
+export async function registerWebhookRoutes(parent: FastifyInstance): Promise<void> {
+    // Encapsulated scope so the raw-body JSON parser only applies to webhook routes
+    await parent.register(async (app) => {
+    addRawJsonParser(app);
 
     /**
      * POST /api/v1/webhooks/supabase - Supabase Auth webhook
@@ -135,8 +176,8 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
             });
         }
 
-        const rawBody = JSON.stringify(request.body);
-        const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
+        const rawBody = getRawBody(request);
+        const isValid = rawBody !== null && verifyWebhookSignature(rawBody, signature, webhookSecret);
 
         if (!isValid) {
             logSecurityEvent(app, 'signature_invalid', 'supabase', { ip: request.ip });
@@ -218,10 +259,10 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
             });
         }
 
-        const rawBody = JSON.stringify(request.body);
+        const rawBody = getRawBody(request);
 
         // SECURITY: Verify Stripe signature with timestamp check
-        const verifyResult = verifyStripeSignature(rawBody, signature, webhookSecret);
+        const verifyResult = rawBody !== null && verifyStripeSignature(rawBody, signature, webhookSecret);
         if (!verifyResult) {
             logSecurityEvent(app, 'signature_invalid', 'stripe', { ip: request.ip });
             return reply.status(401).send({
@@ -295,9 +336,9 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
             });
         }
 
-        const sig = signature.replace('sha256=', '');
-        const rawBody = JSON.stringify(request.body);
-        const isValid = verifyWebhookSignature(rawBody, sig, webhookSecret);
+        const sig = signature.startsWith('sha256=') ? signature.slice('sha256='.length) : '';
+        const rawBody = getRawBody(request);
+        const isValid = rawBody !== null && sig.length > 0 && verifyWebhookSignature(rawBody, sig, webhookSecret);
 
         if (!isValid) {
             logSecurityEvent(app, 'signature_invalid', 'github', { ip: request.ip, event });
@@ -334,4 +375,5 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
     });
 
     app.log.info('[ROUTES] Webhook routes registered: /api/v1/webhooks/*');
+    });
 }

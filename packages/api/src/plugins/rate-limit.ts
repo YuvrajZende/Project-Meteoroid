@@ -46,6 +46,15 @@ const RATE_LIMIT_TIERS = {
 
 export type RateLimitTier = keyof typeof RATE_LIMIT_TIERS;
 
+/**
+ * Stricter per-route limit for AI-generation (LLM cost-incurring) routes.
+ * Usage: app.post('/path', { config: { rateLimit: aiRouteRateLimit } }, handler)
+ */
+export const aiRouteRateLimit = {
+    max: 10,
+    timeWindow: 60000,
+} as const;
+
 // Initialize Redis client if configured
 async function getRedisClient(): Promise<Redis | null> {
     if (!env.REDIS_URL) {
@@ -65,6 +74,7 @@ async function getRedisClient(): Promise<Redis | null> {
             return redisClient;
         } catch (error) {
             console.warn('[RATE-LIMIT] Redis connection failed, using in-memory store:', error);
+            redisClient?.disconnect();
             redisClient = null;
             return null;
         }
@@ -85,7 +95,7 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
         // Custom key generator (by IP + User ID if authenticated)
         keyGenerator: (request: FastifyRequest) => {
             // Use user ID if available, otherwise use IP
-            const userId = request.userId || (request.authUser?.id);
+            const userId = request.authUser?.id;
             const ip = request.ip;
             return userId ? `user:${userId}` : `ip:${ip}`;
         },
@@ -128,8 +138,13 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
 // Cleanup function for graceful shutdown
 export async function closeRateLimitRedis(): Promise<void> {
     if (redisClient) {
-        await redisClient.quit();
+        const client = redisClient;
         redisClient = null;
+        try {
+            await client.quit();
+        } catch {
+            client.disconnect();
+        }
     }
 }
 

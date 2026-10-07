@@ -30,13 +30,30 @@ interface ModelOption {
     apiKeyEnvVar: string;
 }
 
+// Keep in sync with packages/api/src/services/registry/model-registry.ts (IDs verified Oct 2026; "~" = approx price)
 const FAST_MODELS: ModelOption[] = [
     {
         id: 'llama-3.3-70b-versatile',
         name: 'Llama 3.3 70B Versatile',
         provider: 'groq',
         tier: 'fast',
-        pricing: '$0.59/$0.79 per 1M tokens',
+        pricing: '~$0.59/$0.79 per 1M tokens',
+        apiKeyEnvVar: 'GROQ_API_KEY',
+    },
+    {
+        id: 'openai/gpt-oss-120b',
+        name: 'GPT-OSS 120B',
+        provider: 'groq',
+        tier: 'fast',
+        pricing: '$0.15/$0.60 per 1M tokens',
+        apiKeyEnvVar: 'GROQ_API_KEY',
+    },
+    {
+        id: 'openai/gpt-oss-20b',
+        name: 'GPT-OSS 20B',
+        provider: 'groq',
+        tier: 'fast',
+        pricing: '$0.075/~$0.30 per 1M tokens',
         apiKeyEnvVar: 'GROQ_API_KEY',
     },
     {
@@ -44,83 +61,107 @@ const FAST_MODELS: ModelOption[] = [
         name: 'Llama 3.1 8B Instant',
         provider: 'groq',
         tier: 'fast',
-        pricing: '$0.05/$0.08 per 1M tokens',
+        pricing: '~$0.05/$0.08 per 1M tokens',
         apiKeyEnvVar: 'GROQ_API_KEY',
     },
     {
-        id: 'mixtral-8x7b-32768',
-        name: 'Mixtral 8x7B',
-        provider: 'groq',
+        id: 'deepseek-flash',
+        name: 'DeepSeek V4.1 Flash',
+        provider: 'deepseek',
         tier: 'fast',
-        pricing: '$0.24/$0.24 per 1M tokens',
-        apiKeyEnvVar: 'GROQ_API_KEY',
+        pricing: '$0.30/$1.20 per 1M tokens (peak)',
+        apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     },
     {
-        id: 'deepseek/deepseek-chat',
-        name: 'DeepSeek V3',
-        provider: 'openrouter',
-        tier: 'fast',
-        pricing: '$0.14/$0.28 per 1M tokens',
-        apiKeyEnvVar: 'OPENROUTER_API_KEY',
-    },
-    {
-        id: 'gpt-4o-mini',
-        name: 'GPT-4o Mini',
+        id: 'gpt-6-luna',
+        name: 'GPT-6 Luna',
         provider: 'openai',
         tier: 'fast',
-        pricing: '$0.15/$0.60 per 1M tokens',
+        pricing: '$0.10/$0.50 per 1M tokens',
         apiKeyEnvVar: 'OPENAI_API_KEY',
     },
     {
-        id: 'glm-4-flash',
-        name: 'GLM-4 Flash',
-        provider: 'zai',
+        id: 'claude-haiku-4-5-20251001',
+        name: 'Claude Haiku 4.5',
+        provider: 'anthropic',
         tier: 'fast',
-        pricing: '$0.10/$0.40 per 1M tokens',
-        apiKeyEnvVar: 'ZAI_API_KEY',
+        pricing: '$1.00/$5.00 per 1M tokens',
+        apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    },
+    {
+        id: 'deepseek/deepseek-chat',
+        name: 'DeepSeek Chat (OpenRouter, legacy)',
+        provider: 'openrouter',
+        tier: 'fast',
+        pricing: '~$0.14/$0.28 per 1M tokens',
+        apiKeyEnvVar: 'OPENROUTER_API_KEY',
     },
 ];
 
 const POWER_MODELS: ModelOption[] = [
     {
-        id: 'glm-4.6',
-        name: 'GLM-4.6',
-        provider: 'zai',
+        id: 'qwen/qwen3.6-plus:free',
+        name: 'Qwen3.6 Plus (free)',
+        provider: 'openrouter',
         tier: 'powerful',
-        pricing: '$0.50/$1.50 per 1M tokens',
-        apiKeyEnvVar: 'ZAI_API_KEY',
+        pricing: 'free (rate-limited)',
+        apiKeyEnvVar: 'OPENROUTER_API_KEY',
     },
     {
-        id: 'deepseek-chat',
-        name: 'DeepSeek V3 (Direct)',
+        id: 'qwen/qwen3.6-plus',
+        name: 'Qwen3.6 Plus',
+        provider: 'openrouter',
+        tier: 'powerful',
+        pricing: '~$0.40/$2.40 per 1M tokens',
+        apiKeyEnvVar: 'OPENROUTER_API_KEY',
+    },
+    {
+        id: 'deepseek-v4-pro',
+        name: 'DeepSeek V4 Pro',
         provider: 'deepseek',
-        tier: 'balanced',
-        pricing: '$0.27/$1.10 per 1M tokens',
+        tier: 'powerful',
+        pricing: '$1.32/$3.96 per 1M tokens (peak)',
         apiKeyEnvVar: 'DEEPSEEK_API_KEY',
     },
     {
-        id: 'gpt-4o',
-        name: 'GPT-4o',
-        provider: 'openai',
-        tier: 'balanced',
-        pricing: '$2.50/$10.00 per 1M tokens',
-        apiKeyEnvVar: 'OPENAI_API_KEY',
-    },
-    {
-        id: 'claude-3-5-sonnet-20241022',
-        name: 'Claude 3.5 Sonnet',
+        id: 'claude-sonnet-5-5',
+        name: 'Claude Sonnet 5.5',
         provider: 'anthropic',
-        tier: 'powerful',
-        pricing: '$3.00/$15.00 per 1M tokens',
+        tier: 'balanced',
+        pricing: '$2.00/$10.00 per 1M tokens',
         apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     },
     {
-        id: 'gpt-4-turbo',
-        name: 'GPT-4 Turbo',
+        id: 'gpt-6.1-sol',
+        name: 'GPT-6.1 Sol',
+        provider: 'openai',
+        tier: 'balanced',
+        pricing: '$2.00/$10.00 per 1M tokens',
+        apiKeyEnvVar: 'OPENAI_API_KEY',
+    },
+    {
+        id: 'claude-opus-5-5',
+        name: 'Claude Opus 5.5',
+        provider: 'anthropic',
+        tier: 'powerful',
+        pricing: '$4.00/$20.00 per 1M tokens',
+        apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    },
+    {
+        id: 'gpt-6-astra',
+        name: 'GPT-6 Astra',
         provider: 'openai',
         tier: 'powerful',
-        pricing: '$10.00/$30.00 per 1M tokens',
+        pricing: '$10.00/$50.00 per 1M tokens',
         apiKeyEnvVar: 'OPENAI_API_KEY',
+    },
+    {
+        id: 'glm-4.6',
+        name: 'GLM-4.6 (Z.AI)',
+        provider: 'zai',
+        tier: 'balanced',
+        pricing: '~$0.50/$1.50 per 1M tokens',
+        apiKeyEnvVar: 'ZAI_API_KEY',
     },
 ];
 
@@ -351,16 +392,16 @@ async function main(): Promise<void> {
             console.log('\n📋 Recommended Presets:');
             console.log('─────────────────────────────────────────────────────────────────');
             console.log('  [1] 💰 Budget (Cheapest)');
-            console.log('      FAST:  Llama 3.1 8B (Groq) - $0.05/$0.08');
-            console.log('      POWER: GLM-4.6 (Z.AI) - $0.50/$1.50');
+            console.log('      FAST:  Llama 3.1 8B (Groq) - ~$0.05/$0.08');
+            console.log('      POWER: Qwen3.6 Plus free (OpenRouter) - $0');
             console.log('');
             console.log('  [2] ⚡ Speed (Fastest)');
-            console.log('      FAST:  Llama 3.3 70B (Groq) - ~200ms latency');
-            console.log('      POWER: GLM-4.6 (Z.AI) - ~1200ms latency');
+            console.log('      FAST:  GPT-OSS 120B (Groq) - ~500 tok/s');
+            console.log('      POWER: DeepSeek V4 Pro (Direct)');
             console.log('');
             console.log('  [3] 🎯 Quality (Best)');
-            console.log('      FAST:  DeepSeek V3 (OpenRouter) - 92/100 quality');
-            console.log('      POWER: Claude 3.5 Sonnet - 95/100 quality');
+            console.log('      FAST:  Claude Haiku 4.5');
+            console.log('      POWER: Claude Opus 5.5');
             console.log('');
 
             const preset = await question('  Select preset (or 0 to cancel): ');
@@ -369,24 +410,24 @@ async function main(): Promise<void> {
                 updateEnvFile({
                     FAST_MODEL_PROVIDER: 'groq',
                     FAST_MODEL_NAME: 'llama-3.1-8b-instant',
-                    POWER_MODEL_PROVIDER: 'zai',
-                    POWER_MODEL_NAME: 'glm-4.6',
+                    POWER_MODEL_PROVIDER: 'openrouter',
+                    POWER_MODEL_NAME: 'qwen/qwen3.6-plus:free',
                 });
                 console.log('\n✅ Budget preset applied!');
             } else if (preset === '2') {
                 updateEnvFile({
                     FAST_MODEL_PROVIDER: 'groq',
-                    FAST_MODEL_NAME: 'llama-3.3-70b-versatile',
-                    POWER_MODEL_PROVIDER: 'zai',
-                    POWER_MODEL_NAME: 'glm-4.6',
+                    FAST_MODEL_NAME: 'openai/gpt-oss-120b',
+                    POWER_MODEL_PROVIDER: 'deepseek',
+                    POWER_MODEL_NAME: 'deepseek-v4-pro',
                 });
                 console.log('\n✅ Speed preset applied!');
             } else if (preset === '3') {
                 updateEnvFile({
-                    FAST_MODEL_PROVIDER: 'openrouter',
-                    FAST_MODEL_NAME: 'deepseek/deepseek-chat',
+                    FAST_MODEL_PROVIDER: 'anthropic',
+                    FAST_MODEL_NAME: 'claude-haiku-4-5-20251001',
                     POWER_MODEL_PROVIDER: 'anthropic',
-                    POWER_MODEL_NAME: 'claude-3-5-sonnet-20241022',
+                    POWER_MODEL_NAME: 'claude-opus-5-5',
                 });
                 console.log('\n✅ Quality preset applied!');
             }

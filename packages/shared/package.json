@@ -1,7 +1,7 @@
 {
-    "name": "@loveable/shared",
+    "name": "@meteoroid/shared",
     "version": "1.0.0",
-    "description": "Shared interfaces and types for Loveable Backend",
+    "description": "Shared interfaces and types for Meteoroid Backend",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",

@@ -5,9 +5,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TaskRepository } from '../task.repository.js';
 import { MockDatabase } from './mock-database.js';
-import { mockTask, mockTaskRow, generateMockTasks } from './fixtures.js';
+import { mockTaskRow, generateMockTasks } from './fixtures.js';
 import { RepositoryError } from '../base.repository.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe('TaskRepository', () => {
     let repository: TaskRepository;
@@ -35,7 +37,7 @@ describe('TaskRepository', () => {
             const result = await repository.create(newTask);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^task_/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.prompt).toBe('Generate auth system');
             expect(result.createdAt).toBeInstanceOf(Date);
             expect(result.updatedAt).toBeInstanceOf(Date);

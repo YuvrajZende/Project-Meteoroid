@@ -8,13 +8,25 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
 import { z } from 'zod';
+import { env } from '../config/index.js';
+import { aiRouteRateLimit } from '../plugins/rate-limit.js';
 
 // Security: Authentication middleware
 import { authenticate } from '../middleware/auth-middleware.js';
 
 // Real-time updates
 import { broadcastPipelineStep } from './websocket.js';
+import { runInGenerationScope } from '../infrastructure/generation-scope.js';
+import { runDemo } from '../application/services/orchestration/demo-run.js';
+import { getCustomAgents } from '../domain/services/agents/custom-agents.js';
+import { getWebSearchProvider } from '../infrastructure/web-search.js';
+import { getConfiguredModelPair, isGatewayEnabled, isModelConfigured } from '../services/registry/model-registry.js';
+import { isValidProjectId } from '../infrastructure/file-writer.js';
+import { canAccess, readOutputMeta, writeOutputMeta } from './outputs.js';
+import { getFileWriter } from '../infrastructure/file-writer.js';
 
 // Main orchestrator - IntegratedOrchestrator (the one that works!)
 import {
@@ -48,8 +60,13 @@ const ExecuteTaskSchema = z.object({
         useContextManager: z.boolean().optional(),
         useAgentMonitor: z.boolean().optional(),
         useMCPHub: z.boolean().optional(),
+        useWebSearch: z.boolean().optional(),
+        /** Simulate a full run with no model or search calls (for trying the UI without API keys) */
+        demo: z.boolean().optional(),
         maxSubtasks: z.number().min(1).max(10).optional(),
     }).optional(),
+    /** Custom agent IDs to allocate subtasks to */
+    agents: z.array(z.string().max(80)).max(5).optional(),
     /** Context for code generation - language, framework, etc. */
     context: z.object({
         language: z.string().optional(),
@@ -78,6 +95,20 @@ const ThinkAnalysisSchema = z.object({
     useAI: z.boolean().optional(),
 });
 
+const STOP_WORDS = new Set(['a', 'an', 'the', 'make', 'create', 'build', 'develop', 'generate', 'write', 'me', 'my', 'for', 'with', 'and', 'using', 'please', 'simple', 'basic', 'new', 'project', 'app', 'api', 'backend', 'that', 'which', 'to', 'of', 'in', 'on']);
+
+/**
+ * Derive a short, filesystem-safe slug from the prompt ("Build a todo API with auth" -> "todo-auth").
+ */
+function deriveProjectSlug(prompt: string): string {
+    const named = prompt.match(/(?:called|named)\s+["']?([\w-]+)/i)?.[1];
+    const words = named
+        ? [named]
+        : prompt.toLowerCase().match(/[a-z0-9]+/g)?.filter(w => !STOP_WORDS.has(w) && w.length > 2).slice(0, 2) ?? [];
+    const slug = words.join('-').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 40);
+    return slug || 'project';
+}
+
 // ============================================
 // ROUTE HANDLERS
 // ============================================
@@ -96,7 +127,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Requires authentication
      */
     app.post('/api/v1/orchestrator/execute', {
-        preHandler: authenticate({ required: false }),
+        config: { rateLimit: aiRouteRateLimit },
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Execute AI-powered orchestration',
@@ -115,9 +147,12 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                             useContextManager: { type: 'boolean', default: true },
                             useAgentMonitor: { type: 'boolean', default: true },
                             useMCPHub: { type: 'boolean', default: true },
+                            useWebSearch: { type: 'boolean', default: true },
+                            demo: { type: 'boolean', default: false },
                             maxSubtasks: { type: 'number', default: 3 },
                         },
                     },
+                    agents: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 5 },
                     context: {
                         type: 'object',
                         description: 'Context for code generation - specify language and framework',
@@ -151,8 +186,28 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                                 },
                             },
                         },
-                        taskAnalysis: { type: 'object' },
+                        taskAnalysis: { type: 'object', additionalProperties: true },
                         errors: { type: 'array', items: { type: 'string' } },
+                        // Question-intent responses
+                        intent: { type: 'string' },
+                        answer: { type: 'string' },
+                        isQuestion: { type: 'boolean' },
+                        suggestion: { type: 'string' },
+                        intentAnalysis: {
+                            type: 'object',
+                            properties: {
+                                intent: { type: 'string' },
+                                confidence: { type: 'number' },
+                                language: { type: 'string' },
+                                framework: { type: 'string' },
+                                reasoning: { type: 'string' },
+                            },
+                        },
+                        vectorLearningUsed: { type: 'boolean' },
+                        pluginsUsed: { type: 'array', items: { type: 'string' } },
+                        pluginCount: { type: 'number' },
+                        contextTree: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                        filesWritten: { type: 'array', items: { type: 'string' } },
                     },
                 },
             },
@@ -160,29 +215,52 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         const body = ExecuteTaskSchema.parse(request.body);
 
-        // Generate task ID
-        const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Extract project name from prompt for meaningful folder name
-        let projectName = 'project';
-        
-        // Try to extract project name from common patterns
-        const namePatterns = [
-            /(?:make|create|build|develop)\s+(?:an?\s+)?(?:analysis\s+)?system\s+(?:for\s+)?(?:my\s+)?(?:project\s+)?(\w+)/i,
-            /(?:for\s+)?(?:project\s+)?(\w+)/i,
-            /(?:called|named)\s+(\w+)/i,
-        ];
-        
-        for (const pattern of namePatterns) {
-            const match = body.prompt.match(pattern);
-            if (match && match[1]) {
-                projectName = match[1].toLowerCase().replace(/[^a-z0-9-]/g, '-');
-                break;
-            }
+        const taskId = `task-${Date.now()}-${randomUUID().slice(0, 8)}`;
+
+        if (body.projectId && !isValidProjectId(body.projectId)) {
+            return reply.status(400).send({
+                statusCode: 400,
+                error: 'Bad Request',
+                message: 'projectId may only contain letters, digits, ".", "_" and "-" (max 128 chars)',
+            });
         }
-        
-        const projectId = body.projectId || `${projectName}-${Date.now()}`;
-        const userId = body.userId || (request as any).user?.id || 'anonymous';
+
+        const projectId = body.projectId || `${deriveProjectSlug(body.prompt)}-${Date.now().toString(36)}`;
+        // Only trust identity from a verified token; body.userId is ignored to prevent impersonation.
+        const userId = request.authUser?.id || 'anonymous';
+
+        // Reusing an existing projectId is only allowed for its owner (prevents overwriting others' output).
+        const existingPath = getFileWriter().getProjectPath(projectId);
+        const existedBefore = await stat(existingPath).then(s => s.isDirectory(), () => false);
+        if (existedBefore && !canAccess(await readOutputMeta(existingPath), request.authUser?.id)) {
+            return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Project not found' });
+        }
+
+        const customAgents = body.agents?.length ? await getCustomAgents(userId, body.agents) : [];
+        // A selected agent that wants web research turns it on for the run.
+        const useWebSearch = (body.config?.useWebSearch ?? true) || customAgents.some(a => a.useWebSearch);
+
+        return runInGenerationScope({ projectId, taskId, userId }, async () => {
+        if (body.config?.demo) {
+            await writeOutputMeta({
+                projectId,
+                taskId,
+                userId,
+                prompt: body.prompt,
+                language: 'typescript',
+                framework: 'fastify',
+                createdAt: new Date().toISOString(),
+            });
+            app.log.info(`[ORCHESTRATOR] Demo run ${taskId} for ${projectId}`);
+            return reply.send(await runDemo({
+                projectId,
+                taskId,
+                prompt: body.prompt,
+                maxSubtasks: body.config.maxSubtasks,
+                useWebSearch,
+                customAgents,
+            }));
+        }
 
         app.log.info(`[ORCHESTRATOR] Executing task: ${taskId}`);
         app.log.info(`[ORCHESTRATOR] Prompt: ${body.prompt.substring(0, 100)}...`);
@@ -246,21 +324,6 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 { role: 'user', content: body.prompt }
             ]);
 
-            // Write answer to file (curl might truncate)
-            try {
-                const fs = await import('fs/promises');
-                const path = await import('path');
-
-                const outputDir = path.join(process.cwd(), 'output');
-                await fs.mkdir(outputDir, { recursive: true });
-
-                const answerFile = path.join(outputDir, 'last-question-answer.txt');
-                await fs.writeFile(answerFile, `QUESTION:\n${body.prompt}\n\nANSWER:\n${answer}`, 'utf-8');
-                app.log.info('[ORCHESTRATOR] ✅ Answer saved to output/last-question-answer.txt');
-            } catch (e) {
-                // Ignore
-            }
-
             return reply.send({
                 success: true,
                 taskId,
@@ -319,6 +382,19 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             ...pluginConfigs.map(p => p.name),
         ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
 
+        await writeOutputMeta({
+            projectId,
+            taskId,
+            // Never downgrade an existing owner to anonymous
+            userId: userId === 'anonymous' && existedBefore
+                ? ((await readOutputMeta(existingPath)).userId ?? userId)
+                : userId,
+            prompt: body.prompt,
+            language: context.language,
+            framework: context.framework,
+            createdAt: new Date().toISOString(),
+        });
+
         // Execute orchestration using IntegratedOrchestrator
         const result = await orchestrator.orchestrate(
             {
@@ -326,6 +402,12 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
                 userId,
                 projectId,
                 prompt: orchestratorPrompt,
+                config: {
+                    useAIThinking: body.config?.useAIThinking,
+                    useWebSearch,
+                    maxSubtasks: Math.max(body.config?.maxSubtasks ?? 3, customAgents.length + 1),
+                    customAgents,
+                },
                 context: {
                     language: context.language,
                     framework: context.framework,
@@ -339,6 +421,11 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         );
 
         app.log.info(`[ORCHESTRATOR] Task ${taskId} completed: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+
+        // Don't leave an empty, metadata-only project behind for a failed new generation
+        if (!result.success && !existedBefore && !result.fileWriteResult?.filesWritten?.length) {
+            await getFileWriter().deleteProject(projectId);
+        }
 
         // Phase 28: Build context tree for TUI visualization
         const contextTree = pluginRegistry.buildResponseContextTree({
@@ -383,9 +470,28 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             pluginCount: pluginConfigs.length,
             // Phase 28: Structured context tree for TUI
             contextTree,
+            filesWritten: result.fileWriteResult?.filesWritten ?? [],
             // Pass through any errors
             errors: result.errors,
         });
+        });
+    });
+
+    /**
+     * GET /api/v1/orchestrator/capabilities - What the UI can offer (tools, models)
+     */
+    app.get('/api/v1/orchestrator/capabilities', {
+        schema: { tags: ['Orchestrator'], summary: 'Available tools and configured models' },
+    }, async () => {
+        const [fast, power] = getConfiguredModelPair();
+        return {
+            gateway: isGatewayEnabled() ? 'openrouter' : null,
+            webSearch: getWebSearchProvider(),
+            models: {
+                fast: { id: fast.id, name: fast.name, provider: fast.provider, configured: isModelConfigured(fast) },
+                power: { id: power.id, name: power.name, provider: power.provider, configured: isModelConfigured(power) },
+            },
+        };
     });
 
     /**
@@ -393,7 +499,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Optional authentication (rate limited for anonymous)
      */
     app.post('/api/v1/orchestrator/chat', {
-        preHandler: authenticate({ required: false }),
+        config: { rateLimit: aiRouteRateLimit },
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Direct AI Chat',
@@ -556,7 +663,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/think', {
-        preHandler: authenticate({ required: false }),
+        config: { rateLimit: aiRouteRateLimit },
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Analyze task with thinking engine',
@@ -657,8 +765,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
         },
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         const { projectId } = request.params as { projectId: string };
-        const query = request.query as { userId?: string };
-        const userId = query.userId || (request as any).user?.id || 'anonymous';
+        // Context is always scoped to the verified caller; a userId query param is ignored (IDOR).
+        const userId = request.authUser?.id || 'anonymous';
         const contextManager = getContextManager();
 
         const context = contextManager.getContext(projectId, userId);
@@ -745,7 +853,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/blueprint', {
-        preHandler: authenticate({ required: false }),
+        config: { rateLimit: aiRouteRateLimit },
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Generate ASCII Architecture Blueprint',
@@ -865,7 +974,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Optional authentication
      */
     app.post('/api/v1/orchestrator/generate', {
-        preHandler: authenticate({ required: false }),
+        config: { rateLimit: aiRouteRateLimit },
+        preHandler: authenticate({ required: env.AUTH_REQUIRED }),
         schema: {
             tags: ['Orchestrator'],
             summary: 'Full Multi-Model Code Generation',
@@ -1095,6 +1205,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Requires authentication (userId must match authenticated user)
      */
     app.post('/api/v1/orchestrator/generate-interactive', {
+        config: { rateLimit: aiRouteRateLimit },
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator', 'Service Integration'],
@@ -1102,7 +1213,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             description: 'Checks if user has services configured. If not, returns questions. If yes, generates code with their services.',
             body: {
                 type: 'object',
-                required: ['prompt', 'userId'],
+                required: ['prompt'],
                 properties: {
                     prompt: { type: 'string', minLength: 10, maxLength: 5000 },
                     userId: { type: 'string' },
@@ -1126,7 +1237,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             userId: string;
             projectId?: string;
         };
-        const { prompt, userId, projectId } = body;
+        const { prompt, projectId } = body;
+        const userId = request.authUser?.id ?? body.userId;
 
         try {
             // Import interactive selector
@@ -1205,6 +1317,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
      * SECURITY: Requires authentication
      */
     app.post('/api/v1/orchestrator/generate-interactive/submit', {
+        config: { rateLimit: aiRouteRateLimit },
         preHandler: authenticate({ required: true }),
         schema: {
             tags: ['Orchestrator', 'Service Integration'],
@@ -1212,7 +1325,7 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             description: 'Process user\'s service selection answers and generate production-ready code with recommended services',
             body: {
                 type: 'object',
-                required: ['prompt', 'userId', 'answers'],
+                required: ['prompt', 'answers'],
                 properties: {
                     prompt: { type: 'string', minLength: 10, maxLength: 5000 },
                     userId: { type: 'string' },
@@ -1239,7 +1352,8 @@ export async function registerOrchestratorRoutes(app: FastifyInstance): Promise<
             answers: Record<string, string>;
             projectId?: string;
         };
-        const { prompt, userId, answers, projectId } = body;
+        const { prompt, answers, projectId } = body;
+        const userId = request.authUser?.id ?? body.userId;
 
         try {
             // Import services

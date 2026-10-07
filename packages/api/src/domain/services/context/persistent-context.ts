@@ -16,6 +16,8 @@ import {
     type ProjectContext,
     getContextManager,
 } from './core-services.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin, getSupabaseClient } from '../../../infrastructure/database/supabase-client.js';
 
 // ============================================
 // TYPES
@@ -64,7 +66,7 @@ export class PersistentContextManager {
     private checkSupabaseAvailability(): void {
         const hasSupabase = !!(
             process.env.SUPABASE_URL &&
-            process.env.SUPABASE_ANON_KEY
+            (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)
         );
         this.supabaseAvailable = hasSupabase;
 
@@ -289,23 +291,16 @@ export class PersistentContextManager {
     }
 
     /**
-     * Get Supabase client (lazy-loaded)
+     * Get the shared Supabase client (singleton - never one client per call).
+     * Prefers the service-role admin client; falls back to the anon client.
      */
-    private getSupabaseClient() {
+    private getSupabaseClient(): SupabaseClient | null {
         if (!this.supabaseAvailable) return null;
 
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-        if (!url || !key) return null;
-
-        // Lazy import to avoid breaking if @supabase/supabase-js isn't installed
         try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const { createClient } = require('@supabase/supabase-js');
-            return createClient(url, key);
-        } catch {
-            console.warn('[PERSISTENT-CONTEXT] @supabase/supabase-js not installed');
+            return process.env.SUPABASE_SERVICE_ROLE_KEY ? getSupabaseAdmin() : getSupabaseClient();
+        } catch (error) {
+            console.warn('[PERSISTENT-CONTEXT] Supabase client unavailable:', error);
             return null;
         }
     }

@@ -18,6 +18,7 @@ import { initSentry } from './monitoring/index.js';
 import { logger } from './utils/logger.js';
 import { initDIContainer } from './di/types.js';
 import path from 'path';
+import { REPO_ROOT } from './infrastructure/repo-root.js';
 import Redis from 'ioredis';
 
 
@@ -91,7 +92,7 @@ export async function createApp(): Promise<FastifyInstance> {
     }, async () => {
         const registry = getAgentRegistry();
         return {
-            name: 'Loveable Backend API',
+            name: 'Meteoroid Backend API',
             version: '1.0.0',
             docs: '/docs',
             agents: registry.count,
@@ -108,7 +109,7 @@ export async function createApp(): Promise<FastifyInstance> {
  * Load agents from the agents directory (silent mode)
  */
 async function loadAgents(_app: FastifyInstance): Promise<void> {
-    const agentsDir = path.resolve(process.cwd(), '..', '..', 'agents');
+    const agentsDir = path.join(REPO_ROOT, 'agents');
 
     try {
         const loader = createAgentLoader({

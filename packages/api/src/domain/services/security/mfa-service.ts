@@ -29,7 +29,7 @@ const TOTP_CONFIG = {
     /** Time window tolerance (allows codes from ±1 period) */
     window: 1,
     /** Issuer name for authenticator apps */
-    issuer: 'Loveable Backend',
+    issuer: 'Meteoroid Backend',
     /** Secret length in bytes */
     secretLength: 20,
 };

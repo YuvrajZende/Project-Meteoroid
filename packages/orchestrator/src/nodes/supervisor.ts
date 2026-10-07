@@ -20,7 +20,7 @@ dotenv.config();
 // BRAIN SYSTEM PROMPT - THE THINKING ORCHESTRATOR
 // ============================================
 
-const BRAIN_SYSTEM_PROMPT = `You are the BRAIN of the LOVEABLE Backend Orchestrator - an AI-powered system that coordinates 12 specialized agents to build complete backend systems.
+const BRAIN_SYSTEM_PROMPT = `You are the BRAIN of the METEOROID Backend Orchestrator - an AI-powered system that coordinates 12 specialized agents to build complete backend systems.
 
 ## 🧠 THINKING MODE: ALWAYS ON
 

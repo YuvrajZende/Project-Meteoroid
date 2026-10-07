@@ -8,7 +8,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 // ============================================
-// LOVEABLE BACKEND ORCHESTRATOR - ENTRY POINT
+// METEOROID BACKEND ORCHESTRATOR - ENTRY POINT
 // ============================================
 
 async function main() {

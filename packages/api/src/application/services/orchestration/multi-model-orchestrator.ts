@@ -15,16 +15,16 @@ import { injectable, unmanaged } from 'inversify';
 
 // Registry
 import {
-    MODEL_REGISTRY,
     getModel,
-    getRecommendedModelPair,
-    isProviderConfigured,
+    getConfiguredModelPair,
+    getPowerFallbackModel,
+    isModelConfigured,
     type ModelProvider,
 } from '../../../services/registry/model-registry.js';
 
 // Infrastructure
 import { getCostTracker, type CostRecord } from '../../../infrastructure/cost-tracker.js';
-import type { ChatMessage } from '../../../infrastructure/ai-client.js';
+import { callRegisteredModel, type ChatMessage } from '../../../infrastructure/ai-client.js';
 import { broadcastFileWritten, broadcastPipelineStep } from '../../../routes/websocket.js';
 
 // Config & Middleware
@@ -81,6 +81,8 @@ export interface ContextAnalysis {
 
 export interface GenerationResult {
     success: boolean;
+    /** Provider error when generation (including fallback) failed */
+    error?: string;
     code: string;
     explanation: string;
     files: Array<{ path: string; content: string }>;
@@ -129,31 +131,38 @@ export class MultiModelOrchestrator {
     private initialized: boolean = false;
 
     constructor(@unmanaged() config?: Partial<MultiModelConfig>) {
-        // Get recommended model pair as defaults
-        const [defaultFast, defaultPower] = getRecommendedModelPair();
+        // Env-selected models when their key is set, otherwise first configured model per tier
+        const [defaultFast, defaultPower] = getConfiguredModelPair();
+
+        const fastModel = config?.fastModel || defaultFast.id;
+        const powerModel = config?.powerModel || defaultPower.id;
+        // Provider always follows the registry entry, so a model can never be sent to another provider's host.
+        const fastProvider = getModel(fastModel)?.provider ?? defaultFast.provider;
+        const powerProvider = getModel(powerModel)?.provider ?? defaultPower.provider;
 
         this.config = {
             // Stage 1: Fast model (cheap, quick analysis)
-            fastModel: config?.fastModel || process.env.FAST_MODEL_NAME || defaultFast.id,
-            fastModelProvider: config?.fastModelProvider ||
-                (process.env.FAST_MODEL_PROVIDER as ModelProvider) || defaultFast.provider,
+            fastModel,
+            fastModelProvider: fastProvider,
 
             // Stage 2: Powerful model (quality code generation)
-            powerModel: config?.powerModel || process.env.POWER_MODEL_NAME || defaultPower.id,
-            powerModelProvider: config?.powerModelProvider ||
-                (process.env.POWER_MODEL_PROVIDER as ModelProvider) || defaultPower.provider,
+            powerModel,
+            powerModelProvider: powerProvider,
 
-            // Fallback - use GLM-4.6 (same as power model)
+            // Fallback: explicit, env, or the next configured power-tier model
             fallbackEnabled: config?.fallbackEnabled ?? true,
-            fallbackModel: config?.fallbackModel || 'glm-4.6',
+            fallbackModel: config?.fallbackModel
+                || process.env.FALLBACK_MODEL_NAME
+                || getPowerFallbackModel(powerModel)?.id
+                || '',
 
-            // Timeouts (configurable via env vars)
-            fastModelTimeout: config?.fastModelTimeout || parseInt(process.env.FAST_MODEL_TIMEOUT || '30000'), // 30s for analysis
-            powerModelTimeout: config?.powerModelTimeout || parseInt(process.env.POWER_MODEL_TIMEOUT || '600000'), // 10min for generation (GLM-4.6 is slow)
+            // Timeouts (configurable via env vars). Each is a hard cap on total wall time per call, retries included.
+            fastModelTimeout: config?.fastModelTimeout || parseInt(process.env.FAST_MODEL_TIMEOUT || '30000', 10), // 30s for analysis
+            powerModelTimeout: config?.powerModelTimeout || parseInt(process.env.POWER_MODEL_TIMEOUT || '600000', 10), // 10min for generation
 
-            // Token limits
+            // Token limits (clamped to each model's maxOutputTokens at call time)
             maxContextTokens: config?.maxContextTokens || 32000,
-            maxOutputTokens: config?.maxOutputTokens || 8192,
+            maxOutputTokens: config?.maxOutputTokens || parseInt(process.env.POWER_MODEL_MAX_TOKENS || '16384', 10),
         };
     }
 
@@ -172,20 +181,19 @@ export class MultiModelOrchestrator {
         const powerModelConfig = getModel(this.config.powerModel);
 
         if (!fastModelConfig) {
-            console.warn(`[MULTI-MODEL] Fast model "${this.config.fastModel}" not in registry, using default`);
+            console.warn(`[MULTI-MODEL] Fast model "${this.config.fastModel}" not in registry - analysis will use heuristic fallback`);
+        } else if (!isModelConfigured(fastModelConfig)) {
+            console.warn(`[MULTI-MODEL] ${fastModelConfig.apiKeyEnvVar} not set for fast model ${fastModelConfig.id}`);
         }
 
         if (!powerModelConfig) {
-            console.warn(`[MULTI-MODEL] Power model "${this.config.powerModel}" not in registry, using default`);
+            console.warn(`[MULTI-MODEL] Power model "${this.config.powerModel}" not in registry - generation will fail`);
+        } else if (!isModelConfigured(powerModelConfig)) {
+            console.warn(`[MULTI-MODEL] ${powerModelConfig.apiKeyEnvVar} not set for power model ${powerModelConfig.id}`);
         }
 
-        // Check API keys
-        if (!isProviderConfigured(this.config.fastModelProvider)) {
-            console.warn(`[MULTI-MODEL] API key not configured for ${this.config.fastModelProvider}`);
-        }
-
-        if (!isProviderConfigured(this.config.powerModelProvider)) {
-            console.warn(`[MULTI-MODEL] API key not configured for ${this.config.powerModelProvider}`);
+        if (this.config.fallbackModel) {
+            console.log(`[MULTI-MODEL] Fallback Model: ${this.config.fallbackModel}`);
         }
 
         this.initialized = true;
@@ -304,6 +312,7 @@ export class MultiModelOrchestrator {
         let explanation = '';
         let files: Array<{ path: string; content: string }> = [];
         let success = false;
+        let generationError: string | undefined;
 
         try {
             const generationResult = await this.runGeneration(request, contextAnalysis);
@@ -338,6 +347,7 @@ export class MultiModelOrchestrator {
         } catch (error) {
             const generationTime = Date.now() - generationStart;
             console.error('[STAGE 2] Generation failed:', error);
+            generationError = error instanceof Error ? error.message : String(error);
 
             costTracker.recordCost({
                 modelId: this.config.powerModel,
@@ -353,8 +363,8 @@ export class MultiModelOrchestrator {
             });
 
             // Try fallback if enabled
-            if (this.config.fallbackEnabled) {
-                console.log('[STAGE 2] Attempting fallback model...');
+            if (this.config.fallbackEnabled && this.config.fallbackModel) {
+                console.log(`[STAGE 2] Attempting fallback model ${this.config.fallbackModel}...`);
                 try {
                     const fallbackResult = await this.runFallbackGeneration(request, contextAnalysis);
                     code = fallbackResult.code;
@@ -364,6 +374,7 @@ export class MultiModelOrchestrator {
                     console.log('[STAGE 2] Fallback succeeded');
                 } catch (fallbackError) {
                     console.error('[STAGE 2] Fallback also failed:', fallbackError);
+                    generationError = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
                 }
             }
         }
@@ -384,6 +395,7 @@ export class MultiModelOrchestrator {
 
         return {
             success,
+            error: success ? undefined : generationError,
             code,
             explanation,
             files,
@@ -572,12 +584,11 @@ Respond ONLY with valid JSON. No markdown, no explanation.`;
 
         const response = await this.callModel(
             this.config.fastModel,
-            this.config.fastModelProvider,
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ],
-            { temperature: 0.3, maxTokens: 1024 }
+            { temperature: 0.3, maxTokens: 1024, timeoutMs: this.config.fastModelTimeout }
         );
 
         // Use robust JSON parser
@@ -699,12 +710,11 @@ RULES:
 
         const response = await this.callModel(
             this.config.powerModel,
-            this.config.powerModelProvider,
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: context },
             ],
-            { temperature: 0.5, maxTokens: this.config.maxOutputTokens }
+            { temperature: 0.5, maxTokens: this.config.maxOutputTokens, timeoutMs: this.config.powerModelTimeout }
         );
 
         // Use robust JSON parser with aggressive repair
@@ -813,12 +823,11 @@ RULES:
 
         const response = await this.callModel(
             this.config.fallbackModel,
-            'zai', // Fallback to Z.AI
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: context },
             ],
-            { temperature: 0.5, maxTokens: 4096 }
+            { temperature: 0.5, maxTokens: this.config.maxOutputTokens, timeoutMs: this.config.powerModelTimeout }
         );
 
         // Use robust JSON parser
@@ -940,123 +949,21 @@ RULES:
     }
 
     /**
-     * Make API call to a specific model
+     * Call a registered model. Provider routing, per-provider keys, Anthropic Messages API,
+     * retry policy (429/5xx with Retry-After, no timeout retries) and the wall-time cap
+     * live in callRegisteredModel().
      */
-    private async callModel(
+    private callModel(
         modelId: string,
-        provider: ModelProvider,
         messages: ChatMessage[],
-        options: { temperature?: number; maxTokens?: number } = {}
+        options: { temperature?: number; maxTokens?: number; timeoutMs: number }
     ): Promise<string> {
-        const model = getModel(modelId) || MODEL_REGISTRY['glm-4'];
-        const baseUrl = model?.baseUrl || 'https://api.openai.com/v1';
-
-        // Get API key based on provider
-        const apiKey = this.getApiKey(provider);
-        if (!apiKey) {
-            throw new Error(`No API key configured for provider: ${provider}`);
-        }
-
-        const url = `${baseUrl}/chat/completions`;
-
-        const requestBody = {
-            model: modelId,
-            messages,
-            temperature: options.temperature ?? 0.7,
-            max_tokens: options.maxTokens ?? 4096,
-            stream: false,
-        };
-
-        const timeout = modelId === this.config.fastModel
-            ? this.config.fastModelTimeout
-            : this.config.powerModelTimeout;
-
-        // Retry configuration for rate limiting
-        const maxRetries = 3;
-        const baseDelay = 5000; // Start with 5 seconds
-
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                        ...(provider === 'anthropic' ? { 'anthropic-version': '2024-01-01' } : {}),
-                        ...(provider === 'openrouter' ? {
-                            'HTTP-Referer': 'https://lovable-backend.ai',
-                            'X-Title': 'Lovable Backend Orchestrator',
-                        } : {}),
-                    },
-                    body: JSON.stringify(requestBody),
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                // Handle rate limiting with retry
-                if (response.status === 429) {
-                    const errorText = await response.text();
-
-                    if (attempt < maxRetries) {
-                        const waitTime = baseDelay * Math.pow(2, attempt); // Exponential backoff: 5s, 10s, 20s
-                        console.log(`[MULTI-MODEL] Rate limited (429). Waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}...`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                        continue; // Retry
-                    }
-
-                    throw new Error(`API error 429 (rate limited after ${maxRetries} retries): ${errorText}`);
-                }
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API error ${response.status}: ${errorText}`);
-                }
-
-                const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-                return data.choices?.[0]?.message?.content || '';
-
-            } catch (error) {
-                clearTimeout(timeoutId);
-
-                // If it's an abort error (timeout), retry
-                if (error instanceof Error && error.name === 'AbortError' && attempt < maxRetries) {
-                    const waitTime = baseDelay * Math.pow(2, attempt);
-                    console.log(`[MULTI-MODEL] Request timed out. Waiting ${waitTime / 1000}s before retry ${attempt + 1}/${maxRetries}...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    continue; // Retry
-                }
-
-                throw error;
-            }
-        }
-
-        throw new Error('Max retries exceeded');
+        return callRegisteredModel(modelId, messages, options);
     }
 
-    /**
-     * Get API key for a provider
-     */
-    private getApiKey(provider: ModelProvider): string | undefined {
-        const envVars: Record<ModelProvider, string[]> = {
-            openai: ['OPENAI_API_KEY'],
-            anthropic: ['ANTHROPIC_API_KEY'],
-            deepseek: ['DEEPSEEK_API_KEY'],
-            zai: ['ZAI_API_KEY', 'OPENAI_API_KEY'], // Check ZAI_API_KEY first, fallback to OPENAI_API_KEY
-            together: ['TOGETHER_API_KEY'],
-            openrouter: ['OPENROUTER_API_KEY'],
-            groq: ['GROQ_API_KEY'], // Added: Groq for fast model
-        };
-
-        // Try each possible env var for this provider
-        for (const envVar of envVars[provider]) {
-            const key = process.env[envVar];
-            if (key) return key;
-        }
-        return undefined;
+    private isConfigured(modelId: string): boolean {
+        const model = getModel(modelId);
+        return !!model && isModelConfigured(model);
     }
 
     /**
@@ -1086,12 +993,12 @@ RULES:
             fastModel: {
                 id: this.config.fastModel,
                 provider: this.config.fastModelProvider,
-                configured: isProviderConfigured(this.config.fastModelProvider),
+                configured: this.isConfigured(this.config.fastModel),
             },
             powerModel: {
                 id: this.config.powerModel,
                 provider: this.config.powerModelProvider,
-                configured: isProviderConfigured(this.config.powerModelProvider),
+                configured: this.isConfigured(this.config.powerModel),
             },
         };
     }

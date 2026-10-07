@@ -9,6 +9,8 @@ import { mockAuditLogRow } from './fixtures.js';
 import { RepositoryError } from '../base.repository.js';
 import type { IDatabase } from '../../interfaces/database.interface.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe('AuditRepository', () => {
     let repository: AuditRepository;
     let mockDatabase: MockDatabase;
@@ -34,7 +36,7 @@ describe('AuditRepository', () => {
             const result = await repository.create(newLog);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^audit_/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.action).toBe('project.created');
             expect(result.createdAt).toBeInstanceOf(Date);
         });

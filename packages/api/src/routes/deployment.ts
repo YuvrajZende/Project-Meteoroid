@@ -16,23 +16,9 @@ import {
     getGitHubService,
     type DeploymentProvider,
 } from '../services/index.js';
-
-// Cookie plugin types
-declare module 'fastify' {
-    interface FastifyRequest {
-        cookies: Record<string, string>;
-    }
-    interface FastifyReply {
-        setCookie(name: string, value: string, options?: {
-            path?: string;
-            httpOnly?: boolean;
-            secure?: boolean;
-            sameSite?: 'strict' | 'lax' | 'none';
-            maxAge?: string;
-        }): FastifyReply;
-        clearCookie(name: string, options?: { path?: string; httpOnly?: boolean; secure?: boolean; sameSite?: 'strict' | 'lax' | 'none' }): FastifyReply;
-    }
-}
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
+import { sseCorsHeaders } from '../plugins/sse-cors.js';
 
 // ============================================
 // OAUTH STATE STORE (In-memory with expiration)
@@ -46,6 +32,7 @@ interface OAuthState {
 
 const oauthStateStore = new Map<string, OAuthState>();
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_OAUTH_STATES = 1000;
 
 // ============================================
 // IN-MEMORY SESSION STORE (Development Only)
@@ -67,18 +54,30 @@ interface UserSession {
 
 const sessionStore = new Map<string, UserSession>();
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_SESSIONS = 1000;
 
-// Cleanup expired sessions every hour
-setInterval(() => {
+/**
+ * Drop expired entries, then evict oldest (Map insertion order) until under the cap.
+ */
+function pruneStore<T extends { expiresAt: number }>(store: Map<string, T>, maxSize: number): void {
     const now = Date.now();
-    for (const [key, value] of sessionStore.entries()) {
+    for (const [key, value] of store.entries()) {
         if (now > value.expiresAt) {
-            sessionStore.delete(key);
+            store.delete(key);
         }
     }
-}, 60 * 60 * 1000);
+    while (store.size >= maxSize) {
+        const oldestKey = store.keys().next().value;
+        if (oldestKey === undefined) break;
+        store.delete(oldestKey);
+    }
+}
+
+// Cleanup expired sessions every hour
+setInterval(() => pruneStore(sessionStore, Number.MAX_SAFE_INTEGER), 60 * 60 * 1000).unref();
 
 function storeUserSession(sessionId: string, session: UserSession): void {
+    pruneStore(sessionStore, MAX_SESSIONS);
     sessionStore.set(sessionId, session);
 }
 
@@ -95,62 +94,10 @@ function deleteUserSession(sessionId: string): void {
     sessionStore.delete(sessionId);
 }
 
-/**
- * Get all sessions for a user (by user ID)
- */
-function _getUserSessionsByUserId(userId: string): UserSession[] {
-    const sessions: UserSession[] = [];
-    const now = Date.now();
-
-    for (const session of sessionStore.values()) {
-        if (session.userId === userId && session.expiresAt > now) {
-            sessions.push(session);
-        }
-    }
-
-    return sessions;
-}
-
-/**
- * Delete all sessions for a user
- */
-function _deleteUserSessionsByUserId(userId: string): number {
-    let count = 0;
-
-    for (const [sessionId, session] of sessionStore.entries()) {
-        if (session.userId === userId) {
-            sessionStore.delete(sessionId);
-            count++;
-        }
-    }
-
-    return count;
-}
-
-/**
- * Get session by user ID and provider
- */
-function _getUserSessionByProvider(userId: string, provider: string): UserSession | undefined {
-    const now = Date.now();
-
-    for (const session of sessionStore.values()) {
-        if (session.userId === userId && session.provider === provider && session.expiresAt > now) {
-            return session;
-        }
-    }
-
-    return undefined;
-}
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, value] of oauthStateStore.entries()) {
-        if (now > value.expiresAt) {
-            oauthStateStore.delete(key);
-        }
-    }
-}, 5 * 60 * 1000);
+setInterval(() => pruneStore(oauthStateStore, Number.MAX_SAFE_INTEGER), 5 * 60 * 1000).unref();
 
 function storeOAuthState(state: string): void {
+    pruneStore(oauthStateStore, MAX_OAUTH_STATES);
     const now = Date.now();
     oauthStateStore.set(state, {
         state,
@@ -229,12 +176,15 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
         const params = projectIdParamsSchema.parse(request.params);
         const projectId = params.id;
 
+        // Take over the raw response so Fastify doesn't also try to reply
+        reply.hijack();
+
         // Set SSE headers
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
+            ...sseCorsHeaders(request),
         });
 
         // Send initial connection event
@@ -291,7 +241,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/auto-deploy
      * Trigger auto-deployment for a project
      */
-    app.post('/api/v1/projects/:id/auto-deploy', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/auto-deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const body = z.object({
@@ -388,7 +338,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * DELETE /api/v1/projects/:id/pending-deploy
      * Cancel a pending auto-deploy
      */
-    app.delete('/api/v1/projects/:id/pending-deploy', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.delete('/api/v1/projects/:id/pending-deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
         const params = projectIdParamsSchema.parse(request.params);
         const projectId = params.id;
 
@@ -429,7 +379,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/deploy
      * Deploy a project
      */
-    app.post('/api/v1/projects/:id/deploy', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/deploy', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const body = deployProjectSchema.parse(request.body);
@@ -517,7 +467,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
             const query = listDeploymentsQuerySchema.parse(request.query);
 
             const projectId = params.id;
-            const siteId = `loveable-${projectId}`;
+            const siteId = `meteoroid-${projectId}`;
 
             // Get deployments from Netlify
             const deployments = await deploymentService.listNetlifyDeployments(siteId, {
@@ -557,7 +507,7 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const projectId = params.id;
-            const siteId = `loveable-${projectId}`;
+            const siteId = `meteoroid-${projectId}`;
 
             // Get site info
             const site = await deploymentService.getNetlifySite(siteId);
@@ -609,12 +559,12 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * POST /api/v1/projects/:id/deployments/:deployId/rollback
      * Rollback to a previous deployment
      */
-    app.post('/api/v1/projects/:id/deployments/:deployId/rollback', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.post('/api/v1/projects/:id/deployments/:deployId/rollback', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = deploymentIdParamsSchema.parse(request.params);
             const projectId = params.id;
             const deployId = params.deployId;
-            const siteId = `loveable-${projectId}`;
+            const siteId = `meteoroid-${projectId}`;
 
             app.log.info({ projectId, deployId }, 'Rolling back deployment');
 
@@ -646,11 +596,11 @@ export async function deploymentRoutes(app: FastifyInstance): Promise<void> {
      * DELETE /api/v1/projects/:id/site
      * Delete deployment site for a project
      */
-    app.delete('/api/v1/projects/:id/site', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.delete('/api/v1/projects/:id/site', { preHandler: authenticate({ required: env.AUTH_REQUIRED }) }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const params = projectIdParamsSchema.parse(request.params);
             const projectId = params.id;
-            const siteId = `loveable-${projectId}`;
+            const siteId = `meteoroid-${projectId}`;
 
             app.log.info({ projectId, siteId }, 'Deleting deployment site');
 
@@ -782,14 +732,14 @@ export async function githubRoutes(app: FastifyInstance): Promise<void> {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
-                maxAge: String(SESSION_TTL_MS / 1000),
+                maxAge: SESSION_TTL_MS / 1000,
             });
 
             return reply.send({
                 success: true,
                 data: {
                     user,
-                    sessionId,
+                    // Session ID is only delivered via the httpOnly cookie
                     // Don't expose the full token in response
                     tokenPreview,
                     note: 'Session stored in-memory (development mode). Database integration pending.',

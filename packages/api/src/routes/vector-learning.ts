@@ -18,6 +18,8 @@ import {
     type GenerationIteration,
     type TestingIteration,
 } from '../services/index.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 
 // ============================================
 // REQUEST SCHEMAS
@@ -95,6 +97,8 @@ interface PreContextBody {
 // ============================================
 
 export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> {
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+
     const vectorStore = getVectorStore();
     const learningService = getLearningService();
 
@@ -110,7 +114,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/vector/index/file
      * Index a single file for semantic search
      */
-    app.post('/api/v1/vector/index/file', async (
+    app.post<{ Body: IndexFileBody }>('/api/v1/vector/index/file', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: IndexFileBody }>,
         reply: FastifyReply
     ) => {
@@ -148,7 +152,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/vector/index/project
      * Index multiple files for a project
      */
-    app.post('/api/v1/vector/index/project', async (
+    app.post<{ Body: IndexProjectBody }>('/api/v1/vector/index/project', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: IndexProjectBody }>,
         reply: FastifyReply
     ) => {
@@ -186,7 +190,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/vector/search
      * Semantic similarity search for code chunks
      */
-    app.post('/api/v1/vector/search', async (
+    app.post<{ Body: SearchBody }>('/api/v1/vector/search', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: SearchBody }>,
         reply: FastifyReply
     ) => {
@@ -237,7 +241,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/vector/context
      * Get relevant context for a prompt
      */
-    app.post('/api/v1/vector/context', async (
+    app.post<{ Body: { prompt: string; projectId: string; maxChunks?: number; maxTokens?: number } }>('/api/v1/vector/context', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: { prompt: string; projectId: string; maxChunks?: number; maxTokens?: number } }>,
         reply: FastifyReply
     ) => {
@@ -277,7 +281,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * DELETE /api/v1/vector/project/:projectId
      * Delete all embeddings for a project
      */
-    app.delete('/api/v1/vector/project/:projectId', async (
+    app.delete<{ Params: { projectId: string } }>('/api/v1/vector/project/:projectId', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Params: { projectId: string } }>,
         reply: FastifyReply
     ) => {
@@ -306,7 +310,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/learning/iteration
      * Store a generation iteration for learning
      */
-    app.post('/api/v1/learning/iteration', async (
+    app.post<{ Body: StoreIterationBody }>('/api/v1/learning/iteration', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: StoreIterationBody }>,
         reply: FastifyReply
     ) => {
@@ -355,7 +359,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/learning/test-iteration
      * Store a testing iteration for pre-context
      */
-    app.post('/api/v1/learning/test-iteration', async (
+    app.post<{ Body: StoreTestIterationBody }>('/api/v1/learning/test-iteration', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: StoreTestIterationBody }>,
         reply: FastifyReply
     ) => {
@@ -405,7 +409,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/learning/feedback
      * Submit feedback for an iteration
      */
-    app.post('/api/v1/learning/feedback', async (
+    app.post<{ Body: FeedbackBody }>('/api/v1/learning/feedback', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: FeedbackBody }>,
         reply: FastifyReply
     ) => {
@@ -442,7 +446,7 @@ export async function vectorLearningRoutes(app: FastifyInstance): Promise<void> 
      * POST /api/v1/learning/pre-context
      * Build pre-context for a new generation task
      */
-    app.post('/api/v1/learning/pre-context', async (
+    app.post<{ Body: PreContextBody }>('/api/v1/learning/pre-context', { preHandler: requireMutatingAuth }, async (
         request: FastifyRequest<{ Body: PreContextBody }>,
         reply: FastifyReply
     ) => {

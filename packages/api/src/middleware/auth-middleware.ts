@@ -26,6 +26,8 @@ export interface AuthenticatedUser {
     id: string;
     email: string;
     role: string;
+    /** Billing tier - sourced ONLY from app_metadata (server-controlled) */
+    tier: string;
     tokenType: 'access' | 'refresh' | 'api_key';
     claims: Record<string, unknown>;
 }
@@ -117,19 +119,24 @@ export function authenticate(options: AuthOptions = {}) {
                 const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
 
                 if (user && !error) {
-                    // Get user metadata for role
-                    const role = (user.app_metadata?.role as string) ||
-                        (user.user_metadata?.role as string) ||
-                        'user';
+                    // SECURITY: role comes ONLY from app_metadata (server-controlled).
+                    // user_metadata is user-editable and must never grant privileges.
+                    const appRole = user.app_metadata?.role;
+                    const role = typeof appRole === 'string' && appRole.length > 0 ? appRole : 'user';
+                    const appTier = user.app_metadata?.tier;
+                    const tier = typeof appTier === 'string' && appTier.length > 0 ? appTier : 'free';
 
                     authUser = {
                         id: user.id,
                         email: user.email || '',
                         role: role,
+                        tier,
                         tokenType: 'access',
                         claims: {
                             ...user.user_metadata,
                             ...user.app_metadata,
+                            role,
+                            tier,
                             email_confirmed: user.email_confirmed_at !== null,
                         },
                     };
@@ -178,6 +185,7 @@ export function authenticate(options: AuthOptions = {}) {
                         id: validation.userId,
                         email: '', // API keys don't have email
                         role: 'api_key',
+                        tier: 'free',
                         tokenType: 'api_key',
                         claims: { scopes: validation.scopes, name: validation.name },
                     };

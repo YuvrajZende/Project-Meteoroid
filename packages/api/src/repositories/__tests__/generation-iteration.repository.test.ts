@@ -6,6 +6,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GenerationIterationRepository } from '../generation-iteration.repository.js';
 import { MockDatabase } from './mock-database.js';
+import { RepositoryError } from '../base.repository.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe('GenerationIterationRepository', () => {
     let repository: GenerationIterationRepository;
@@ -59,7 +62,7 @@ describe('GenerationIterationRepository', () => {
             const result = await repository.create(input);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^iter_\d+_\w+$/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.taskId).toBe(input.taskId);
             expect(result.projectId).toBe(input.projectId);
             expect(result.prompt).toBe(input.prompt);
@@ -101,7 +104,7 @@ describe('GenerationIterationRepository', () => {
                 success: true,
                 errors: [],
                 metrics: { duration: 100, tokensUsed: 10 },
-            })).rejects.toThrow('RepositoryError');
+            })).rejects.toThrow(RepositoryError);
         });
     });
 
@@ -133,9 +136,9 @@ describe('GenerationIterationRepository', () => {
             const result = await repository.findById('iter_001');
 
             expect(result?.config).toEqual({ model: 'gpt-4', temperature: 0.7 });
-            expect(result?.feedback).toEqual({ quality: 'good', issues: [] });
-            expect(result?.testResults).toEqual({ passed: 5, total: 5 });
-            expect(result?.metrics).toEqual({ latency: 1200, tokens: 500 });
+            expect(result?.feedback).toEqual({ rating: 5, issues: [] });
+            expect(result?.testResults).toEqual({ passed: 5, failed: 0, skipped: 0 });
+            expect(result?.metrics).toEqual({ duration: 1200, tokensUsed: 500 });
             expect(result?.errors).toEqual([]);
         });
     });
@@ -454,11 +457,11 @@ describe('GenerationIterationRepository', () => {
             expect(result?.feedback).toEqual(newFeedback);
         });
 
-        it('should handle undefined feedback', async () => {
+        it('should clear feedback (store NULL) when undefined', async () => {
             await repository.updateFeedback('iter_001', undefined);
 
             const result = await repository.findById('iter_001');
-            expect(result?.feedback).toBeUndefined();
+            expect(result?.feedback).toBeNull();
         });
     });
 

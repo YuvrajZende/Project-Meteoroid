@@ -6,11 +6,15 @@
 import type { FastifyInstance } from 'fastify';
 import { getBenchmarkingService } from '../infrastructure/benchmarking.js';
 import type { BenchmarkScenario } from '../infrastructure/benchmarking.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
 
 /**
  * Register benchmark routes
  */
 export async function registerBenchmarkRoutes(app: FastifyInstance): Promise<void> {
+    const requireMutatingAuth = authenticate({ required: env.AUTH_REQUIRED });
+
     const benchmarking = getBenchmarkingService();
 
     // ============================================
@@ -175,6 +179,7 @@ export async function registerBenchmarkRoutes(app: FastifyInstance): Promise<voi
             useDefaults?: boolean;
         };
     }>('/api/v1/benchmarks/run', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Benchmarks'],
             summary: 'Run benchmark suite',
@@ -283,6 +288,7 @@ export async function registerBenchmarkRoutes(app: FastifyInstance): Promise<voi
     app.post<{
         Params: { id: string };
     }>('/api/v1/benchmarks/scenarios/:id/run', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Benchmarks'],
             summary: 'Run single scenario',
@@ -339,6 +345,7 @@ export async function registerBenchmarkRoutes(app: FastifyInstance): Promise<voi
     // DELETE /api/v1/benchmarks - Clear all benchmark data
     // ============================================
     app.delete('/api/v1/benchmarks', {
+        preHandler: requireMutatingAuth,
         schema: {
             tags: ['Benchmarks'],
             summary: 'Clear benchmarks',

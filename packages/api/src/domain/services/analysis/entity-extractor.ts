@@ -9,6 +9,7 @@
 import { injectable, unmanaged } from 'inversify';
 import { getAIClient, type AIClient } from '../../../infrastructure/ai-client.js';
 import { getRobustJSONParser } from './robust-json-parser.js';
+import { getConfiguredModelPair } from '../../../services/registry/model-registry.js';
 
 // ============================================
 // TYPES
@@ -90,7 +91,7 @@ export class EntityExtractorService {
 
     constructor(@unmanaged() config?: Partial<EntityExtractorConfig>) {
         this.config = {
-            model: config?.model || process.env.FAST_MODEL || 'glm-4-flash',
+            model: config?.model || getConfiguredModelPair()[0].id,
             maxTokens: config?.maxTokens || 2000,
             temperature: config?.temperature || 0.3, // Low temp for accurate extraction
         };

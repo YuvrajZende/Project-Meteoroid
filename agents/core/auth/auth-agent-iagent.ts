@@ -9,7 +9,7 @@ import type {
     AgentInput,
     AgentOutput,
     AgentHealthStatus
-} from '@loveable/shared';
+} from '@meteoroid/shared';
 import { AuthAgent, AuthConfig } from './auth-agent.js';
 
 /**

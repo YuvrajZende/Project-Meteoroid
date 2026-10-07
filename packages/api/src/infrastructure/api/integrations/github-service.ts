@@ -78,7 +78,7 @@ export class GitHubService {
             clientId: config?.clientId || process.env.GITHUB_CLIENT_ID || '',
             clientSecret: config?.clientSecret || process.env.GITHUB_CLIENT_SECRET || '',
             redirectUri: config?.redirectUri || process.env.GITHUB_REDIRECT_URI || 'http://localhost:3000/auth/github/callback',
-            appName: config?.appName || process.env.GITHUB_APP_NAME || 'Loveable Backend',
+            appName: config?.appName || process.env.GITHUB_APP_NAME || 'Meteoroid Backend',
         };
     }
 

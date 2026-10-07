@@ -27,6 +27,10 @@ export interface CodeGenerationRequest {
     existingCode?: string;
     generationContext: GenerationContext | null;
     entityConstraints: string;
+    /** Web research block (untrusted reference material) */
+    researchNotes?: string;
+    /** Custom agent role + instructions for this subtask */
+    agentInstructions?: string;
     originalPrompt: string;
 }
 
@@ -129,6 +133,14 @@ IMPORTANT: You are generating code for a specific system described above.
             enhancedPrompt += request.entityConstraints;
         }
 
+        if (request.researchNotes) {
+            enhancedPrompt += request.researchNotes;
+        }
+
+        if (request.agentInstructions) {
+            enhancedPrompt += request.agentInstructions;
+        }
+
         const result = await this.multiModelOrchestrator.execute({
             prompt: enhancedPrompt,
             taskId: request.taskId,
@@ -144,6 +156,9 @@ IMPORTANT: You are generating code for a specific system described above.
 
         if (!result) {
             throw new Error('Multi-model execution returned null or undefined');
+        }
+        if (!result.success) {
+            throw new Error(result.error ?? 'Code generation failed. Check model API keys and model IDs in .env.');
         }
 
         const analysisTokens = result.analysisCost

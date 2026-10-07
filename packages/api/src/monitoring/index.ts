@@ -2,17 +2,6 @@
  * Monitoring exports
  */
 
-// Logger
-export {
-    createLogger,
-    createRequestLogger,
-    getLogger,
-    setLogger,
-    LOG_LABELS,
-    type LogLevel,
-    type LoggerConfig,
-} from './logger.js';
-
 // Sentry
 export {
     initSentry,

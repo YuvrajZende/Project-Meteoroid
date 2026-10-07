@@ -1,25 +1,27 @@
 {
-  "name": "loveable-backend",
+  "name": "meteoroid-backend",
   "version": "2.0.0",
   "private": true,
   "description": "AI-powered backend builder with intelligent orchestration",
   "workspaces": [
-    "packages/*",
-    "agents/**/*"
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b",
-    "test": "jest",
+    "build": "npm run build -w @meteoroid/shared -w @meteoroid/api",
+    "start": "node scripts/dev.mjs --open",
+    "dev:all": "node scripts/dev.mjs",
+    "dev": "npm run dev -w @meteoroid/api",
+    "dev:web": "npm run dev -w @meteoroid/web",
+    "test": "npm run test -w @meteoroid/api",
     "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md}\"",
-    "dev": "nodemon",
+    "type-check": "tsc -p tsconfig.json && npm run type-check -w @meteoroid/api",
     "orchestrator": "npx ts-node packages/orchestrator/src/index.ts",
-    "orchestrator:dev": "nodemon --watch packages/orchestrator/src --exec 'npx ts-node packages/orchestrator/src/index.ts'",
+    "orchestrator:dev": "nodemon --watch packages/orchestrator/src --ext ts --exec \"npx ts-node packages/orchestrator/src/index.ts\"",
     "switch-models": "npx ts-node scripts/switch-models.ts",
-    "type-check": "tsc --noEmit",
-    "prepare": "husky install",
+    "prepare": "husky",
     "pre-commit": "lint-staged"
   },
   "keywords": [
@@ -33,8 +35,6 @@
   "author": "Person 1",
   "license": "ISC",
   "devDependencies": {
-    "@types/inversify": "^2.0.32",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.26",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -43,11 +43,9 @@
     "eslint-import-resolver-typescript": "^3.6.0",
     "eslint-plugin-import": "^2.29.0",
     "husky": "^9.0.0",
-    "jest": "^30.2.0",
     "lint-staged": "^15.2.0",
     "nodemon": "^3.1.11",
     "prettier": "^3.2.0",
-    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
@@ -56,7 +54,6 @@
     "@langchain/groq": "^1.0.2",
     "@langchain/langgraph": "^1.0.4",
     "@langchain/openai": "^1.1.3",
-    "argon2": "^0.44.0",
     "dotenv": "^17.2.3",
     "inversify": "^7.11.0",
     "redis": "^5.10.0",

@@ -28,7 +28,7 @@ import type {
     AgentOutput,
     AgentHealthStatus,
     AgentTier,
-} from '@loveable/shared';
+} from '@meteoroid/shared';
 import {
     TYPESCRIPT_PROJECT_TEMPLATE,
     EXPRESS_API_TEMPLATE,

@@ -1,0 +1,377 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Meteoroid theme
+ * Surfaces and ink from Beautiful UI (beautifului.dev, MIT), Geist typography,
+ * mapped onto shadcn/ui variables. One accent; status colors carry meaning only.
+ */
+
+/* Beautiful UI tokens — light */
+:root {
+  --page: oklch(98.5% 0.001 286.376);
+  --canvas: oklch(96.1% 0.002 247.84);
+  --surface: oklch(100% 0 0);
+  --inset: oklch(97.9% 0.002 247.839);
+  --hover: oklch(97% 0.002 247.839);
+  --hover-2: oklch(93.3% 0.003 247.86);
+  --ink: oklch(24.7% 0.006 258.361);
+  --ink-2: oklch(50.6% 0.01 264.477);
+  --ink-3: oklch(69.5% 0.009 264.505);
+  --line: oklch(94.6% 0.003 264.542);
+  --line-strong: oklch(91.2% 0.005 258.326);
+  --field: oklch(96.1% 0.001 286.375);
+  --accent: oklch(58% 0.19 32);
+  --accent-ink: oklch(50% 0.17 32);
+  --accent-tint: oklch(95.5% 0.025 35);
+  --accent-line: oklch(70% 0.14 32);
+  --info-blue: oklch(62.6% 0.205 254.947);
+  --panel: var(--surface);
+  --sidebar-bg: var(--canvas);
+  --composer-strip: var(--canvas);
+  --green: oklch(60.3% 0.155 150.883);
+  --green-tint: oklch(95.8% 0.017 159.118);
+  --orange: oklch(68.9% 0.179 49.902);
+  --orange-tint: oklch(96.4% 0.021 67.581);
+  --red: oklch(62.1% 0.192 23.042);
+  --red-tint: oklch(95.6% 0.017 17.462);
+  --shadow-xs: 0 0 4px 0 #0000000a;
+  --shadow-sm-bui: 0 18px 47px 0 #00000008, 0 7.5px 19px 0 #00000005, 0 4px 10.5px 0 #00000005,
+    0 2.3px 5.8px 0 #00000003, 0 1.2px 3.1px 0 #00000003, 0 0.5px 1.3px 0 #00000003;
+  --shadow-md-bui: 0 17.54px 23.39px 0 #0000000a, 0 9.4px 12.5px 0 #00000008, 0 5.25px 7px 0 #00000005,
+    0 2.79px 3.72px -2px #00000003, 0 1.16px 1.5px 0 #00000003;
+  --shadow-lg-bui: 0 25px 50px 0 #0000000d, 0 12px 24px 0 #0000000a, 0 6px 12px 0 #00000008, 0 3px 6px 0 #00000005,
+    0 1.5px 3px 0 #00000005;
+  --shadow-hairline: 0 0 0 1px var(--line);
+  --shadow-btn: 0 0 0 1px var(--line-strong), var(--shadow-xs);
+  --shadow-card: 0 0 0 1px var(--line), var(--shadow-sm-bui);
+  --shadow-raised: 0 0 0 1px var(--line), var(--shadow-md-bui);
+  --shadow-overlay: 0 0 0 1px var(--line), var(--shadow-lg-bui);
+
+
+  --radius: 0.5rem;
+}
+
+/* Beautiful UI tokens — dark */
+.dark {
+  --page: oklch(20.9% 0.004 264.477);
+  --canvas: oklch(23.1% 0.004 264.487);
+  --surface: oklch(26% 0.006 271.191);
+  --inset: oklch(24.3% 0.004 264.492);
+  --hover: oklch(28.9% 0.006 271.22);
+  --hover-2: oklch(31.8% 0.007 274.747);
+  --ink: oklch(96.4% 0.002 247.839);
+  --ink-2: oklch(73.1% 0.008 260.731);
+  --ink-3: oklch(54.1% 0.01 264.484);
+  --line: oklch(30.8% 0.006 258.354);
+  --line-strong: oklch(35.6% 0.007 264.474);
+  --field: oklch(29.3% 0.006 271.223);
+  --accent: oklch(60% 0.18 32);
+  --accent-ink: oklch(76% 0.12 38);
+  --accent-tint: oklch(60% 0.18 32 / 0.16);
+  --accent-line: oklch(52% 0.15 32);
+  --info-blue: oklch(68% 0.173 253.301);
+  --panel: oklch(22.4% 0.004 264.5);
+  --sidebar-bg: oklch(18.6% 0.004 264.5);
+  --composer-strip: oklch(24.6% 0.005 268);
+  --green: oklch(70.5% 0.154 153.814);
+  --green-tint: oklch(70.5% 0.154 153.814 / 0.14);
+  --orange: oklch(74.6% 0.156 55.642);
+  --orange-tint: oklch(74.6% 0.156 55.642 / 0.14);
+  --red: oklch(66.6% 0.18 21.433);
+  --red-tint: oklch(66.6% 0.18 21.433 / 0.14);
+  --shadow-btn: 0 0 0 1px oklch(100% 0 0 / 0.1), 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-card: 0 0 0 1px oklch(100% 0 0 / 0.11), 0 1px 2px oklch(0% 0 0 / 0.2), 0 2px 6px oklch(0% 0 0 / 0.2);
+  --shadow-raised: 0 0 0 1px oklch(100% 0 0 / 0.13), 0 2px 10px oklch(0% 0 0 / 0.22);
+  --shadow-overlay: 0 0 0 1px oklch(100% 0 0 / 0.15), 0 8px 28px oklch(0% 0 0 / 0.34);
+}
+
+/* shadcn/ui semantic variables */
+:root,
+.dark {
+  --background: var(--page);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--surface);
+  --secondary: var(--hover-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--canvas);
+  --muted-foreground: var(--ink-2);
+  --accent-bg: var(--hover);
+  --destructive: var(--red);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--info-blue);
+  --success: var(--green);
+  --warning: var(--orange);
+  --info: var(--info-blue);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: 0.875rem;
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-window: 14px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-bg);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
+  /* Beautiful UI utilities: bg-surface, text-ink-2, bg-green-tint, shadow-card… */
+  --color-page: var(--page);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-hover: var(--hover);
+  --color-hover-2: var(--hover-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-field: var(--field);
+  --color-brand: var(--accent);
+  --color-brand-ink: var(--accent-ink);
+  --color-brand-tint: var(--accent-tint);
+  --color-brand-line: var(--accent-line);
+  --color-panel: var(--panel);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-composer-strip: var(--composer-strip);
+  --color-green: var(--green);
+  --color-green-tint: var(--green-tint);
+  --color-orange: var(--orange);
+  --color-orange-tint: var(--orange-tint);
+  --color-red: var(--red);
+  --color-red-tint: var(--red-tint);
+  --shadow-hairline: var(--shadow-hairline);
+  --shadow-btn: var(--shadow-btn);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  /* Legacy aliases used across the app */
+  --color-gray-alpha-100: var(--hover);
+  --color-gray-alpha-200: var(--hover-2);
+  --color-gray-alpha-400: var(--line-strong);
+  --color-gray-alpha-500: var(--ink-3);
+  --color-gray-700: var(--ink-3);
+  --color-gray-900: var(--ink-2);
+  --color-gray-1000: var(--ink);
+  --color-background-200: var(--canvas);
+  --color-sidebar: var(--canvas);
+  --shadow-border: var(--shadow-hairline);
+  --shadow-small: var(--shadow-btn);
+  --shadow-medium: var(--shadow-raised);
+  --shadow-menu: var(--shadow-overlay);
+  --shadow-modal: var(--shadow-overlay);
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 0, "ss11" 1;
+  }
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--accent-tint);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  html,
+  body {
+    overflow: hidden;
+    height: 100%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Beautiful UI keyframes (beautifului.dev, MIT) */
+@keyframes shimmer-text {
+  0% { background-position: 150%; }
+  to { background-position: -50%; }
+}
+@keyframes fade-up {
+  0% { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  0% { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes caret-blink {
+  0%, to { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes spin {
+  to { transform: rotate(1turn); }
+}
+@keyframes pixel-on {
+  0%, to { opacity: 0.15; }
+  18%, 42% { opacity: 1; }
+  62% { opacity: 0.15; }
+}
+@keyframes records-pulse {
+  0%, to { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@utility shimmer {
+  background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility heading-40 {
+  font-size: 2.5rem;
+  line-height: 3rem;
+  letter-spacing: -0.15rem;
+  font-weight: 600;
+}
+
+@utility heading-32 {
+  font-size: 2rem;
+  line-height: 2.5rem;
+  letter-spacing: -0.08rem;
+  font-weight: 600;
+}
+
+@utility heading-24 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  letter-spacing: -0.06rem;
+  font-weight: 600;
+}
+
+@utility heading-20 {
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+  letter-spacing: -0.025rem;
+  font-weight: 600;
+}
+
+@utility heading-16 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  letter-spacing: -0.02rem;
+  font-weight: 600;
+}
+
+@utility copy-13 {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+@utility label-12 {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* Code viewer: shiki dual themes + line numbers */
+.code-view pre {
+  margin: 0;
+  padding: 0.75rem 0;
+  background: transparent !important;
+  counter-reset: line;
+  min-width: max-content;
+}
+.code-view .shiki span {
+  color: var(--shiki-light);
+}
+.dark .code-view .shiki span {
+  color: var(--shiki-dark);
+}
+.code-view .line {
+  display: inline-block;
+  width: 100%;
+  padding-right: 1rem;
+}
+.code-view .line::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: calc(var(--lines, 3) * 1ch + 1.5rem);
+  padding-right: 1rem;
+  text-align: right;
+  color: var(--ink-3);
+  user-select: none;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -7,6 +7,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { LearnedPatternRepository } from '../learned-pattern.repository.js';
 import { MockDatabase } from './mock-database.js';
 import type { LearnedPattern } from '../../interfaces/learning.interface.js';
+import { RepositoryError } from '../base.repository.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe('LearnedPatternRepository', () => {
     let repository: LearnedPatternRepository;
@@ -15,19 +18,6 @@ describe('LearnedPatternRepository', () => {
     // ============================================
     // TEST FIXTURES
     // ============================================
-
-    const _mockPatternEntity: LearnedPattern = {
-        id: 'pattern_001',
-        patternType: 'success',
-        description: 'Common REST API controller pattern',
-        example: 'export async function handler(req, res) { ... }',
-        context: 'Used in Fastify route handlers',
-        frequency: 15,
-        confidence: 0.92,
-        relatedPrompts: ['create API endpoint', 'add route handler', 'implement controller'],
-        createdAt: new Date('2024-01-15T10:00:00Z'),
-        updatedAt: new Date('2024-01-15T10:00:00Z'),
-    };
 
     const mockPatternRow = {
         id: 'pattern_001',
@@ -66,7 +56,7 @@ describe('LearnedPatternRepository', () => {
             const result = await repository.create(input);
 
             expect(result).toBeDefined();
-            expect(result.id).toMatch(/^pattern_\d+_\w+$/);
+            expect(result.id).toMatch(UUID_RE);
             expect(result.patternType).toBe('success');
             expect(result.description).toBe('Common REST API pattern');
             expect(result.frequency).toBe(10);
@@ -164,7 +154,7 @@ describe('LearnedPatternRepository', () => {
                 frequency: 1,
                 confidence: 0.5,
                 relatedPrompts: [],
-            })).rejects.toThrow('RepositoryError');
+            })).rejects.toThrow(RepositoryError);
         });
     });
 
@@ -308,7 +298,8 @@ describe('LearnedPatternRepository', () => {
             const results = await repository.findByConfidence(0.80);
 
             expect(results[0].id).toBe('pattern_003'); // freq 20, conf 0.80
-            expect(results[1].id).toBe('pattern_004'); // freq 15, conf 0.85
+            expect(results[1].id).toBe('pattern_001'); // freq 15, conf 0.92
+            expect(results[2].id).toBe('pattern_004'); // freq 15, conf 0.85
         });
 
         it('should return empty array when no patterns meet threshold', async () => {
@@ -471,7 +462,7 @@ describe('LearnedPatternRepository', () => {
     describe('Edge Cases', () => {
         it('should handle special characters in fields', async () => {
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Pattern with "quotes" and \'apostrophes\'',
                 example: 'const regex = /<html>[\\s\\S]*<\\/html>/;',
                 context: 'Used with special chars: @#$%',
@@ -489,7 +480,7 @@ describe('LearnedPatternRepository', () => {
             const longString = 'a'.repeat(10000);
 
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: longString,
                 example: longString,
                 context: longString,
@@ -503,7 +494,7 @@ describe('LearnedPatternRepository', () => {
 
         it('should handle empty arrays for optional fields', async () => {
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -519,7 +510,7 @@ describe('LearnedPatternRepository', () => {
             const manyPrompts = Array.from({ length: 100 }, (_, i) => `prompt_${i}`);
 
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -536,7 +527,7 @@ describe('LearnedPatternRepository', () => {
 
             for (const conf of confidences) {
                 const result = await repository.create({
-                    patternType: 'other',
+                    patternType: 'warning',
                     description: `Test confidence ${conf}`,
                     example: 'test',
                     context: 'test',
@@ -551,7 +542,7 @@ describe('LearnedPatternRepository', () => {
 
         it('should handle large frequency values', async () => {
             const result = await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Test',
                 example: 'test',
                 context: 'test',
@@ -562,8 +553,8 @@ describe('LearnedPatternRepository', () => {
 
             expect(result.frequency).toBe(999999);
 
-            await repository.updateFrequency(result.id);
-            const updated = await repository.findById(result.id);
+            await repository.updateFrequency(result.id!);
+            const updated = await repository.findById(result.id!);
             expect(updated?.frequency).toBe(1000000);
         });
     });
@@ -575,7 +566,7 @@ describe('LearnedPatternRepository', () => {
     describe('Integration', () => {
         it('should create and find pattern', async () => {
             const created = await repository.create({
-                patternType: 'code-structure',
+                patternType: 'success',
                 description: 'Test pattern',
                 example: 'test',
                 context: 'test',
@@ -584,7 +575,7 @@ describe('LearnedPatternRepository', () => {
                 relatedPrompts: [],
             });
 
-            const found = await repository.findById(created.id);
+            const found = await repository.findById(created.id!);
 
             expect(found).toBeDefined();
             expect(found?.id).toBe(created.id);
@@ -594,7 +585,7 @@ describe('LearnedPatternRepository', () => {
         it('should support pattern learning workflow', async () => {
             // Create initial pattern
             const pattern = await repository.create({
-                patternType: 'code-structure',
+                patternType: 'success',
                 description: 'Common pattern',
                 example: 'test',
                 context: 'test',
@@ -604,9 +595,9 @@ describe('LearnedPatternRepository', () => {
             });
 
             // Update frequency multiple times (simulating pattern reinforcement)
-            await repository.updateFrequency(pattern.id);
-            await repository.updateFrequency(pattern.id);
-            await repository.updateFrequency(pattern.id);
+            await repository.updateFrequency(pattern.id!);
+            await repository.updateFrequency(pattern.id!);
+            await repository.updateFrequency(pattern.id!);
 
             // Find top patterns should include this
             const topPatterns = await repository.findTopPatterns({ limit: 10 });
@@ -619,7 +610,7 @@ describe('LearnedPatternRepository', () => {
         it('should support confidence-based filtering', async () => {
             // Create patterns with different confidence levels
             await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'High confidence',
                 example: 'test',
                 context: 'test',
@@ -629,7 +620,7 @@ describe('LearnedPatternRepository', () => {
             });
 
             await repository.create({
-                patternType: 'other',
+                patternType: 'warning',
                 description: 'Low confidence',
                 example: 'test',
                 context: 'test',

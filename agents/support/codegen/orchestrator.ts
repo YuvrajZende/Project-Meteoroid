@@ -34,7 +34,7 @@ import {
     FrameworkConfig,
 } from './language-configs';
 
-dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") }); // agents/support/codegen -> repo root
 dotenv.config();
 
 const execAsync = promisify(exec);

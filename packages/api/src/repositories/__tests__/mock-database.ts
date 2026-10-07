@@ -114,10 +114,28 @@ export class MockDatabase implements IDatabase {
             row.updated_at = new Date().toISOString();
         }
 
+        // ON CONFLICT (cols) DO UPDATE SET col = EXCLUDED.col / DO NOTHING
+        const conflictMatch = sql.match(/ON\s+CONFLICT\s*\(([^)]+)\)\s*DO\s+(UPDATE\s+SET\s+([\s\S]+?)|NOTHING)(?:\s+RETURNING[\s\S]*)?$/i);
+        if (conflictMatch) {
+            const conflictCols = conflictMatch[1].split(',').map(c => c.trim());
+            const existing = table.find(r => conflictCols.every(c => r[c] === row[c]));
+            if (existing) {
+                if (/^NOTHING$/i.test(conflictMatch[2])) {
+                    return [] as QueryResult<T>;
+                }
+                for (const assignment of conflictMatch[3].split(',')) {
+                    const m = assignment.trim().match(/^(\w+)\s*=\s*EXCLUDED\.(\w+)$/i);
+                    if (m) existing[m[1]] = row[m[2]];
+                }
+                existing.updated_at = row.updated_at;
+                return [{ ...existing }] as QueryResult<T>;
+            }
+        }
+
         table.push(row);
 
-        // Return the inserted row
-        return [row] as QueryResult<T>;
+        // Return a copy of the inserted row (callers must not mutate stored data)
+        return [{ ...row }] as QueryResult<T>;
     }
 
     /**
@@ -203,7 +221,7 @@ export class MockDatabase implements IDatabase {
             return [{ count: BigInt(results.length) }] as QueryResult<T>;
         }
 
-        return results as QueryResult<T>;
+        return results.map(r => ({ ...r })) as QueryResult<T>;
     }
 
     /**
@@ -212,7 +230,7 @@ export class MockDatabase implements IDatabase {
     private applyWhereClause(results: Record<string, unknown>[], sql: string, params?: QueryParams): Record<string, unknown>[] {
         // Extract WHERE clause from SQL
         // Use [\s\S]+? instead of .+? to match across newlines
-        const whereMatch = sql.match(/WHERE\s+([\s\S]+?)(?:\s+GROUP BY|\s+ORDER BY|\s+LIMIT|\s+OFFSET|$)/is);
+        const whereMatch = sql.match(/WHERE\s+([\s\S]+?)(?:\s+GROUP BY|\s+ORDER BY|\s+LIMIT|\s+OFFSET|\s+RETURNING|$)/is);
         if (!whereMatch) return results;
 
         const whereClause = whereMatch[1].trim();
@@ -268,6 +286,10 @@ export class MockDatabase implements IDatabase {
      * Parse a single condition
      */
     private parseCondition(condition: string, params?: QueryParams): { field: string; operator: string; value: unknown } | null {
+        const nullMatch = condition.match(/^(\w+)\s+IS\s+(NOT\s+)?NULL$/i);
+        if (nullMatch) {
+            return { field: nullMatch[1], operator: nullMatch[2] ? 'is not null' : 'is null', value: null };
+        }
         // Match: field = $param or field ILIKE $param or field > $param
         const match = condition.match(/(\w+)\s*(=|!=|<>|>=|<=|ILIKE)\s*(\$\w+)/i);
         if (!match) {
@@ -336,6 +358,9 @@ export class MockDatabase implements IDatabase {
             return rowStr.includes(valueStr) || rowStr === valueStr;
         }
 
+        if (operator === 'is null') return rowValue === null || rowValue === undefined;
+        if (operator === 'is not null') return rowValue !== null && rowValue !== undefined;
+
         // Handle comparison operators
         switch (operator) {
             case '=':
@@ -383,26 +408,27 @@ export class MockDatabase implements IDatabase {
     private applyOrderBy(results: Record<string, unknown>[], sql: string): Record<string, unknown>[] {
         if (!sql.includes('ORDER BY')) return results;
 
-        const orderMatch = sql.match(/ORDER BY\s+(\w+)(?:\s+(ASC|DESC))?/i);
+        const orderMatch = sql.match(/ORDER BY\s+([\w\s,]+?)(?:\s+LIMIT|\s+OFFSET|\s*$)/i);
         if (!orderMatch) return results;
 
-        const [, column, direction] = orderMatch;
+        const keys = orderMatch[1].split(',').map(part => {
+            const [column, dir] = part.trim().split(/\s+/);
+            return { column, desc: (dir || '').toUpperCase() === 'DESC' };
+        });
 
         results.sort((a, b) => {
-            const aVal = a[column];
-            const bVal = b[column];
-            // Handle string comparison
-            if (typeof aVal === 'string' && typeof bVal === 'string') {
-                if (direction === 'DESC') {
-                    return aVal.localeCompare(bVal) * -1;
+            for (const { column, desc } of keys) {
+                const aVal = a[column];
+                const bVal = b[column];
+                let cmp = 0;
+                if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    cmp = aVal.localeCompare(bVal);
+                } else if (aVal !== bVal) {
+                    cmp = (aVal as number) > (bVal as number) ? 1 : -1;
                 }
-                return aVal.localeCompare(bVal);
+                if (cmp !== 0) return desc ? -cmp : cmp;
             }
-            // Handle numeric comparison
-            if (direction === 'DESC') {
-                return (aVal as number) > (bVal as number) ? -1 : 1;
-            }
-            return (aVal as number) > (bVal as number) ? 1 : -1;
+            return 0;
         });
 
         return results;
@@ -411,7 +437,7 @@ export class MockDatabase implements IDatabase {
     /**
      * Apply GROUP BY clause
      */
-    private applyGroupBy<T>(results: Record<string, unknown>[], sql: string): Record<string, unknown>[] {
+    private applyGroupBy(results: Record<string, unknown>[], sql: string): Record<string, unknown>[] {
         if (!sql.includes('GROUP BY')) return results;
 
         const groupMatch = sql.match(/GROUP BY\s+(\w+)/i);
@@ -442,7 +468,7 @@ export class MockDatabase implements IDatabase {
             return result;
         });
 
-        return aggregatedResults as T[];
+        return aggregatedResults;
     }
 
     /**
@@ -474,7 +500,7 @@ export class MockDatabase implements IDatabase {
         // Format: UPDATE table SET field1 = $1, field2 = $2 WHERE id = $id
         // Use [\s\S]+? instead of .+? to match across newlines
         const setMatch = sql.match(/SET\s+([\s\S]+?)\s+WHERE/is);
-        const whereMatch = sql.match(/WHERE\s+([\s\S]+)$/is);
+        const whereMatch = sql.match(/WHERE\s+([\s\S]+?)(?:\s+RETURNING[\s\S]*)?$/is);
 
         if (!setMatch || !whereMatch) {
             throw new Error('Invalid UPDATE statement format');
@@ -482,12 +508,25 @@ export class MockDatabase implements IDatabase {
 
         const setClause = setMatch[1];
         const whereClause = whereMatch[1];
+        // Column increments like "frequency = frequency + 1"
+        const increments: Record<string, number> = {};
 
         // Parse SET clauses: "field1 = $1, field2 = $2"
         const setClauses = setClause.split(',').map(s => s.trim());
         const fieldUpdates: Record<string, unknown> = {};
 
         for (const clause of setClauses) {
+            const incMatch = clause.match(/^(\w+)\s*=\s*(\w+)\s*([+-])\s*(\d+(?:\.\d+)?)$/);
+            if (incMatch && incMatch[1] === incMatch[2]) {
+                increments[incMatch[1]] = Number(incMatch[4]) * (incMatch[3] === '-' ? -1 : 1);
+                continue;
+            }
+            if (/^\w+\s*=\s*NULL$/i.test(clause)) {
+                const field = clause.split('=')[0].trim();
+                fieldUpdates[this.toCamelCase(field)] = null;
+                continue;
+            }
+
             // Try to match parameter: field = $1 or field = $param
             let match = clause.match(/(\w+)\s*=\s*(\$\w+|\$?\d+)/);
             let field: string | undefined;
@@ -527,39 +566,16 @@ export class MockDatabase implements IDatabase {
         }
 
         // Find rows to update based on WHERE clause
-        const rowsToUpdate = table.filter(row => {
-            // Parse WHERE clause: "id = $id" or "user_id = $1"
-            // Handle newlines in WHERE clause
-            const whereParts = whereClause.split(/\s+AND\s+/is);
-            return whereParts.every(part => {
-                const [, field, param] = part.match(/(\w+)\s*=\s*(\$\w+|\$?\d+)/) || [];
-                if (!field || !param) return true;
-
-                let expectedValue: unknown;
-
-                // Try to get value by parameter reference first ($1, $2, $id, etc.)
-                if (param in (params || {})) {
-                    expectedValue = params?.[param];
-                }
-                // Fallback: try without $ sign (for $1 -> 1, $id -> id)
-                else if (param.startsWith('$')) {
-                    const paramName = param.slice(1);
-                    expectedValue = params?.[paramName];
-                }
-                // Last resort: try direct lookup
-                else {
-                    expectedValue = params?.[param];
-                }
-
-                // Check both snake_case and camelCase versions of the field
-                const rowValue = row[field] ?? row[this.toSnakeCase(field)] ?? row[this.toCamelCase(field)];
-
-                return rowValue === expectedValue;
-            });
-        });
+        const conditions = this.parseWhereConditions(whereClause, params);
+        const rowsToUpdate = table.filter(row =>
+            conditions.some(group => group.every(condition => this.evaluateCondition(row, condition)))
+        );
 
         // Update rows
         for (const row of rowsToUpdate) {
+            for (const [column, delta] of Object.entries(increments)) {
+                row[column] = Number(row[column] ?? 0) + delta;
+            }
             // Only update fields that were specified in SET clause
             for (const [field, value] of Object.entries(fieldUpdates)) {
                 // Handle both camelCase and snake_case field names
@@ -578,7 +594,7 @@ export class MockDatabase implements IDatabase {
             }
         }
 
-        return rowsToUpdate as QueryResult<T>;
+        return rowsToUpdate.map(r => ({ ...r })) as QueryResult<T>;
     }
 
     /**
@@ -709,7 +725,7 @@ export class MockDatabase implements IDatabase {
     seed(tableName: string, data: Record<string, unknown>[]): void {
         const table = this.tables.get(tableName);
         if (table) {
-            table.splice(0, table.length, ...data);
+            table.splice(0, table.length, ...data.map(row => ({ ...row })));
         }
     }
 

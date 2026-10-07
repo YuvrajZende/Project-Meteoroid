@@ -4,8 +4,15 @@
  * Note: WebSocket support requires @fastify/websocket plugin
  */
 
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { getAgentMonitor, getAgentRegistry } from '../services/index.js';
+import { getGenerationScope } from '../infrastructure/generation-scope.js';
+import { env } from '../config/index.js';
+import { authenticate } from '../middleware/auth-middleware.js';
+import { sseCorsHeaders } from '../plugins/sse-cors.js';
+import { getFileWriter, isValidProjectId } from '../infrastructure/file-writer.js';
+import { canAccess, readOutputMeta } from './outputs.js';
 
 // ============================================
 // TYPES
@@ -16,6 +23,10 @@ interface SSEClient {
     reply: FastifyReply;
     channels: Set<string>;
     keepAlive: NodeJS.Timeout;
+    /** When set, the client only receives events for this project */
+    projectId?: string;
+    /** Subscriber identity for project streams ('anonymous' when unauthenticated) */
+    userId?: string;
 }
 
 // ============================================
@@ -36,7 +47,7 @@ class SSEManager {
     /**
      * Add a new SSE client
      */
-    addClient(id: string, reply: FastifyReply, channel: string): void {
+    addClient(id: string, reply: FastifyReply, channel: string, projectId?: string, userId?: string): void {
         const keepAlive = setInterval(() => {
             try {
                 reply.raw.write(`: keepalive\n\n`);
@@ -50,9 +61,11 @@ class SSEManager {
             reply,
             channels: new Set([channel]),
             keepAlive,
+            projectId,
+            userId,
         });
 
-        console.log(`� SSE client connected: ${id}. Total: ${this.clients.size}`);
+        console.log(`[SSE] Client connected: ${id}. Total: ${this.clients.size}`);
     }
 
     /**
@@ -73,8 +86,20 @@ class SSEManager {
     broadcast(channel: string, event: string, data: unknown): void {
         const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
+        const eventProjectId = typeof data === 'object' && data !== null
+            ? (data as { projectId?: unknown }).projectId
+            : undefined;
+        // Owner of the generation that produced this event (from the request's async scope)
+        const eventUserId = getGenerationScope()?.userId;
+
         for (const client of this.clients.values()) {
-            if (client.channels.has(channel) || client.channels.has('*')) {
+            // Project streams get only their project's events.
+            // Unscoped streams never see project events when auth is required (no cross-tenant leaks).
+            const deliver = client.projectId
+                ? eventProjectId === client.projectId && eventUserId === client.userId
+                : (client.channels.has(channel) || client.channels.has('*'))
+                    && (!eventProjectId || !env.AUTH_REQUIRED);
+            if (deliver) {
                 try {
                     client.reply.raw.write(payload);
                 } catch (error) {
@@ -109,6 +134,34 @@ class SSEManager {
 export const sseManager = SSEManager.getInstance();
 
 // ============================================
+// STREAM TICKETS
+// ============================================
+
+const STREAM_TICKET_TTL_MS = 60_000;
+const MAX_TICKETS = 5_000;
+const streamTickets = new Map<string, { projectId: string; userId: string; expiresAt: number }>();
+
+function issueStreamTicket(projectId: string, userId: string): string {
+    const now = Date.now();
+    for (const [key, t] of streamTickets) {
+        if (t.expiresAt < now || streamTickets.size >= MAX_TICKETS) streamTickets.delete(key);
+        else break;
+    }
+    const ticket = randomBytes(24).toString('base64url');
+    streamTickets.set(ticket, { projectId, userId, expiresAt: now + STREAM_TICKET_TTL_MS });
+    return ticket;
+}
+
+/** Single use: returns the ticket's user if valid for this project, else null. */
+function redeemStreamTicket(ticket: string | undefined, projectId: string): string | null {
+    if (!ticket) return null;
+    const entry = streamTickets.get(ticket);
+    streamTickets.delete(ticket);
+    if (!entry || entry.expiresAt < Date.now() || entry.projectId !== projectId) return null;
+    return entry.userId;
+}
+
+// ============================================
 // SSE ROUTES
 // ============================================
 
@@ -124,9 +177,10 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
         Params: { taskId: string }
     }>, reply) => {
         const { taskId } = request.params;
-        const clientId = `task-${taskId}-${Date.now()}`;
+        const clientId = `task-${taskId}-${randomUUID()}`;
 
         // Set SSE headers
+        reply.hijack();
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -158,9 +212,10 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
      * SSE endpoint for agent updates
      */
     app.get('/api/v1/events/agents', async (request, reply) => {
-        const clientId = `agents-${Date.now()}`;
+        const clientId = `agents-${randomUUID()}`;
 
         // Set SSE headers
+        reply.hijack();
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -195,9 +250,10 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
      * SSE endpoint for orchestrator events
      */
     app.get('/api/v1/events/orchestrator', async (request, reply) => {
-        const clientId = `orchestrator-${Date.now()}`;
+        const clientId = `orchestrator-${randomUUID()}`;
 
         // Set SSE headers
+        reply.hijack();
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -227,9 +283,10 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
      * SSE endpoint for all events (global)
      */
     app.get('/api/v1/events', async (request, reply) => {
-        const clientId = `global-${Date.now()}`;
+        const clientId = `global-${randomUUID()}`;
 
         // Set SSE headers
+        reply.hijack();
         reply.raw.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -257,6 +314,58 @@ export async function registerSSERoutes(app: FastifyInstance): Promise<void> {
             sseManager.removeClient(clientId);
         });
 
+        return reply;
+    });
+
+    /**
+     * POST /api/v1/events/tickets - Short-lived, single-use ticket for a project stream.
+     * EventSource can't send an Authorization header, and access tokens must not appear in URLs.
+     */
+    app.post<{ Body: { projectId: string } }>('/api/v1/events/tickets', {
+        preHandler: authenticate({ required: env.AUTH_REQUIRED, allowApiKey: false }),
+        schema: {
+            body: {
+                type: 'object',
+                required: ['projectId'],
+                properties: { projectId: { type: 'string', maxLength: 128 } },
+            },
+        },
+    }, async (request, reply) => {
+        const { projectId } = request.body;
+        if (!isValidProjectId(projectId)) {
+            return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Invalid project ID' });
+        }
+        // Existing projects must belong to the caller; new IDs carry no data until their owner starts a run,
+        // and events are additionally filtered by owner at delivery time.
+        const meta = await readOutputMeta(getFileWriter().getProjectPath(projectId));
+        if (meta.userId && !canAccess(meta, request.authUser?.id)) {
+            return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Project not found' });
+        }
+        return { ticket: issueStreamTicket(projectId, request.authUser?.id ?? 'anonymous'), expiresIn: STREAM_TICKET_TTL_MS / 1000 };
+    });
+
+    /**
+     * SSE stream for one project's generation (pipeline steps, files, agent activity). Requires a ticket.
+     */
+    app.get<{ Params: { projectId: string }; Querystring: { ticket?: string } }>('/api/v1/events/projects/:projectId', async (request, reply) => {
+        const { projectId } = request.params;
+        const userId = redeemStreamTicket(request.query.ticket, projectId);
+        if (!userId) {
+            return reply.status(401).send({ statusCode: 401, error: 'Unauthorized', message: 'Missing or expired stream ticket' });
+        }
+
+        const clientId = `project-${projectId}-${randomUUID()}`;
+        reply.hijack();
+        reply.raw.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+            ...sseCorsHeaders(request),
+        });
+        sseManager.addClient(clientId, reply, 'project', projectId, userId);
+        reply.raw.write(`event: connected\ndata: ${JSON.stringify({ projectId, timestamp: new Date().toISOString() })}\n\n`);
+        request.raw.on('close', () => sseManager.removeClient(clientId));
         return reply;
     });
 
@@ -324,6 +433,7 @@ export function broadcastGlobal(event: string, data?: unknown): void {
  */
 export function broadcastFileWritten(projectId: string, filePath: string, size: number): void {
     sseManager.broadcast('*', 'fileWritten', {
+        taskId: getGenerationScope()?.taskId,
         projectId,
         filePath,
         size,
@@ -334,11 +444,15 @@ export function broadcastFileWritten(projectId: string, filePath: string, size: 
 /**
  * Broadcast pipeline step event
  */
-export function broadcastPipelineStep(stepNumber: number, phase: string, message: string): void {
+export function broadcastPipelineStep(stepNumber: number, phase: string, message: string, agent?: string): void {
+    const scope = getGenerationScope();
     sseManager.broadcast('*', 'pipelineStep', {
+        projectId: scope?.projectId,
+        taskId: scope?.taskId,
         stepNumber,
         phase,
         message,
+        agent,
         timestamp: new Date().toISOString(),
     });
 }
@@ -352,6 +466,25 @@ export function broadcastGenerationProgress(taskId: string, progress: number, me
         status: 'generating',
         progress,
         message,
+        timestamp: new Date().toISOString(),
+    });
+}
+
+/**
+ * Structured agent activity for the live UI (thinking, tool calls, sub-agent allocation).
+ */
+export type ActivityEvent =
+    | { kind: 'thinking'; status: 'start' | 'end'; summary?: string; complexity?: string; durationMs?: number }
+    | { kind: 'plan'; subtasks: Array<{ id: number; title: string; agent: string }> }
+    | { kind: 'tool'; id: string; tool: 'web_search'; status: 'running' | 'done' | 'error'; query: string; results?: Array<{ title: string; url: string }>; error?: string; durationMs?: number }
+    | { kind: 'agent'; id: number; agent: string; status: 'running' | 'done' | 'failed'; files?: number; error?: string; durationMs?: number };
+
+export function broadcastActivity(activity: ActivityEvent): void {
+    const scope = getGenerationScope();
+    sseManager.broadcast('*', 'activity', {
+        projectId: scope?.projectId,
+        taskId: scope?.taskId,
+        ...activity,
         timestamp: new Date().toISOString(),
     });
 }

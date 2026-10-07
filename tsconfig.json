@@ -6,37 +6,31 @@
         "lib": [
             "ES2022"
         ],
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "composite": true,
+        "resolveJsonModule": true,
+        "noEmit": true,
         "baseUrl": ".",
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "paths": {
-            "@loveable/orchestrator": [
+            "@meteoroid/orchestrator": [
                 "packages/orchestrator/src"
             ],
-            "@loveable/agents": [
-                "packages/agents/src"
-            ],
-            "@loveable/shared": [
+            "@meteoroid/shared": [
                 "packages/shared/src"
             ]
         }
     },
     "exclude": [
         "node_modules",
-        "dist"
+        "**/dist",
+        "packages/web"
     ],
     "include": [
-        "packages/api/src/**/*.ts",
         "packages/shared/src/**/*.ts",
-        "packages/orchestrator/src/**/*.ts",
-        "packages/agents/src/**/*.ts"
+        "packages/orchestrator/src/**/*.ts"
     ]
 }
