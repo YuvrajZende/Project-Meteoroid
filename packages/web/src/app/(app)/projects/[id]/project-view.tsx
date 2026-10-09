@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Copy, Download, FileCode2, Info, Loader2, MoreHorizontal, RotateCcw, Square, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, Download, FileCode2, Info, Loader2, MoreHorizontal, RotateCcw, Square, Terminal, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { ActivityFeed } from "@/components/agent/activity-feed";
 import { formatElapsed } from "@/components/agent/loading-state";
 import { StatusIcon } from "@/components/app-sidebar";
+import { ApiPlayground } from "@/components/api-playground";
+import { CodeStream, useCodeStream } from "@/components/code-stream";
 import { CodeView } from "@/components/code-view";
 import { FileTree } from "@/components/file-tree";
 import { EmptyState, ErrorState, PageHeader } from "@/components/states";
@@ -89,8 +91,10 @@ function FilesPanel({
   onRetry,
   selectedPath,
   onSelect,
+  liveView,
 }: {
   running: boolean;
+  liveView?: React.ReactNode;
   liveFiles: string[];
   files: OutputFile[];
   isPending: boolean;
@@ -154,7 +158,9 @@ function FilesPanel({
         </div>
       </div>
       <div className="flex min-h-0 min-w-0 flex-col">
-        {selected ? (
+        {running && liveView ? (
+          liveView
+        ) : selected ? (
           <>
             <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b px-3">
               <span className="truncate font-mono text-[12px]" translate="no">
@@ -197,14 +203,19 @@ export function ProjectView({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const run = useRun(projectId);
   const { start, cancel } = useGeneration();
-  const running = run?.status === "running";
+  const runActive = run?.status === "running";
+  const stream = useCodeStream(run?.files ?? [], run?.demo ? run.contents : undefined, !runActive);
+  // Demo runs keep "typing" after the server finishes, until every streamed file has been shown.
+  const typing = !!run?.demo && !!run.contents && !stream.drained;
+  const running = runActive || typing;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [playgroundOpen, setPlaygroundOpen] = useState(false);
 
   const output = useQuery({
     queryKey: ["output", projectId],
     queryFn: () => api.output(projectId),
-    enabled: !running,
+    enabled: !runActive,
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
   });
 
@@ -217,9 +228,21 @@ export function ProjectView({ projectId }: { projectId: string }) {
   }, [runStatus, projectId, queryClient]);
 
   useEffect(() => {
-    if (runStatus === "succeeded") toast.success("Build finished", { id: projectId });
+    if (runStatus === "succeeded" && !typing) toast.success("Build finished", { id: projectId });
     if (runStatus === "failed") toast.error("Build failed. See the activity log for details.", { id: projectId });
-  }, [runStatus, projectId]);
+  }, [runStatus, typing, projectId]);
+
+  const files = useMemo(() => output.data?.files ?? [], [output.data]);
+  // Demo builds always produce the sample Todo API, which the playground simulates.
+  const isDemo =
+    !!run?.demo || files.some((f) => f.path === "README.md" && !!f.content?.includes("Meteoroid demo mode"));
+
+  // Open the playground once, right after a demo build finishes in front of the user.
+  const [autoOpened, setAutoOpened] = useState(false);
+  if (run?.demo && runStatus === "succeeded" && !typing && !autoOpened && run.contents) {
+    setAutoOpened(true);
+    setPlaygroundOpen(true);
+  }
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params);
@@ -228,7 +251,6 @@ export function ProjectView({ projectId }: { projectId: string }) {
     router.replace(`${pathname}?${next}`, { scroll: false });
   };
 
-  const files = useMemo(() => output.data?.files ?? [], [output.data]);
   const defaultFile = useMemo(
     () =>
       files.find((f) => /(^|\/)(index|main|app|server)\.[a-z]+$/.test(f.path) && f.path.split("/").length <= 2)?.path ??
@@ -237,7 +259,7 @@ export function ProjectView({ projectId }: { projectId: string }) {
     [files],
   );
   const selectedPath = params.get("file") ?? defaultFile;
-  const fileCount = running ? (run?.files.length ?? 0) : files.length;
+  const fileCount = typing ? stream.visibleFiles.length : running ? (run?.files.length ?? 0) : files.length;
 
   // Desktop keeps activity on the left, so the right pane is files or details.
   const requested = params.get("tab") as Pane | null;
@@ -324,7 +346,8 @@ export function ProjectView({ projectId }: { projectId: string }) {
   const filesPanel = (
     <FilesPanel
       running={running}
-      liveFiles={run?.files ?? []}
+      liveFiles={typing ? stream.visibleFiles : (run?.files ?? [])}
+      liveView={run?.demo && run.contents ? <CodeStream path={stream.path} code={stream.typed} /> : undefined}
       files={files}
       isPending={output.isPending}
       error={output.error}
@@ -352,6 +375,11 @@ export function ProjectView({ projectId }: { projectId: string }) {
                 ]}
               />
             </div>
+            {isDemo && !running && (
+              <Button size="sm" onClick={() => setPlaygroundOpen(true)}>
+                <Terminal /> Try API
+              </Button>
+            )}
             {running ? (
               <Button variant="outline" size="sm" onClick={() => cancel(projectId)}>
                 <Square /> Stop
@@ -423,6 +451,8 @@ export function ProjectView({ projectId }: { projectId: string }) {
           )}
         </div>
       </div>
+
+      {isDemo && <ApiPlayground open={playgroundOpen} onOpenChange={setPlaygroundOpen} />}
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>

@@ -310,7 +310,8 @@ Demo output produced by your custom agent.
         for (const path of sub.files) {
             await writer.writeFileImmediate(input.projectId, { path, content: FILE_CONTENTS[path] });
             log('file_write', `Writing ${path}`, sub.agent);
-            await sleep(400);
+            // Pace writes to roughly match the UI's typewriter so files appear as they're "typed".
+            await sleep(Math.min(3000, 400 + FILE_CONTENTS[path].length));
         }
         broadcastActivity({ kind: 'agent', id, agent: sub.agent, status: 'done', files: sub.files.length, durationMs: Date.now() - agentStart });
         log('code-generation', `Code generated (${sub.files.length} files)`, sub.agent);
@@ -319,7 +320,7 @@ Demo output produced by your custom agent.
     for (const path of ['src/index.ts', '.env.example', 'README.md']) {
         await writer.writeFileImmediate(input.projectId, { path, content: FILE_CONTENTS[path] });
         log('file_write', `Writing ${path}`);
-        await sleep(300);
+        await sleep(Math.min(2000, 300 + FILE_CONTENTS[path].length / 2));
     }
     log('quality', 'Quality: 92/100 (demo)');
     log('finalize', 'Done.');

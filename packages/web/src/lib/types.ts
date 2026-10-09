@@ -274,5 +274,7 @@ export interface PipelineEvent {
   message?: string;
   filePath?: string;
   size?: number;
+  /** Inline contents for small files, streamed while the run is in flight */
+  content?: string;
   timestamp: string;
 }

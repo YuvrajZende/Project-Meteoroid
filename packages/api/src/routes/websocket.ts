@@ -440,12 +440,14 @@ export function broadcastGlobal(event: string, data?: unknown): void {
 /**
  * Broadcast file written event (for streaming file generation)
  */
-export function broadcastFileWritten(projectId: string, filePath: string, size: number): void {
+export function broadcastFileWritten(projectId: string, filePath: string, size: number, content?: string): void {
     sseManager.broadcast('*', 'fileWritten', {
         taskId: getGenerationScope()?.taskId,
         projectId,
         filePath,
         size,
+        // Small files are streamed inline so the UI can render them while the run is in flight.
+        content: content !== undefined && content.length <= 32_000 ? content : undefined,
         timestamp: new Date().toISOString(),
     });
 }

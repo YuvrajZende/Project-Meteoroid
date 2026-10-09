@@ -45,6 +45,40 @@ const ENHANCE_SYSTEM_PROMPT =
   "their key fields and relations, the endpoints, auth model, validation and persistence. Plain prose, no markdown, " +
   "no preamble, under 120 words. Reply with the rewritten request only.";
 
+// Demo mode always builds the sample Todo API, so suggestions describe that project.
+const DEMO_SUGGESTIONS = [
+  "Build a Todo REST API with JWT auth, Postgres storage, pagination and rate limiting",
+  "Create a TypeScript Fastify backend for a todo app with user signup, login and per-user todos",
+  "Build a secure task manager API with refresh tokens, CRUD routes, health checks and structured logging",
+];
+
+/** Types a suggestion out, holds it, erases it, and moves to the next one. */
+function useTypedSuggestion(active: boolean) {
+  const [state, setState] = useState({ index: 0, chars: 0 });
+  const text = DEMO_SUGGESTIONS[state.index];
+
+  useEffect(() => {
+    if (!active) return;
+    let hold = 0;
+    let deleting = false;
+    const timer = setInterval(() => {
+      setState((s) => {
+        const full = DEMO_SUGGESTIONS[s.index];
+        if (!deleting && s.chars < full.length) return { ...s, chars: s.chars + 1 };
+        if (!deleting && hold++ < 90) return s;
+        deleting = true;
+        if (s.chars > 0) return { ...s, chars: Math.max(0, s.chars - 3) };
+        deleting = false;
+        hold = 0;
+        return { index: (s.index + 1) % DEMO_SUGGESTIONS.length, chars: 0 };
+      });
+    }, 35);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  return { full: text, typed: text.slice(0, state.chars) };
+}
+
 const MIN_PROMPT = 10;
 const MAX_PROMPT = 5000;
 
@@ -89,6 +123,20 @@ export function Composer({ initialPrompt = "", autoFocus = true }: { initialProm
   const mode = modeChoice ?? (caps.data && !modelsReady ? "demo" : "live");
   const agents = customAgents.data?.agents ?? [];
   const busy = submitting || enhancing;
+
+  const suggestion = useTypedSuggestion(mode === "demo" && prompt === "");
+  // Empty prompt: show the animated suggestion. Partial prompt: complete any suggestion it starts.
+  const completion =
+    mode !== "demo" || busy
+      ? null
+      : prompt === ""
+        ? suggestion.typed
+          ? { shown: suggestion.typed, full: suggestion.full }
+          : null
+        : (() => {
+            const match = DEMO_SUGGESTIONS.find((s) => s.length > prompt.length && s.toLowerCase().startsWith(prompt.toLowerCase()));
+            return match ? { shown: match.slice(prompt.length), full: prompt + match.slice(prompt.length) } : null;
+          })();
 
   useEffect(() => {
     const focus = () => textareaRef.current?.focus();
@@ -249,7 +297,7 @@ export function Composer({ initialPrompt = "", autoFocus = true }: { initialProm
       {/* Input */}
       <div
         className={cn(
-          "rounded-[16px] bg-surface shadow-overlay transition-shadow focus-within:shadow-[0_0_0_1px_var(--line-strong),var(--shadow-lg-bui)]",
+          "relative rounded-[16px] bg-surface shadow-overlay transition-shadow focus-within:shadow-[0_0_0_1px_var(--line-strong),var(--shadow-lg-bui)]",
           busy && "shadow-[0_0_0_1px_var(--accent-line),var(--shadow-lg-bui)]",
         )}
       >
@@ -267,6 +315,13 @@ export function Composer({ initialPrompt = "", autoFocus = true }: { initialProm
             if (error) setError(null);
           }}
           onKeyDown={(e) => {
+            if (e.key === "Tab" && !e.shiftKey && completion) {
+              e.preventDefault();
+              setPrompt(completion.full);
+              setPreviousPrompt(null);
+              if (error) setError(null);
+              return;
+            }
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               void submit();
@@ -276,14 +331,29 @@ export function Composer({ initialPrompt = "", autoFocus = true }: { initialProm
           rows={2}
           maxLength={MAX_PROMPT}
           readOnly={enhancing}
-          placeholder="Describe it, ship it…"
+          placeholder={completion ? "" : "Describe it, ship it…"}
           aria-invalid={!!error}
           aria-describedby={error ? `${promptId}-error` : undefined}
           className={cn(
-            "block max-h-60 min-h-[64px] w-full resize-none bg-transparent px-5 pt-4 text-base outline-none [field-sizing:content] placeholder:text-ink-3 sm:text-[15px]",
+            "block max-h-60 min-h-[64px] w-full resize-none bg-transparent px-5 pt-4 text-base leading-6 outline-none [field-sizing:content] placeholder:text-ink-3 sm:text-[15px]",
             enhancing && "text-ink-2",
           )}
         />
+        {completion && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 max-h-60 overflow-hidden px-5 pt-4 text-base leading-6 break-words whitespace-pre-wrap sm:text-[15px]"
+          >
+            <span className="invisible">{prompt}</span>
+            <span className="text-ink-3">{completion.shown}</span>
+            {prompt === "" && (
+              <span className="ml-px inline-block h-[1.1em] w-px translate-y-[3px] bg-ink-3" style={{ animation: "caret-blink 1s step-end infinite" }} />
+            )}
+            <kbd className="ml-2 inline-flex h-5 translate-y-[-1px] items-center rounded-[5px] border border-line-strong px-1.5 align-middle font-mono text-[11px] text-ink-3">
+              Tab
+            </kbd>
+          </div>
+        )}
 
         {(plugins.length > 0 || agentIds.length > 0) && (
           <div className="flex flex-wrap gap-1.5 px-4 pt-1">

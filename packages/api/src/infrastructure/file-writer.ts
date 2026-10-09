@@ -346,7 +346,7 @@ export class FileWriterService {
 
             // REAL-TIME: Broadcast immediately
             if (this.config.broadcastEvents) {
-                broadcastFileWritten(projectId, filePath, file.content.length);
+                broadcastFileWritten(projectId, filePath, file.content.length, file.content);
             }
 
             return true;

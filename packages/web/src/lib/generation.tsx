@@ -46,6 +46,8 @@ export interface Run {
   finishedAt?: number;
   events: PipelineEvent[];
   files: string[];
+  /** Contents of files written so far, when the server streamed them inline */
+  contents?: Record<string, string>;
   thinking?: Thinking;
   tools: ToolCall[];
   agents: SubAgent[];
@@ -85,7 +87,11 @@ function saveHistory(runs: Record<string, Run>) {
       .sort((a, b) => b.startedAt - a.startedAt)
       .slice(0, MAX_HISTORY)
       // Generated code is fetched from the API; don't duplicate it in storage.
-      .map((r) => ({ ...r, result: r.result && { ...r.result, generatedCode: undefined } }));
+      .map((r) => ({
+        ...r,
+        contents: undefined,
+        result: r.result && { ...r.result, generatedCode: undefined },
+      }));
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(Object.fromEntries(finished.map((r) => [r.projectId, r]))));
   } catch {
     // Storage full or unavailable; history is a convenience.
@@ -190,9 +196,14 @@ class GenerationStore {
     const onStep = (type: PipelineEvent["type"]) => (message: MessageEvent<string>) => {
       const data = parse<Omit<PipelineEvent, "type">>(message);
       if (!data || data.projectId !== projectId) return;
-      const event: PipelineEvent = { ...data, type };
+      const { content, ...rest } = data;
+      const event: PipelineEvent = { ...rest, type };
       this.patchRun(projectId, (run) => ({
         events: [...run.events, event],
+        contents:
+          type === "fileWritten" && data.filePath && content !== undefined
+            ? { ...run.contents, [data.filePath]: content }
+            : run.contents,
         files:
           type === "fileWritten" && data.filePath && !run.files.includes(data.filePath)
             ? [...run.files, data.filePath]
